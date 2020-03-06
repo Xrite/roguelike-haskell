@@ -4,16 +4,16 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 2875422772b50a009c3d9ce5e6313d25b0fd30839e0de9255a89bf9c55ae20fb
+-- hash: f12daa824149b89ca724627ff4f6d0d44b8d0525f8ff2566c8d40e6e29030828
 
 name:           roguelike-haskell
 version:        0.1.0.0
 description:    Please see the README on Github at <https://github.com/githubuser/roguelike-haskell#readme>
 homepage:       https://github.com/githubuser/roguelike-haskell#readme
 bug-reports:    https://github.com/githubuser/roguelike-haskell/issues
-author:         Author name here
+author:         Anastasiya Krasnoryadtseva, Anton Bukov and Vladislav Yepifanov
 maintainer:     example@example.com
-copyright:      2020 Author name here
+copyright:      2020 Anastasiya Krasnoryadtseva, Anton Bukov and Vladislav Yepifanov
 license:        BSD3
 license-file:   LICENSE
 build-type:     Simple
