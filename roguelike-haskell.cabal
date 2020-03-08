@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: f12daa824149b89ca724627ff4f6d0d44b8d0525f8ff2566c8d40e6e29030828
+-- hash: fafee44162f832151e577497caf2e9dc5a0da6005bde7d8815022abdf378b548
 
 name:           roguelike-haskell
 version:        0.1.0.0
@@ -27,9 +27,16 @@ source-repository head
 
 library
   exposed-modules:
+      BrickUI
+      Game
+      Game.Environment
       Import
       Run
       Types
+      UI
+      UI.GameUIDesc
+      UI.InventoryUIDesc
+      UI.ListMenuDesc
       Util
   other-modules:
       Paths_roguelike_haskell
