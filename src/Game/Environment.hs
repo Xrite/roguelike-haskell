@@ -1,24 +1,47 @@
+{-# LANGUAGE TemplateHaskell, Rank2Types #-}
 module Game.Environment where
 
-data Environment =
-  Environment { _player :: Player, _mobs :: [Mob], _levels :: [Level] }
+import Control.Lens (makeLenses)
+import Data.Array.IArray
+--import Data.Array.ST
+--import Control.Monad.ST (runST)
+--import GHC.IOArray
 
-data Player =
-  Player { _position :: (Int, Int), _stats :: Stats, _inventory :: Inventory }
+data Item = Item { _name :: String }
+
+data Inventory = Inventory { _items :: [Item] }
 
 data Mob = Mob ()
 
 data Stats = Stats { _health :: Int, _experience :: Int, _level :: Int }
 
-data Inventory = Inventory { _items :: [Item] }
+data Player =
+  Player { _position :: (Int, Int), _stats :: Stats, _inventory :: Inventory }
 
-data Item = Item { _name :: String }
+data MapCellType = MapCellType -- should be Unit instead of Player here
+  { _render :: Char
+  , _passable :: Player -> Bool -- cell can let only certain units pass
+  , _transparent :: Player -> Bool
+  }
+makeLenses ''MapCellType
 
-data Level = Level { _map :: Map }
+data MapCell = MapCell
+  { _cellType :: MapCellType
+  , _drop :: [Item]
+  }
+makeLenses ''MapCell
 
-data Map = Map { _cells :: [[MapCell]]}
+newtype Map = Map{_cells :: Array (Int, Int) MapCell}
+makeLenses ''Map
 
-data MapCell = MapCell { _render :: Char }
+--data MapST s = MapST
+--  { _cellsST :: STArray s (Int, Int) MapCell }
+--makeLenses ''MapST
 
+data Level = Level
+  { _map :: Map
+  }
+makeLenses ''Level
 
-
+data Environment =
+  Environment { _player :: Player, _mobs :: [Mob], _levels :: [Level] }

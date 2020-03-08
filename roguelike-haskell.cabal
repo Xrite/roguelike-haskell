@@ -1,10 +1,10 @@
 cabal-version: 1.12
 
--- This file has been generated from package.yaml by hpack version 0.33.0.
+-- This file has been generated from package.yaml by hpack version 0.31.2.
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 2b2bf9aeae3b48e9fd23f829a60aa5acaadc80ced16eea636b685b1884215108
+-- hash: fed30c2047ca15e4a89b37ece2c9db9b50bf45696986534462bd588eee5cd056
 
 name:           roguelike-haskell
 version:        0.1.0.0
@@ -27,20 +27,20 @@ source-repository head
 
 library
   exposed-modules:
-      BrickUI
-      Game
       Game.Effect
       Game.Environment
+      Game.Inventory
       Game.Item
+      Game.Levels.GenerateLevel
+      Game.Levels.Level
+      Game.Levels.MapCellTypes
+      Game.Mob
       Game.Player
       Game.Stats
+      Game.TimedEffects
       Import
       Run
       Types
-      UI
-      UI.GameUIDesc
-      UI.InventoryUIDesc
-      UI.ListMenuDesc
       Util
   other-modules:
       Paths_roguelike_haskell
@@ -48,7 +48,8 @@ library
       src
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wpartial-fields -Wredundant-constraints
   build-depends:
-      base >=4.11 && <10
+      array
+    , base >=4.11 && <10
     , free
     , lens >=4.16
     , rio >=0.1.12.0
@@ -62,7 +63,8 @@ executable roguelike-haskell-exe
       app
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wpartial-fields -Wredundant-constraints -threaded -rtsopts -with-rtsopts=-N
   build-depends:
-      base >=4.11 && <10
+      array
+    , base >=4.11 && <10
     , free
     , lens >=4.16
     , optparse-simple
@@ -80,7 +82,8 @@ test-suite roguelike-haskell-test
       test
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wpartial-fields -Wredundant-constraints -threaded -rtsopts -with-rtsopts=-N
   build-depends:
-      base >=4.11 && <10
+      array
+    , base >=4.11 && <10
     , free
     , hspec
     , lens >=4.16

@@ -24,6 +24,7 @@ dependencies:
 - rio >= 0.1.12.0
 - lens >= 4.16
 - free
+- array
 
 ghc-options:
 - -Wall
