@@ -1,12 +1,14 @@
 module Game.Environment where
 
 data Environment =
-  Environment { _player :: Player, _mobs :: [Player], _levels :: [Level] }
+  Environment { _player :: Player, _mobs :: [Mob], _levels :: [Level] }
 
 data Player =
   Player { _position :: (Int, Int), _stats :: Stats, _inventory :: Inventory }
 
-data Stats = Stats { _health :: Int, _level :: Int }
+data Mob = Mob ()
+
+data Stats = Stats { _health :: Int, _experience :: Int, _level :: Int }
 
 data Inventory = Inventory { _items :: [Item] }
 

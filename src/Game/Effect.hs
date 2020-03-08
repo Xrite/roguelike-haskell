@@ -1,9 +1,15 @@
 {-# LANGUAGE DeriveFunctor #-}
 
-module Game.Effect (Effect, getStats, setStats, modifyStats, setTimedEffect) where
+module Game.Effect
+    ( Effect
+    , EffectDSL (..)
+    , getStats
+    , setStats
+    , modifyStats
+    , setTimedEffect) where
 
-import           Control.Monad.Free
 import           Game.Stats
+import           Control.Monad.Free
 
 data EffectDSL a = GetStats (Stats -> a)
                  | SetStats Stats a
@@ -24,3 +30,6 @@ modifyStats f = Free $ ModifyStats f (Pure ())
 
 setTimedEffect :: Int -> (Int -> Effect ()) -> Effect ()
 setTimedEffect time effect = Free $ SetTimedEffect time effect (Pure ())
+
+
+
