@@ -1,4 +1,4 @@
-{-# LANGUAGE TemplateHaskell, Rank2Types #-}
+{-# LANGUAGE TemplateHaskell #-}
 
 module Game.Levels.MapCell
   ( MapCell
@@ -14,19 +14,23 @@ import Game.Item
 import Game.Levels.MapCellType
 import Safe (headMay)
 
+data MapCellState =
+  MapCellState
+    { _floorItems :: [Item] }
+makeLenses ''MapCellState
+
 data MapCell =
   MapCell
     { _cellType :: MapCellType
-    , _floorItems :: [Item]
+    , _cellState :: MapCellState
     }
-
 makeLenses ''MapCell
 
-makeCell :: MapCellType -> [Item] -> MapCell
+makeCell :: MapCellType -> MapCellState -> MapCell
 makeCell = MapCell
 
 makeEmptyCell :: MapCellType -> MapCell
-makeEmptyCell cellType' = makeCell cellType' []
+makeEmptyCell cellType' = makeCell cellType' $ MapCellState []
 
 renderCell :: MapCell -> Char
-renderCell cell = maybe (cell ^. cellType . cellRender) itemRender (headMay $ cell ^. floorItems)
+renderCell cell = maybe (cell ^. cellType . cellRender) itemRender (headMay $ cell ^. cellState . floorItems)

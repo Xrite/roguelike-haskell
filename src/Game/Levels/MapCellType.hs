@@ -1,4 +1,4 @@
-{-# LANGUAGE TemplateHaskell, Rank2Types #-}
+{-# LANGUAGE TemplateHaskell #-}
 module Game.Levels.MapCellType where
 
 import Game.Mob
@@ -17,12 +17,18 @@ data MapCellType = MapCellType
     -- | decides whether a mob can see through the cell
   , _transparent :: Mob -> Bool
     {-|
-      Cells can do weird things like transport player to the next level or perhaps open a shop.
+      Cells can let player do weird things like go to the next level or perhaps open a shop.
 
-      It can modify game state in any way. For lack of better option I'll make it "GameIO (Effect ())", but
-      actually it should be in the most general monad possible.
+      For lack of better option I'll make it "Effect ()", but
+      it probably should be something more permissive, at least use GameIO 
     -}
-  , _interact :: GameIO (Effect ())
+  , _interact :: Effect ()
+    {-|
+      Cells can do things then a mob steps on them (fire applies burn effect etc.).
+      
+      Also cells should be able to modify themselves (MapCell -> CellState), but we'll leave it to later versions. 
+    -}
+  , _onStep :: Effect ()
   }
 makeLenses ''MapCellType
 
@@ -32,7 +38,7 @@ makeConstCellType render' passable' transparent' =
     { _cellRender = render'
     , _transparent = const transparent'
     , _passable = const passable'
-    , _interact = pureGameIO $ return () -- TODO replace with something better
+    , _interact = return ()
     }
 
 makeWall :: Char -> MapCellType
