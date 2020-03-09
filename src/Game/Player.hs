@@ -6,12 +6,19 @@ import           Game.Effect
 import           Control.Lens
 import           Game.Unit
 
+
+
+data LevellingStats = LevellingStats
+  { _experience :: Int
+  , _skillPoints :: Int
+  }
+makeLenses ''LevellingStats
+
 data Player = 
   Player { 
   -- |Corresponding Unit
   _playerUnit :: Unit
-  -- |Something that's different about player 
-  , _knowledge :: () 
+  , _levelling :: LevellingStats
   }
 makeLenses ''Player
 

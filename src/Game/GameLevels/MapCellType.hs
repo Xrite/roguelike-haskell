@@ -3,7 +3,6 @@ module Game.GameLevels.MapCellType where
 
 import Game.Stats
 import Control.Lens (makeLenses)
-import Game.IO.GameIO
 import Game.Effect
 
 {-|
