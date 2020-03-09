@@ -25,6 +25,7 @@ dependencies:
 - lens >= 4.16
 - free
 - array
+- safe
 
 ghc-options:
 - -Wall

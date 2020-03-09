@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: fed30c2047ca15e4a89b37ece2c9db9b50bf45696986534462bd588eee5cd056
+-- hash: 9db1331ab94eb73f1ce3e0bcd40861b9270e22e9bb60a05c234b6628e7056b79
 
 name:           roguelike-haskell
 version:        0.1.0.0
@@ -30,10 +30,13 @@ library
       Game.Effect
       Game.Environment
       Game.Inventory
+      Game.IO.GameIO
       Game.Item
       Game.Levels.GenerateLevel
       Game.Levels.Level
-      Game.Levels.MapCellTypes
+      Game.Levels.MapCell
+      Game.Levels.MapCellType
+      Game.Levels.MapCellTypeImpl
       Game.Mob
       Game.Player
       Game.Stats
@@ -53,6 +56,7 @@ library
     , free
     , lens >=4.16
     , rio >=0.1.12.0
+    , safe
   default-language: Haskell2010
 
 executable roguelike-haskell-exe
@@ -70,6 +74,7 @@ executable roguelike-haskell-exe
     , optparse-simple
     , rio >=0.1.12.0
     , roguelike-haskell
+    , safe
   default-language: Haskell2010
 
 test-suite roguelike-haskell-test
@@ -89,4 +94,5 @@ test-suite roguelike-haskell-test
     , lens >=4.16
     , rio >=0.1.12.0
     , roguelike-haskell
+    , safe
   default-language: Haskell2010

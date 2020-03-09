@@ -1,20 +1,23 @@
+{-# LANGUAGE TemplateHaskell, Rank2Types #-}
 module Game.Levels.Level
   ( getCell
-  , makeWall
-  , makeGround
-  , makeCell
-  , makeConstCellType
   , makeLevel
+  , lvlMap
+  , makeMap
+  , Level
   ) where
 
-import Game.Environment
-import Control.Lens ((^.))
+import Game.Levels.MapCell
+import Control.Lens (makeLenses, (^.))
 import Data.Array.IArray
---import Data.Array.ST
---import Control.Monad.ST
 
---getCellST :: (Int, Int) -> MapST s -> ST s MapCell
---getCellST i map = readArray (map ^. cellsST) i
+newtype Map = Map{_cells :: Array (Int, Int) MapCell}
+makeLenses ''Map
+
+data Level = Level
+  { _lvlMap :: Map
+  }
+makeLenses ''Level
 
 getCell :: (Int, Int) -> Map -> MapCell
 getCell i mp = (mp ^. cells) ! i
@@ -22,14 +25,13 @@ getCell i mp = (mp ^. cells) ! i
 makeLevel :: Map -> Level
 makeLevel = Level
 
-makeConstCellType :: Char -> Bool -> Bool -> MapCellType
-makeConstCellType render' passable' transparent' = MapCellType { _render = render', _transparent = const transparent', _passable = const passable' }
+makeMap :: Array (Int, Int) MapCell -> Map
+makeMap = Map
 
-makeWall :: Char -> MapCellType
-makeWall render' = makeConstCellType render' False False
+-- ST versions
+--getCellST :: (Int, Int) -> MapST s -> ST s MapCell
+--getCellST i map = readArray (map ^. cellsST) i
 
-makeGround :: Char -> MapCellType
-makeGround render' = makeConstCellType render' True False
-
-makeCell :: MapCellType -> [Item] -> MapCell
-makeCell = MapCell
+--data MapST s = MapST
+--  { _cellsST :: STArray s (Int, Int) MapCell }
+--makeLenses ''MapST
