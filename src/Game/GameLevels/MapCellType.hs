@@ -1,7 +1,7 @@
 {-# LANGUAGE TemplateHaskell #-}
-module Game.Levels.MapCellType where
+module Game.GameLevels.MapCellType where
 
-import Game.Mob
+import Game.Stats
 import Control.Lens (makeLenses)
 import Game.IO.GameIO
 import Game.Effect
@@ -12,10 +12,10 @@ import Game.Effect
 data MapCellType = MapCellType
   { -- | how the cell is going to be drawn
     _cellRender :: Char
-    -- | decides whether a mob can pass through the cell
-  , _passable :: Mob -> Bool
-    -- | decides whether a mob can see through the cell
-  , _transparent :: Mob -> Bool
+    -- | decides whether a unit can pass through the cell
+  , _passable :: Stats -> Bool
+    -- | decides whether a unit can see through the cell
+  , _transparent :: Stats -> Bool
     {-|
       Cells can let player do weird things like go to the next level or perhaps open a shop.
 
@@ -24,7 +24,7 @@ data MapCellType = MapCellType
     -}
   , _interact :: Effect ()
     {-|
-      Cells can do things then a mob steps on them (fire applies burn effect etc.).
+      Cells can do things then a unit steps on them (fire applies burn effect etc.).
       
       Also cells should be able to modify themselves (MapCell -> CellState), but we'll leave it to later versions. 
     -}

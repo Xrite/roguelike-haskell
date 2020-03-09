@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 9db1331ab94eb73f1ce3e0bcd40861b9270e22e9bb60a05c234b6628e7056b79
+-- hash: 2c69a77dd09f3cd8ac52cd9be51bedb2fe6e65195fbaa504bc299942ed11bb09
 
 name:           roguelike-haskell
 version:        0.1.0.0
@@ -29,18 +29,18 @@ library
   exposed-modules:
       Game.Effect
       Game.Environment
+      Game.GameLevels.GameLevel
+      Game.GameLevels.GenerateLevel
+      Game.GameLevels.MapCell
+      Game.GameLevels.MapCellType
+      Game.GameLevels.MapCellTypeImpl
       Game.Inventory
       Game.IO.GameIO
       Game.Item
-      Game.Levels.GenerateLevel
-      Game.Levels.Level
-      Game.Levels.MapCell
-      Game.Levels.MapCellType
-      Game.Levels.MapCellTypeImpl
-      Game.Mob
       Game.Player
       Game.Stats
       Game.TimedEffects
+      Game.Unit
       Import
       Run
       Types

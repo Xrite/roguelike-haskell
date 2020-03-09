@@ -1,29 +1,29 @@
 {-# LANGUAGE TemplateHaskell, Rank2Types #-}
-module Game.Levels.Level
+module Game.GameLevels.GameLevel
   ( getCell
-  , makeLevel
+  , makeGameLevel
   , lvlMap
   , makeMap
-  , Level
+  , GameLevel
   ) where
 
-import Game.Levels.MapCell
+import Game.GameLevels.MapCell
 import Control.Lens (makeLenses, (^.))
 import Data.Array.IArray
 
 newtype Map = Map{_cells :: Array (Int, Int) MapCell}
 makeLenses ''Map
 
-data Level = Level
+data GameLevel = GameLevel
   { _lvlMap :: Map
   }
-makeLenses ''Level
+makeLenses ''GameLevel
 
 getCell :: (Int, Int) -> Map -> MapCell
 getCell i mp = (mp ^. cells) ! i
 
-makeLevel :: Map -> Level
-makeLevel = Level
+makeGameLevel :: Map -> GameLevel
+makeGameLevel = GameLevel
 
 makeMap :: Array (Int, Int) MapCell -> Map
 makeMap = Map

@@ -1,6 +1,6 @@
 {-# LANGUAGE TemplateHaskell #-}
 
-module Game.Levels.MapCell
+module Game.GameLevels.MapCell
   ( MapCell
   , makeCell
   , makeEmptyCell
@@ -11,7 +11,7 @@ module Game.Levels.MapCell
 
 import Control.Lens (makeLenses, (^.))
 import Game.Item
-import Game.Levels.MapCellType
+import Game.GameLevels.MapCellType
 import Safe (headMay)
 
 data MapCellState =

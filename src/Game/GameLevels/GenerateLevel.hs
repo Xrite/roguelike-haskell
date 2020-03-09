@@ -1,17 +1,17 @@
-module Game.Levels.GenerateLevel
-  ( testLevel
+module Game.GameLevels.GenerateLevel
+  ( testGameLevel
   ) where
 
-import Game.Levels.MapCellTypeImpl
-import Game.Levels.MapCellType
-import Game.Levels.Level
-import Game.Levels.MapCell
+import Game.GameLevels.MapCellTypeImpl
+import Game.GameLevels.MapCellType
+import Game.GameLevels.GameLevel
+import Game.GameLevels.MapCell
 import Data.Array.ST
 import Control.Monad.ST
 
-testLevel :: Level
-testLevel =
-  makeLevel $
+testGameLevel :: GameLevel
+testGameLevel =
+  makeGameLevel $
   makeMap $
   runSTArray $ do
     arrType <- newArray ((0, 0), (20, 20)) ground :: ST s (STArray s (Int, Int) MapCellType)

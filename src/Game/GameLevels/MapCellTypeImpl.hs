@@ -1,6 +1,6 @@
-module Game.Levels.MapCellTypeImpl where
+module Game.GameLevels.MapCellTypeImpl where
 
-import Game.Levels.MapCellType
+import Game.GameLevels.MapCellType
 
 wall :: MapCellType
 wall = makeWall '#'

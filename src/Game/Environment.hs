@@ -3,4 +3,4 @@ module Game.Environment where
 
 
 --data Environment =
---  Environment { _player :: Player, _mobs :: [Mob], _levels :: [Level] }
+--  Environment { _player :: Player, _units :: [Unit], _levels :: [GameLevel] }
