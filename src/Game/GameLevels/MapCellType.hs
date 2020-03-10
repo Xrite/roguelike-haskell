@@ -38,6 +38,7 @@ makeConstCellType render' passable' transparent' =
     , _transparent = const transparent'
     , _passable = const passable'
     , _interact = return ()
+    , _onStep = return ()
     }
 
 makeWall :: Char -> MapCellType
