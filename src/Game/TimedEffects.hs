@@ -14,6 +14,7 @@ addEffect time effect timedEffects =
   TimedEffects $ (time, effect):_effects timedEffects
 
 
-tick effects = undefined
+tick :: TimedEffects -> TimedEffects
+tick (TimedEffects effs) = TimedEffects $ filter ((> 0) . fst) $ map (over _1 (+ (-1))) effs
 
 

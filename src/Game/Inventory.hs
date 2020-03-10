@@ -1,15 +1,57 @@
 {-# LANGUAGE TemplateHaskell #-}
-module Game.Inventory where
 
-import Control.Lens 
+module Game.Inventory
+  ( Inventory,
+    WearableSlots,
+    items,
+    wearableSlots,
+    weaponSlots,
+    headSlot,
+    chestSlot,
+    legsSlot,
+    getAllWearableEffects,
+    getWeaponEffect
+  )
+where
+
+import Control.Lens
+import Game.Effect
 import Game.Item
+import Prelude hiding (head)
 
-data Inventory = Inventory { _items :: [Item], _slots :: Slots}
+data Inventory
+  = Inventory
+      { _items :: [Item],
+        _wearableSlots :: WearableSlots,
+        _weaponSlots :: WeaponSlots
+      }
 
-data Slots =
-  Slots { _head :: Maybe Item, _chest :: Maybe Item, _legs :: Maybe Item }
+data WearableSlots
+  = WearableSlots
+      { _headSlot :: Maybe WearableItem,
+        _chestSlot :: Maybe WearableItem,
+        _legsSlot :: Maybe WearableItem
+      }
+
+data WeaponSlots = WeaponSlots {_hand :: Maybe WeaponItem}
 
 makeLenses ''Inventory
-makeLenses ''Slots
 
+makeLenses ''WearableSlots
 
+makeLenses ''WeaponSlots
+
+getWearableEffect :: Maybe WearableItem -> Effect ()
+getWearableEffect (Just item) = item ^. wearableDefenceEffect
+getWearableEffect Nothing = return ()
+
+getAllWearableEffects :: WearableSlots -> Effect ()
+getAllWearableEffects slots = do
+  getWearableEffect $ slots ^. headSlot
+  getWearableEffect $ slots ^. chestSlot
+  getWearableEffect $ slots ^. legsSlot
+
+getWeaponEffect :: WeaponSlots -> Effect ()
+getWeaponEffect slots = case slots ^. hand of
+  (Just item) -> item ^. weaponAttackEffect
+  Nothing -> return ()

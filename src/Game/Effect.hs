@@ -2,7 +2,7 @@
 
 module Game.Effect
     ( Effect
-    , EffectDSL (..)
+    , EffectDSL(..)
     , getStats
     , setStats
     , modifyStats
@@ -30,6 +30,3 @@ modifyStats f = Free $ ModifyStats f (Pure ())
 
 setTimedEffect :: Int -> (Int -> Effect ()) -> Effect ()
 setTimedEffect time effect = Free $ SetTimedEffect time effect (Pure ())
-
-
-
