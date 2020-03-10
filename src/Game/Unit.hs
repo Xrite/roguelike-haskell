@@ -2,30 +2,39 @@
 {-# LANGUAGE TemplateHaskell #-}
 
 module Game.Unit
-  ( UnitData,
-    stats,
-    timedEffects,
-    inventory,
-    baseWeapon,
-    Unit (..),
-    AnyUnit,
-    packUnit,
+  ( UnitData
+  , stats
+  , timedEffects
+  , inventory
+  , baseWeapon
+  , Unit(..)
+  , AnyUnit
+  , packUnit
   )
 where
 
-import Control.Lens
-import Game.Effect
-import Game.Inventory
-import Game.Item
-import Game.Stats
-import Game.TimedEffects
+import           Control.Lens
+import           Game.Effect
+import           Game.Inventory
+import           Game.IO.GameIO
+import           Game.GameLevels.GameLevel
+import           Game.Item
+import           Game.Stats
+import           Game.TimedEffects
+
+data Direction = Positive
+               | Negative
+               | Zero
+
+data Action = Move Direction Direction
 
 data UnitData
   = UnitData
       { _stats :: Stats,
         _timedEffects :: TimedEffects,
         _inventory :: Inventory,
-        _baseWeapon :: WeaponItem
+        _baseWeapon :: WeaponItem,
+        _control :: GameLevel -> [Unit] -> GameIO Action
       }
 
 makeLenses ''UnitData

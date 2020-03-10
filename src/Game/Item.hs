@@ -47,3 +47,7 @@ name (Consumable item) = _consumableName item
 name (Wearable item) = _wearableName item
 name (Weapon item) = _weaponName item
 name (Junk str) = str
+
+-- anton make this plz
+itemRender :: Item -> Char
+itemRender = undefined 

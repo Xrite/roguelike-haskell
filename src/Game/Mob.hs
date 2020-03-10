@@ -1,13 +1,14 @@
 {-# LANGUAGE TemplateHaskell #-}
+
 module Game.Mob where
 
-import           Game.Effect
-import           Game.TimedEffects
-import           Control.Monad.Free
-import           Control.Lens
-import           Game.Unit
+import Control.Lens (makeLenses)
+import Control.Monad.Free
+import Game.Effect
+import Game.TimedEffects
+import Game.Unit
 
-data Mob = Mob { _unit :: UnitData }
+data Mob = Mob {_unit :: UnitData}
 
 makeLenses ''Mob
 
@@ -20,5 +21,6 @@ instance Unit Mob where
     applyEffect next (u & unit . stats .~ newStats)
   applyEffect (Free (ModifyStats f next)) u =
     applyEffect next (u & unit . stats %~ f)
-  applyEffect (Free (SetTimedEffect time effect next)) u = applyEffect next
-    $ over (unit . timedEffects) (addEffect time effect) u
+  applyEffect (Free (SetTimedEffect time effect next)) u =
+    applyEffect next $
+      over (unit . timedEffects) (addEffect time effect) u
