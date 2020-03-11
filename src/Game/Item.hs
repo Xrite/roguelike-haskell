@@ -9,7 +9,8 @@ module Game.Item
     , wearableDefenceEffect
     , wearableRepulseEffect
     , weaponAttackEffect
-    , name) where
+    , name
+    , itemRender) where
 
 import           Game.Effect
 import           Control.Lens

@@ -1,7 +1,7 @@
 {-# LANGUAGE TemplateHaskell #-}
 module Game.GameLevels.MapCellType where
 
-import Game.Stats
+import Game.Unit.Stats
 import Control.Lens (makeLenses)
 import Game.Effect
 

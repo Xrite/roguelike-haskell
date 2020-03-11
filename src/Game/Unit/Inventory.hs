@@ -1,23 +1,24 @@
 {-# LANGUAGE TemplateHaskell #-}
 
-module Game.Inventory
-  ( Inventory,
-    WearableSlots,
-    items,
-    wearableSlots,
-    weaponSlots,
-    headSlot,
-    chestSlot,
-    legsSlot,
-    getAllWearableEffects,
-    getWeaponEffect
+module Game.Unit.Inventory
+  ( Inventory
+  , WearableSlots
+  , items
+  , wearableSlots
+  , weaponSlots
+  , headSlot
+  , chestSlot
+  , legsSlot
+  , getAllWearableEffects
+  , getWeaponEffect
+  , emptyInventory
   )
 where
 
-import Control.Lens
-import Game.Effect
-import Game.Item
-import Prelude hiding (head)
+import           Control.Lens
+import           Game.Effect
+import           Game.Item
+import           Prelude                 hiding ( head )
 
 data Inventory
   = Inventory
@@ -43,7 +44,7 @@ makeLenses ''WeaponSlots
 
 getWearableEffect :: Maybe WearableItem -> Effect ()
 getWearableEffect (Just item) = item ^. wearableDefenceEffect
-getWearableEffect Nothing = return ()
+getWearableEffect Nothing     = return ()
 
 getAllWearableEffects :: WearableSlots -> Effect ()
 getAllWearableEffects slots = do
@@ -54,4 +55,8 @@ getAllWearableEffects slots = do
 getWeaponEffect :: WeaponSlots -> Effect ()
 getWeaponEffect slots = case slots ^. hand of
   (Just item) -> item ^. weaponAttackEffect
-  Nothing -> return ()
+  Nothing     -> return ()
+
+emptyInventory :: Inventory
+emptyInventory =
+  Inventory [] (WearableSlots Nothing Nothing Nothing) (WeaponSlots Nothing)

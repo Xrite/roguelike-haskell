@@ -1,0 +1,41 @@
+{-# LANGUAGE TemplateHaskell #-}
+
+module Game.Unit.Mob where
+
+import           Control.Lens
+import           Control.Monad.Free
+import           Game.Effect
+import           Game.Unit.TimedEffects
+import           Game.Unit.Unit                 ( Unit(..)
+                                                , UnitData
+                                                , AnyUnit
+                                                )
+import           Game.Unit.Stats                ( Stats )
+import           Game.GameLevels.GameLevel      ( GameLevel )
+import           Game.Unit.Unit                 ( Action
+                                                , createUnitData
+                                                , stats
+                                                , timedEffects
+                                                )
+import           Game.IO.GameIO                 ( pureGameIO )
+
+data Mob = Mob {_unit :: UnitData}
+
+makeLenses ''Mob
+
+instance Unit Mob where
+  asUnitData = _unit
+
+  applyEffect (Pure _) m = m
+  applyEffect (Free (GetStats nextF)) m =
+    applyEffect (nextF (m ^. unit . stats)) m
+  applyEffect (Free (SetStats newStats next)) u =
+    applyEffect next (u & unit . stats .~ newStats)
+  applyEffect (Free (ModifyStats f next)) u =
+    applyEffect next (u & unit . stats %~ f)
+  applyEffect (Free (SetTimedEffect time effect next)) u =
+    applyEffect next $ over (unit . timedEffects) (addEffect time effect) u
+
+--makeMob :: Stats -> (GameLevel -> [AnyUnit] -> Action) -> AnyUnit
+--makeMob stat ai =
+--  Mob $ createUnitData stat (TimedEffects []) $ \lvl units -> pureGameIO (ai lvl units)

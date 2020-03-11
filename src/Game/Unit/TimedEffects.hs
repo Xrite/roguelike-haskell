@@ -1,6 +1,6 @@
 {-# LANGUAGE TemplateHaskell #-}
 
-module Game.TimedEffects where
+module Game.Unit.TimedEffects where
 
 import           Game.Effect
 import           Control.Lens
@@ -11,10 +11,8 @@ makeLenses ''TimedEffects
 
 addEffect :: Int -> (Int -> Effect ()) -> TimedEffects -> TimedEffects
 addEffect time effect timedEffects =
-  TimedEffects $ (time, effect):_effects timedEffects
-
+  TimedEffects $ (time, effect) : _effects timedEffects
 
 tick :: TimedEffects -> TimedEffects
-tick (TimedEffects effs) = TimedEffects $ filter ((> 0) . fst) $ map (over _1 (+ (-1))) effs
-
-
+tick (TimedEffects effs) =
+  TimedEffects $ filter ((> 0) . fst) $ map (over _1 (+ (-1))) effs

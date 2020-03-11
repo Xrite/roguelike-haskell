@@ -1,5 +1,5 @@
 {-# LANGUAGE TemplateHaskell #-}
-module Game.Stats where
+module Game.Unit.Stats where
 
 import Control.Lens (makeLenses)
 

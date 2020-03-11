@@ -1,15 +1,17 @@
 {-# LANGUAGE DeriveFunctor #-}
 
 module Game.Effect
-    ( Effect
-    , EffectDSL(..)
-    , getStats
-    , setStats
-    , modifyStats
+  ( Effect
+  , EffectDSL(..)
+  , getStats
+  , setStats
+  , modifyStats
 --    , setAOEEffect
-    , setTimedEffect) where
+  , setTimedEffect
+  )
+where
 
-import           Game.Stats
+import           Game.Unit.Stats
 import           Control.Monad.Free
 
 -- I want EffectReceiver typeclass so that map cells could do smth like 
