@@ -26,6 +26,7 @@ dependencies:
 - free
 - array
 - safe
+- random
 
 ghc-options:
 - -Wall
