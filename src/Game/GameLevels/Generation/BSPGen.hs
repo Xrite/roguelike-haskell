@@ -74,11 +74,12 @@ splitSpace ::
 splitSpace param s gen =
   if splitFrom > splitTo
     then Nothing
-    else let (splitV, gen'') = randomR (splitFrom, splitTo) gen'
-          in Just
-               ( ( (toCoord . splitLens) .~ splitV $ s
-                 , (fromCoord . splitLens) .~ splitV $ s)
-               , gen'')
+    else Just $ flip runState gen' $ do
+        splitValueRelative <- stRandomR (splitFrom, splitTo)
+        let splitValue = s ^. fromCoord . splitLens + splitValueRelative
+        return 
+            ( (toCoord . splitLens) .~ splitValue $ s
+            , (fromCoord . splitLens) .~ splitValue $ s)
   where
     ratio :: Float
     ratio = fromIntegral (spaceSizeX s) / fromIntegral (spaceSizeY s)
@@ -98,7 +99,7 @@ splitSpace param s gen =
 
 genSubInterval ::
      (RandomGen g, Random a, Num a) => a -> (a, a) -> g -> ((a, a), g)
-genSubInterval minSize (from, to) gen = runState generateInterval gen
+genSubInterval minSize (from, to) = runState generateInterval
   where
     generateInterval = do
       size <- stRandomR (minSize, to - from)
