@@ -46,19 +46,17 @@ createUnitData
   -> WeaponItem
   -> (GameLevel -> [AnyUnit] -> GameIO Action)
   -> UnitData
-createUnitData stats effs inv bw ai = UnitData stats effs inv bw ai
-
+createUnitData = UnitData 
 
 -- | Something that can hit and run
 class Unit a where
   asUnitData :: a -> UnitData
   applyEffect :: Effect () -> a -> a
-  createAttackEffect :: a -> Effect ()
-  createRepulseEffect :: a -> Effect ()
+  attackEffect :: a -> Effect ()
 
 data AnyUnit = forall a. Unit a => AnyUnit a
 
 makeLenses ''UnitData
 
 packUnit :: Unit a => a -> AnyUnit
-packUnit unit = AnyUnit unit
+packUnit = AnyUnit 

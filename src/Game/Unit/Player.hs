@@ -1,11 +1,18 @@
 {-# LANGUAGE TemplateHaskell #-}
-module Game.Unit.Player where
+module Game.Unit.Player
+  ( LevellingStats
+  , Player
+  )
+where
 
 import           Game.Effect
 import           Control.Lens
 import           Game.Unit.Unit
 import           Control.Monad.Free
 import           Game.Unit.TimedEffects
+import           Game.Unit.Inventory            ( getAllWearableEffects
+                                                , getWeaponEffect
+                                                )
 
 
 data LevellingStats = LevellingStats
@@ -15,15 +22,11 @@ data LevellingStats = LevellingStats
 makeLenses ''LevellingStats
 
 data Player =
-  Player {
-  -- |Corresponding Unit
-  _playerUnit :: UnitData
-  , _levelling :: LevellingStats
-  }
+  Player { _playerUnit :: UnitData, _levelling :: LevellingStats}
 makeLenses ''Player
 
 instance Unit Player where
-  asUnitData p = _playerUnit p
+  asUnitData = _playerUnit
 
   applyEffect (Pure _) m = m
   applyEffect (Free (GetStats nextF)) m =
@@ -35,3 +38,9 @@ instance Unit Player where
   applyEffect (Free (SetTimedEffect time effect next)) u =
     applyEffect next
       $ over (playerUnit . timedEffects) (addEffect time effect) u
+
+  attackEffect p =
+    getWeaponEffect $ applyEffect wearableEff p ^. playerUnit . inventory
+   where
+    inv         = p ^. playerUnit . inventory
+    wearableEff = getAllWearableEffects inv

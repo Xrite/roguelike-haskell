@@ -6,18 +6,10 @@ import           Control.Lens
 import           Control.Monad.Free
 import           Game.Effect
 import           Game.Unit.TimedEffects
-import           Game.Unit.Unit                 ( Unit(..)
-                                                , UnitData
-                                                , AnyUnit
+import           Game.Unit.Inventory            ( getAllWearableEffects
+                                                , getWeaponEffect
                                                 )
-import           Game.Unit.Stats                ( Stats )
-import           Game.GameLevels.GameLevel      ( GameLevel )
-import           Game.Unit.Unit                 ( Action
-                                                , createUnitData
-                                                , stats
-                                                , timedEffects
-                                                )
-import           Game.IO.GameIO                 ( pureGameIO )
+import           Game.Unit.Unit                 ( UnitData , Unit(..), timedEffects, stats, inventory)
 
 data Mob = Mob {_unit :: UnitData}
 
@@ -35,6 +27,12 @@ instance Unit Mob where
     applyEffect next (u & unit . stats %~ f)
   applyEffect (Free (SetTimedEffect time effect next)) u =
     applyEffect next $ over (unit . timedEffects) (addEffect time effect) u
+
+  attackEffect p =
+    getWeaponEffect $ applyEffect wearableEff p ^. unit . inventory
+   where
+    inv         = p ^. unit . inventory
+    wearableEff = getAllWearableEffects inv
 
 --makeMob :: Stats -> (GameLevel -> [AnyUnit] -> Action) -> AnyUnit
 --makeMob stat ai =
