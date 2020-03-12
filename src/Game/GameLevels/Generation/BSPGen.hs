@@ -1,4 +1,4 @@
-{-# LANGUAGE TemplateHaskell, DeriveFunctor, DeriveTraversable #-}
+{-# LANGUAGE TemplateHaskell, DeriveFunctor, DeriveFoldable #-}
 
 module Game.GameLevels.Generation.BSPGen where
 
@@ -27,6 +27,15 @@ data Room =
 
 makeLenses ''Room
 
+data Hall =
+  Hall
+    { _startCorner :: Coord
+    , _finishCorner :: Coord
+    }
+  deriving (Show)
+
+makeLenses ''Hall
+
 data Space =
   Space
     { _fromCoord :: Coord
@@ -44,7 +53,7 @@ data BTree a
   | Leaf
       { _leafValue :: a
       }
-  deriving (Eq, Show, Functor)
+  deriving (Eq, Show, Functor, Foldable)
 
 makeLenses ''BTree
 
@@ -55,6 +64,21 @@ data GeneratorParameters =
     , minRoomSize :: Int
     }
   deriving (Show)
+
+instance Random Coord where
+  randomR ((Coord x1 y1), (Coord x2 y2)) g = runState genCoord g
+    where
+      genCoord = do
+        x <- stRandomR (x1, x2)
+        y <- stRandomR (y1, y2)
+        return $ Coord x y
+  
+  random g = runState rndCoord g
+    where
+      rndCoord = do
+        x <- generate $ random
+        y <- generate $ random
+        return $ Coord x y
 
 spaceSize :: Space -> Coord
 spaceSize (Space (Coord x1 y1) (Coord x2 y2)) = Coord (x2 - x1) (y2 - y1)
@@ -126,3 +150,36 @@ generateSpaceTree param s gen =
       leftTree <- generate $ generateSpaceTree param leftSpace
       rightTree <- generate $ generateSpaceTree param rightSpace
       return $ Branch leftTree rightTree
+
+makeHalls :: (RandomGen g, MonadState g m) => Space -> Space -> m [Hall]
+makeHalls (Space from1 to1) (Space from2 to2) = do
+  c1@(Coord x1 y1) <- stRandomR (from1, to1)
+  c2@(Coord x2 y2) <- stRandomR (from2, to2)
+  coinToss <- stRandomR (False, True)
+  let middlePoint = if coinToss then Coord x1 y2 else Coord x2 y1
+  return [Hall c1 middlePoint, Hall middlePoint c2]
+
+generateHalls
+  :: (RandomGen g, MonadState g m)
+  => GeneratorParameters
+  -> (BTree Space)
+  -> m (Space, [Hall])
+generateHalls param tree = generateHallsHelper param tree []
+  where
+    generateHallsHelper :: (RandomGen g, MonadState g m) => GeneratorParameters -> (BTree Space) -> [Hall] -> m (Space, [Hall])
+    generateHallsHelper _ (Leaf s) halls = return $ (s, halls)
+    generateHallsHelper param (Branch leftT rightT) halls = do
+      (leftRoom, halls') <- generateHallsHelper param leftT halls
+      (rightRoom, halls'') <- generateHallsHelper param rightT halls'
+      newHalls <- makeHalls leftRoom rightRoom
+      coinToss <- stRandomR (False, True)
+      let returnRoom = if coinToss then leftRoom else rightRoom
+      return (returnRoom, newHalls ++ halls'')
+      
+generateLevel ::
+  (RandomGen g, MonadState g m) => GeneratorParameters -> Space -> m ([Space], [Hall])
+generateLevel param s = do
+  spaceTree <- generate $ generateSpaceTree param s
+  (_, halls) <- generateHalls param spaceTree
+  return $ (foldr (:) [] spaceTree, halls) 
+
