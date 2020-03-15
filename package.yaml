@@ -26,6 +26,8 @@ dependencies:
 - free
 - array
 - safe
+- random
+- mtl >= 2.2.2
 
 ghc-options:
 - -Wall
