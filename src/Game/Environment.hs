@@ -1,6 +1,9 @@
-{-# LANGUAGE TemplateHaskell, Rank2Types #-}
 module Game.Environment where
 
+import Game.GameLevels.GameLevel
+import Game.Unit.Unit
+import Game.Unit.Player
 
---data Environment =
---  Environment { _player :: Player, _units :: [Unit], _levels :: [GameLevel] }
+-- | A whole game
+data Environment =
+  Environment { _player :: Player, _units :: [AnyUnit], _levels :: [GameLevel], _currentLevel :: Int }

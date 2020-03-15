@@ -5,7 +5,6 @@ module Run (run) where
 import Import
 import Game.GameLevels.Generation.BSPGen
 import System.Random
-import Control.Monad.State
 import Game.IO.TempRender
 import Game.GameLevels.GenerateLevel
 
@@ -17,7 +16,7 @@ run = do
     param = makeGeneratorParameters 10 1.7 5
     s = Space (Coord 0 0) (Coord 50 50)
     gen = mkStdGen 42
-    (lvl, gen') = randomLevel s param gen
+    (lvl, _) = randomLevel s param gen
     render = renderLevel lvl
 
   -- logInfo "We're inside the application!"
