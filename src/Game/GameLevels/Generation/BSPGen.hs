@@ -4,6 +4,8 @@
 module Game.GameLevels.Generation.BSPGen
   ( xCoord
   , yCoord
+  , toCoord
+  , fromCoord
   , fromCorner
   , toCorner
   , startCorner
@@ -12,6 +14,8 @@ module Game.GameLevels.Generation.BSPGen
   , makeGeneratorParameters
   , Space (..)
   , Coord (..)
+  , toPair
+  , GeneratorParameters
   ) where
 
 import Control.Lens (Lens', (.~), (^.), makeLenses)
@@ -29,6 +33,9 @@ data Coord =
   deriving (Show)
 
 makeLenses ''Coord
+
+toPair :: Coord -> (Int, Int)
+toPair (Coord x y) = (x, y)
 
 data Room =
   Room

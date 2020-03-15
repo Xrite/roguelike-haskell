@@ -1,6 +1,7 @@
 {-# LANGUAGE TemplateHaskell, Rank2Types #-}
 module Game.GameLevels.GameLevel
   ( getCell
+  , getMapSize
   , makeGameLevel
   , lvlMap
   , makeMap
@@ -21,6 +22,9 @@ makeLenses ''GameLevel
 
 getCell :: (Int, Int) -> Map -> MapCell
 getCell i mp = (mp ^. cells) ! i
+
+getMapSize :: Map -> ((Int, Int), (Int, Int))
+getMapSize mp = bounds (mp ^. cells)
 
 makeGameLevel :: Map -> GameLevel
 makeGameLevel = GameLevel
