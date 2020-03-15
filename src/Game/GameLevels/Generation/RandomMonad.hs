@@ -1,18 +1,20 @@
-module Game.GameLevels.Generation.RandomMonad
-    ( stRandomR
-    , generate
-    )
-where
+{-# LANGUAGE FunctionalDependencies #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE UndecidableInstances #-}
+module Game.GameLevels.Generation.RandomMonad where
 
 import Control.Monad.State.Lazy
 import System.Random
 
-stRandomR :: (MonadState s m, Random a, RandomGen s) => (a, a) -> m a
-stRandomR interval = generate $ randomR interval
+class (Monad m, RandomGen g) => RandomMonad g m | m -> g where
+    generate :: (g -> (a, g)) -> m a
 
-generate :: (MonadState g m) => (g -> (a, g)) -> m a
-generate gen = do
-    g <- get
-    let (val, g') = gen g
-    put g'
-    return val
+    mRandomR :: Random a => (a, a) -> m a
+    mRandomR interval = generate $ randomR interval
+
+instance (RandomGen g, Monad m, MonadState g m) => RandomMonad g m where
+  generate gen = do
+      g <- get
+      let (val, g') = gen g
+      put g'
+      return val

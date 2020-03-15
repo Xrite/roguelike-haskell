@@ -1,4 +1,5 @@
 {-# LANGUAGE TemplateHaskell, DeriveFunctor, DeriveFoldable #-}
+{-# LANGUAGE MonoLocalBinds #-}
 
 module Game.GameLevels.Generation.BSPGen
   ( xCoord
@@ -83,8 +84,8 @@ instance Random Coord where
   randomR (Coord x1 y1, Coord x2 y2) = runState genCoord
     where
       genCoord = do
-        x <- stRandomR (x1, x2)
-        y <- stRandomR (y1, y2)
+        x <- mRandomR (x1, x2)
+        y <- mRandomR (y1, y2)
         return $ Coord x y
   
   random = runState rndCoord
@@ -113,7 +114,7 @@ splitSpace param s gen =
   if splitFrom > splitTo
     then Nothing
     else Just $ flip runState gen' $ do
-           splitValueRelative <- stRandomR (splitFrom, splitTo)
+           splitValueRelative <- mRandomR (splitFrom, splitTo)
            let splitValue = s ^. fromCoord . splitLens + splitValueRelative
            return ((toCoord . splitLens) .~ splitValue $ s, (fromCoord . splitLens) .~ splitValue $ s)
   where
@@ -138,8 +139,8 @@ genSubInterval ::
 genSubInterval minSize (from, to) = runState generateInterval
   where
     generateInterval = do
-      size <- stRandomR (minSize, to - from)
-      start <- stRandomR (0, to - size - from)
+      size <- mRandomR (minSize, to - from)
+      start <- mRandomR (0, to - size - from)
       return (from + start, from + start + size)
 
 roomIn :: RandomGen g => GeneratorParameters -> g -> Space -> (Space, g)
@@ -163,27 +164,27 @@ generateSpaceTree param s gen =
       rightTree <- generate $ generateSpaceTree param rightSpace
       return $ Branch leftTree rightTree
 
-makeHalls :: (RandomGen g, MonadState g m) => Space -> Space -> m [Hall]
+makeHalls :: (RandomMonad g m) => Space -> Space -> m [Hall]
 makeHalls (Space from1 to1) (Space from2 to2) = do
-  c1@(Coord x1 y1) <- stRandomR (from1, to1)
-  c2@(Coord x2 y2) <- stRandomR (from2, to2)
-  coinToss <- stRandomR (False, True)
+  c1@(Coord x1 y1) <- mRandomR (from1, to1)
+  c2@(Coord x2 y2) <- mRandomR (from2, to2)
+  coinToss <- mRandomR (False, True)
   let middlePoint = if coinToss then Coord x1 y2 else Coord x2 y1
   return [Hall c1 middlePoint, Hall middlePoint c2]
 
 generateHalls
-  :: (RandomGen g, MonadState g m)
+  :: RandomMonad g m
   => GeneratorParameters
   -> BTree Space -> m (Space, [Hall])
 generateHalls _ tree = generateHallsHelper tree []
   where
-    generateHallsHelper :: (RandomGen g, MonadState g m) => BTree Space -> [Hall] -> m (Space, [Hall])
+    generateHallsHelper :: (RandomMonad g m) => BTree Space -> [Hall] -> m (Space, [Hall])
     generateHallsHelper (Leaf s) halls = return (s, halls)
     generateHallsHelper (Branch leftT rightT) halls = do
       (leftRoom, halls') <- generateHallsHelper leftT halls
       (rightRoom, halls'') <- generateHallsHelper rightT halls'
       newHalls <- makeHalls leftRoom rightRoom
-      coinToss <- stRandomR (False, True)
+      coinToss <- mRandomR (False, True)
       let returnRoom =
             if coinToss
               then leftRoom
@@ -191,7 +192,7 @@ generateHalls _ tree = generateHallsHelper tree []
       return (returnRoom, newHalls ++ halls'')
       
 generateLevel ::
-  (RandomGen g, MonadState g m) => GeneratorParameters -> Space -> m ([Room], [Hall])
+  (RandomMonad g m) => GeneratorParameters -> Space -> m ([Room], [Hall])
 generateLevel param s = do
   spaceTree <- generate $ generateSpaceTree param s
   (_, halls) <- generateHalls param spaceTree
