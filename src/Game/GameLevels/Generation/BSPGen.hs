@@ -76,10 +76,18 @@ data BTree a
 
 makeLenses ''BTree
 
+{-|
+  Parameters of level generation.
+-}
 data GeneratorParameters =
   GeneratorParameters
-    { minSpaceSize :: Int
+    { -- | Minimal allowed size of a space in which a room is created to be generated.
+      -- | It affects how many rooms will be generated.
+      minSpaceSize :: Int
+      -- | Maximal allowed ratio of rooms sides
     , sizesRatioFix :: Float
+      -- | Minimal size of a room.
+      -- | Note that it must be strictly lower then 'minSpaceSize' to make room for walls.
     , minRoomSize :: Int
     }
   deriving (Show)
@@ -150,17 +158,17 @@ genSubInterval minSize (from, to) = runState generateInterval
       start <- mRandomR (0, to - size - from)
       return (from + start, from + start + size)
 
-roomIn :: RandomGen g => GeneratorParameters -> g -> Space -> (Space, g)
+roomIn :: RandomGen g => GeneratorParameters -> g -> Space -> (Room, g)
 roomIn param g (Space (Coord x1 y1) (Coord x2 y2)) = runState genRoom g
   where
     genRoom = do
       (resX1, resX2) <- generate $ genSubInterval minSize (x1, x2)
       (resY1, resY2) <- generate $ genSubInterval minSize (y1, y2)
-      return $ Space (Coord resX1 resY1) (Coord resX2 resY2)
+      return $ Room (Coord resX1 resY1) (Coord (resX2 - 2) (resY2 - 2))
     minSize = minRoomSize param
 
 generateSpaceTree ::
-     RandomGen g => GeneratorParameters -> Space -> g -> (BTree Space, g)
+     RandomGen g => GeneratorParameters -> Space -> g -> (BTree Room, g)
 generateSpaceTree param s gen =
   fromMaybe (first Leaf $ roomIn param gen s) $ runStateT maybeAns gen
   where
@@ -171,8 +179,8 @@ generateSpaceTree param s gen =
       rightTree <- generate $ generateSpaceTree param rightSpace
       return $ Branch leftTree rightTree
 
-makeHalls :: (RandomMonad g m) => Space -> Space -> m [Hall]
-makeHalls (Space from1 to1) (Space from2 to2) = do
+makeHalls :: (RandomMonad g m) => Room -> Room -> m [Hall]
+makeHalls (Room from1 to1) (Room from2 to2) = do
   c1@(Coord x1 y1) <- mRandomR (from1, to1)
   c2@(Coord x2 y2) <- mRandomR (from2, to2)
   coinToss <- mRandomR (False, True)
@@ -182,10 +190,10 @@ makeHalls (Space from1 to1) (Space from2 to2) = do
 generateHalls
   :: RandomMonad g m
   => GeneratorParameters
-  -> BTree Space -> m (Space, [Hall])
+  -> BTree Room -> m (Room, [Hall])
 generateHalls _ tree = generateHallsHelper tree []
   where
-    generateHallsHelper :: (RandomMonad g m) => BTree Space -> [Hall] -> m (Space, [Hall])
+    generateHallsHelper :: (RandomMonad g m) => BTree Room -> [Hall] -> m (Room, [Hall])
     generateHallsHelper (Leaf s) halls = return (s, halls)
     generateHallsHelper (Branch leftT rightT) halls = do
       (leftRoom, halls') <- generateHallsHelper leftT halls
@@ -203,4 +211,4 @@ generateLevel ::
 generateLevel param s = do
   spaceTree <- generate $ generateSpaceTree param s
   (_, halls) <- generateHalls param spaceTree
-  return (foldMap (\ (Space from to) -> [Room from to]) spaceTree, halls)
+  return (foldMap return spaceTree, halls)

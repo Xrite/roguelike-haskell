@@ -43,7 +43,7 @@ randomLevel s params gen = (level, gen')
       runSTArray $ do
         arrType <-
           newArray (toPair $ s ^. fromCoord, toPair $ s ^. toCoord) wall :: ST s (STArray s (Int, Int) MapCellType)
-        foldMap (\room -> writeInterval arrType (room ^. fromCorner) (room ^. toCorner) roomGround) rooms
         foldMap (\hall -> writeInterval arrType (hall ^. startCorner) (hall ^. finishCorner) hallGround) halls
+        foldMap (\room -> writeInterval arrType (room ^. fromCorner) (room ^. toCorner) roomGround) rooms
         mapArray makeEmptyCell arrType
     level = makeGameLevel $ makeMap levelArray
