@@ -9,7 +9,12 @@ import           Game.Unit.TimedEffects
 import           Game.Unit.Inventory            ( getAllWearableEffects
                                                 , getWeaponEffect
                                                 )
-import           Game.Unit.Unit                 ( UnitData , Unit(..), timedEffects, stats, inventory)
+import           Game.Unit.Unit                 ( UnitData
+                                                , Unit(..)
+                                                , timedEffects
+                                                , stats
+                                                , inventory
+                                                )
 
 data Mob = Mob {_unit :: UnitData}
 

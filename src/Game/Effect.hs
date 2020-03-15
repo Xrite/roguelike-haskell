@@ -6,7 +6,7 @@ module Game.Effect
   , getStats
   , setStats
   , modifyStats
---    , setAOEEffect
+  , setAOEEffect
   , setTimedEffect
   )
 where
@@ -17,7 +17,7 @@ import           Control.Monad.Free
 -- I want EffectReceiver typeclass so that map cells could do smth like 
 -- also "burn down then receiving fire dmg"
 
-data EffectDSL a = GetStats (Stats -> a)
+data EffectDSL a = GetStats (Maybe Stats -> a)
                  | SetStats Stats a
                  | ModifyStats (Stats -> Stats) a
                  | SetTimedEffect Int (Int -> Effect ()) a
@@ -25,12 +25,12 @@ data EffectDSL a = GetStats (Stats -> a)
 --                   Sets effect on everyone in certain range.
 --                   Strength may depend on distance.
 --                 -}
---                 | AOEEffect Int (Int -> Effect ()) a
+                  | AOEEffect Int (Int -> Effect ()) a
   deriving (Functor)
 
 type Effect a = Free EffectDSL a
 
-getStats :: Effect Stats
+getStats :: Effect (Maybe Stats)
 getStats = liftF $ GetStats id
 
 setStats :: Stats -> Effect ()
@@ -42,5 +42,5 @@ modifyStats f = Free $ ModifyStats f (Pure ())
 setTimedEffect :: Int -> (Int -> Effect ()) -> Effect ()
 setTimedEffect time effect = Free $ SetTimedEffect time effect (Pure ())
 
---setAOEEffect :: Int -> (Int -> Effect ()) -> Effect ()
---setAOEEffect range effect = Free $ AOEEffect range effect (Pure ())
+setAOEEffect :: Int -> (Int -> Effect ()) -> Effect ()
+setAOEEffect range effect = Free $ AOEEffect range effect (Pure ())
