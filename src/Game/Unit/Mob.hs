@@ -9,7 +9,7 @@ import           Game.Unit.TimedEffects
 import           Game.Unit.Inventory            ( getAllWearableEffects
                                                 , getWeaponEffect
                                                 )
-import           Game.Unit.Unit                 ( UnitData , Unit(..), timedEffects, stats, inventory)
+import           Game.Unit.Unit                 ( UnitData , Unit(..), timedEffects, stats, inventory, position)
 
 data Mob = Mob {_unit :: UnitData}
 
@@ -27,6 +27,8 @@ instance Unit Mob where
     applyEffect next (u & unit . stats %~ f)
   applyEffect (Free (SetTimedEffect time effect next)) u =
     applyEffect next $ over (unit . timedEffects) (addEffect time effect) u
+  applyEffect (Free (MoveTo coordTo next)) u =
+    applyEffect next $ unit . position .~ coordTo $ u
 
   attackEffect p =
     getWeaponEffect $ applyEffect wearableEff p ^. unit . inventory

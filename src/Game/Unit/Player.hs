@@ -38,6 +38,8 @@ instance Unit Player where
   applyEffect (Free (SetTimedEffect time effect next)) u =
     applyEffect next
       $ over (playerUnit . timedEffects) (addEffect time effect) u
+  applyEffect (Free (MoveTo coordTo next)) u =
+    applyEffect next $ playerUnit . position .~ coordTo $ u
 
   attackEffect p =
     getWeaponEffect $ applyEffect wearableEff p ^. playerUnit . inventory

@@ -8,6 +8,7 @@ module Game.Effect
   , modifyStats
 --    , setAOEEffect
   , setTimedEffect
+  , setCoord
   )
 where
 
@@ -21,6 +22,7 @@ data EffectDSL a = GetStats (Stats -> a)
                  | SetStats Stats a
                  | ModifyStats (Stats -> Stats) a
                  | SetTimedEffect Int (Int -> Effect ()) a
+                 | MoveTo (Int, Int) a
 --                 {-|
 --                   Sets effect on everyone in certain range.
 --                   Strength may depend on distance.
@@ -41,6 +43,9 @@ modifyStats f = Free $ ModifyStats f (Pure ())
 
 setTimedEffect :: Int -> (Int -> Effect ()) -> Effect ()
 setTimedEffect time effect = Free $ SetTimedEffect time effect (Pure ())
+
+setCoord :: (Int, Int) -> Effect ()
+setCoord coord = Free $ MoveTo coord $ Pure ()
 
 --setAOEEffect :: Int -> (Int -> Effect ()) -> Effect ()
 --setAOEEffect range effect = Free $ AOEEffect range effect (Pure ())
