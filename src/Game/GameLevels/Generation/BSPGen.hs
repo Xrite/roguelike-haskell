@@ -1,6 +1,17 @@
 {-# LANGUAGE TemplateHaskell, DeriveFunctor, DeriveFoldable #-}
 
-module Game.GameLevels.Generation.BSPGen where
+module Game.GameLevels.Generation.BSPGen
+  ( xCoord
+  , yCoord
+  , fromCorner
+  , toCorner
+  , startCorner
+  , finishCorner
+  , generateLevel
+  , makeGeneratorParameters
+  , Space (..)
+  , Coord (..)
+  ) where
 
 import Control.Lens (Lens', (.~), (^.), makeLenses)
 import Control.Monad.State
@@ -65,19 +76,22 @@ data GeneratorParameters =
     }
   deriving (Show)
 
+makeGeneratorParameters :: Int -> Float -> Int -> GeneratorParameters
+makeGeneratorParameters = GeneratorParameters
+
 instance Random Coord where
-  randomR ((Coord x1 y1), (Coord x2 y2)) g = runState genCoord g
+  randomR (Coord x1 y1, Coord x2 y2) = runState genCoord
     where
       genCoord = do
         x <- stRandomR (x1, x2)
         y <- stRandomR (y1, y2)
         return $ Coord x y
   
-  random g = runState rndCoord g
+  random = runState rndCoord
     where
       rndCoord = do
-        x <- generate $ random
-        y <- generate $ random
+        x <- generate random
+        y <- generate random
         return $ Coord x y
 
 spaceSize :: Space -> Coord
@@ -99,11 +113,9 @@ splitSpace param s gen =
   if splitFrom > splitTo
     then Nothing
     else Just $ flip runState gen' $ do
-        splitValueRelative <- stRandomR (splitFrom, splitTo)
-        let splitValue = s ^. fromCoord . splitLens + splitValueRelative
-        return 
-            ( (toCoord . splitLens) .~ splitValue $ s
-            , (fromCoord . splitLens) .~ splitValue $ s)
+           splitValueRelative <- stRandomR (splitFrom, splitTo)
+           let splitValue = s ^. fromCoord . splitLens + splitValueRelative
+           return ((toCoord . splitLens) .~ splitValue $ s, (fromCoord . splitLens) .~ splitValue $ s)
   where
     ratio :: Float
     ratio = fromIntegral (spaceSizeX s) / fromIntegral (spaceSizeY s)
@@ -119,7 +131,7 @@ splitSpace param s gen =
         then xCoord
         else yCoord
     splitFrom = minSpaceSize param
-    splitTo = ((spaceSize s) ^. splitLens) - minSpaceSize param
+    splitTo = (spaceSize s ^. splitLens) - minSpaceSize param
 
 genSubInterval ::
      (RandomGen g, Random a, Num a) => a -> (a, a) -> g -> ((a, a), g)
@@ -162,24 +174,25 @@ makeHalls (Space from1 to1) (Space from2 to2) = do
 generateHalls
   :: (RandomGen g, MonadState g m)
   => GeneratorParameters
-  -> (BTree Space)
-  -> m (Space, [Hall])
-generateHalls param tree = generateHallsHelper param tree []
+  -> BTree Space -> m (Space, [Hall])
+generateHalls _ tree = generateHallsHelper tree []
   where
-    generateHallsHelper :: (RandomGen g, MonadState g m) => GeneratorParameters -> (BTree Space) -> [Hall] -> m (Space, [Hall])
-    generateHallsHelper _ (Leaf s) halls = return $ (s, halls)
-    generateHallsHelper param (Branch leftT rightT) halls = do
-      (leftRoom, halls') <- generateHallsHelper param leftT halls
-      (rightRoom, halls'') <- generateHallsHelper param rightT halls'
+    generateHallsHelper :: (RandomGen g, MonadState g m) => BTree Space -> [Hall] -> m (Space, [Hall])
+    generateHallsHelper (Leaf s) halls = return (s, halls)
+    generateHallsHelper (Branch leftT rightT) halls = do
+      (leftRoom, halls') <- generateHallsHelper leftT halls
+      (rightRoom, halls'') <- generateHallsHelper rightT halls'
       newHalls <- makeHalls leftRoom rightRoom
       coinToss <- stRandomR (False, True)
-      let returnRoom = if coinToss then leftRoom else rightRoom
+      let returnRoom =
+            if coinToss
+              then leftRoom
+              else rightRoom
       return (returnRoom, newHalls ++ halls'')
       
 generateLevel ::
-  (RandomGen g, MonadState g m) => GeneratorParameters -> Space -> m ([Space], [Hall])
+  (RandomGen g, MonadState g m) => GeneratorParameters -> Space -> m ([Room], [Hall])
 generateLevel param s = do
   spaceTree <- generate $ generateSpaceTree param s
   (_, halls) <- generateHalls param spaceTree
-  return $ (foldr (:) [] spaceTree, halls) 
-
+  return (foldMap (\ (Space from to) -> [Room from to]) spaceTree, halls)
