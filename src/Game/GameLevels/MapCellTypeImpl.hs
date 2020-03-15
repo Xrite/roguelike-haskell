@@ -5,8 +5,11 @@ import Game.GameLevels.MapCellType
 wall :: MapCellType
 wall = makeWall '#'
 
-ground :: MapCellType
-ground = makeGround '.'
+hallGround :: MapCellType
+hallGround = makeGround '+'
+
+roomGround :: MapCellType
+roomGround = makeGround '.'
 
 tree :: MapCellType
 tree = makeWall 'T'
