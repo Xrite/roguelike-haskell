@@ -32,16 +32,24 @@ newtype UnitId = UnitId Int
 
 -- TODO maybe extract units to a different module?
 data Environment =
-   Environment { _player :: Player, _units :: [AnyUnit], _levels :: [GameLevel], _currentLevel :: Int }
+   Environment { _player :: Player, _units :: [AnyUnit], _levels :: [GameLevel], _currentLevel :: Int, _currentUnitTurn :: Int }
 makeLenses ''Environment
 
 {-|
   This function should remove dead units from environment.
   It is called after each function that can modify units in the environment. With current implementation of units storage it invalidates 'UnitId'.
-  Item drop (and units death in general) is not yet implemented, so TODO implement death effects in filterDead
+  Item drop (units death effects in general) is not yet implemented, so TODO implement death effects in filterDead
 -}
 filterDead :: Environment -> Environment
-filterDead = units %~ filter ((> 0) . _health . _stats . asUnitData)
+filterDead env = (currentUnitTurn %~ flip (-) startUnitsDied) . (units .~ newUnits) $ env
+  where
+    newUnits = undefined
+    startUnits = take (_currentUnitTurn env) $ _units env
+    endUnits = drop (_currentUnitTurn env) $ _units env
+    filterAlive = filter ((> 0) . _health . _stats . asUnitData)
+    newStartUnits = filterAlive startUnits
+    newEndUnits = filterAlive endUnits
+    startUnitsDied = length startUnits - length newStartUnits
 
 unitLensById :: UnitId -> Lens' Environment AnyUnit
 unitLensById (UnitId idxInt) = units . listLens idxInt
