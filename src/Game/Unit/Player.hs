@@ -30,7 +30,7 @@ instance Unit Player where
 
   applyEffect (Pure _) m = m
   applyEffect (Free (GetStats nextF)) m =
-    applyEffect (nextF (m ^. playerUnit . stats)) m
+    applyEffect (nextF (Just $ m ^. playerUnit . stats)) m
   applyEffect (Free (SetStats newStats next)) u =
     applyEffect next (u & playerUnit . stats .~ newStats)
   applyEffect (Free (ModifyStats f next)) u =
@@ -38,6 +38,8 @@ instance Unit Player where
   applyEffect (Free (SetTimedEffect time effect next)) u =
     applyEffect next
       $ over (playerUnit . timedEffects) (addEffect time effect) u
+  applyEffect (Free (MoveTo coordTo next)) u =
+    applyEffect next $ playerUnit . position .~ coordTo $ u
 
   attackEffect p =
     getWeaponEffect $ applyEffect wearableEff p ^. playerUnit . inventory

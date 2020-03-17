@@ -11,4 +11,4 @@ pureGameIO :: a -> GameIO a
 pureGameIO = undefined
 
 class (Monad m) => GameUI m where
-    drawUI :: UI -> m ()
+    drawUI :: UI a -> m ()
