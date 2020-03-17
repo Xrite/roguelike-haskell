@@ -1,10 +1,10 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 
 module Game.FileIO.FileIO
-	( getSavedLevels
-	, getLevelByName
-	)
-	where
+    ( getSavedLevels
+    , getLevelByName
+    )
+    where
 
 import System.IO
 import Game.GameLevels.GameLevel
@@ -14,7 +14,7 @@ import Game.GameLevels.MapCellTypeImpl
 import System.Directory
 import Control.Exception
 
-
+levelsFolder = "resources/savedLevels/"
 -- TODO make not show not read
 
 -- hPrint          :: Show a => Handle -> a -> IO ()
@@ -22,11 +22,14 @@ import Control.Exception
 
 getSavedLevels :: Exception e => IO (Either e [String])
 getSavedLevels = try $ do
-	files <- getDirectoryContents "/resources/savedLevels" 
-	return $ map (takeWhile ((/=) '.'))files
+    path <- makeAbsolute levelsFolder
+    files <- listDirectory path
+    return $ map (takeWhile ((/=) '.'))files	
 
 getLevelByName :: Exception e => String -> IO (Either e GameLevel)
-getLevelByName name = readLevelFromFile (name ++ ".txt")
+getLevelByName name = do
+    path <- makeAbsolute levelsFolder
+    readLevelFromFile (path ++ name ++ ".txt")
 
 saveLevelToFile :: GameLevel -> FilePath -> IO ()
 saveLevelToFile gameLevel filePath = do
