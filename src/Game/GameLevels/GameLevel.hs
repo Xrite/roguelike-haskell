@@ -5,7 +5,8 @@ module Game.GameLevels.GameLevel
   , makeGameLevel
   , lvlMap
   , makeMap
-  , GameLevel
+  , GameLevel (..)
+  , Map (..)
   ) where
 
 import Game.GameLevels.MapCell

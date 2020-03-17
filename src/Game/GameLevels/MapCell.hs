@@ -1,7 +1,7 @@
 {-# LANGUAGE TemplateHaskell #-}
 
 module Game.GameLevels.MapCell
-  ( MapCell
+  ( MapCell (..)
   , makeCell
   , makeEmptyCell
   , cellType
