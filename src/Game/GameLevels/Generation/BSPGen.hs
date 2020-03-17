@@ -11,11 +11,10 @@ module Game.GameLevels.Generation.BSPGen
   , startCorner
   , finishCorner
   , generateLevel
-  , makeGeneratorParameters
   , Space (..)
   , Coord (..)
   , toPair
-  , GeneratorParameters
+  , GeneratorParameters (..)
   ) where
 
 import Control.Lens (Lens', (.~), (^.), makeLenses)
@@ -25,18 +24,32 @@ import Data.Maybe (fromMaybe)
 import Game.GameLevels.Generation.RandomMonad
 import System.Random
 
+-- |A data type for coordinates in a level.
+-- A type no one asked for and no one except this module uses.
 data Coord =
   Coord
-    { _xCoord :: Int
-    , _yCoord :: Int
+    { _xCoord :: Int      -- ^ x coordinate
+    , _yCoord :: Int      -- ^ y coordinate
     }
   deriving (Show)
 
 makeLenses ''Coord
 
-toPair :: Coord -> (Int, Int)
-toPair (Coord x y) = (x, y)
+-- |A data type representing a 2D half-closed interval on a grid.
+-- '_toCoord' is not included in a space.
+-- If any coordinate of '_fromCoord' is not lower lower than that of '_toCoord' then a space is empty.
+data Space =
+  Space
+    { _fromCoord :: Coord -- ^ starting corner of a space
+    , _toCoord :: Coord   -- ^ finishing corner of a space
+    }
+  deriving (Show)
 
+makeLenses ''Space
+
+-- |A data type representing a room in a level.
+-- Both corners are included (so a room is a 2D closed interval).
+-- If any coordinate of '_fromCorner' is not lower lower than that of '_toCorner' then a room is empty.
 data Room =
   Room
     { _fromCorner :: Coord
@@ -46,6 +59,11 @@ data Room =
 
 makeLenses ''Room
 
+-- |A data type representing a hall on the level.
+-- Both corners are included.
+--
+-- If a coordinate of '_finishCorner' is lower that that of '_startCorner' then IS IS STILL A VALID NON-EMPTY HALL.
+-- Given this two rules, any hall is not empty.
 data Hall =
   Hall
     { _startCorner :: Coord
@@ -55,15 +73,7 @@ data Hall =
 
 makeLenses ''Hall
 
-data Space =
-  Space
-    { _fromCoord :: Coord
-    , _toCoord :: Coord
-    }
-  deriving (Show)
-
-makeLenses ''Space
-
+-- |Internal type for a binary tree, used in a binary tree level generation algorithm.
 data BTree a
   = Branch
       { _leftSon :: BTree a
@@ -76,13 +86,12 @@ data BTree a
 
 makeLenses ''BTree
 
-{-|
-  Parameters of level generation.
--}
+-- |Describes Parameters of level generation.
 data GeneratorParameters =
   GeneratorParameters
     { -- | Minimal allowed size of a space in which a room is created to be generated.
-      -- | It affects how many rooms will be generated.
+      -- | It affects how many rooms will be generated. See link to the generation algorithm description in
+      -- 'generateLevel' documentation
       minSpaceSize :: Int
       -- | Maximal allowed ratio of rooms sides
     , sizesRatioFix :: Float
@@ -92,8 +101,26 @@ data GeneratorParameters =
     }
   deriving (Show)
 
-makeGeneratorParameters :: Int -> Float -> Int -> GeneratorParameters
-makeGeneratorParameters = GeneratorParameters
+toPair :: Coord -> (Int, Int)
+toPair (Coord x y) = (x, y)
+
+-- |Generates a level as lists of rooms and halls using binary space tree algorithm.
+-- (See <https://gamedevelopment.tutsplus.com/tutorials/how-to-use-bsp-trees-to-generate-game-maps--gamedev-12268 this article>)
+--
+-- Generated level is guaranteed to have following properties:
+-- * All rooms are at least as big and have a sides ratio not greater than as provided 'GeneratorParameters' specifies.
+-- * All halls have one dimension of size 1 (but multiple halls may spawn in parallel)
+--   If initial space was big enough to fit one room. It is unspecified what will happen otherwise.
+--
+-- If parameters are inconsistent in any way, behavior of this function is unspecified.
+generateLevel :: (RandomMonad g m)
+              => GeneratorParameters   -- ^ Parameters of a level
+              -> Space                 -- ^ Space in which a level should be contained
+              -> m ([Room], [Hall])    -- ^ All rooms and halls of a generated level in a random monad of choice
+generateLevel param s = do
+  spaceTree <- generate $ generateSpaceTree param s
+  (_, halls) <- generateHalls param spaceTree
+  return (foldMap return spaceTree, halls)
 
 instance Random Coord where
   randomR (Coord x1 y1, Coord x2 y2) = runState genCoord
@@ -119,6 +146,8 @@ spaceSizeX s = spaceSize s ^. xCoord
 spaceSizeY :: Space -> Int
 spaceSizeY s = spaceSize s ^. yCoord
 
+-- |Splits provided space randomly in two such that both halves are bigger than '_minSpaceSize' of provided parameters.
+-- Returns 'Nothing' if it is impossible.
 splitSpace ::
      RandomGen g
   => GeneratorParameters
@@ -149,6 +178,7 @@ splitSpace param s gen =
     splitFrom = minSpaceSize param
     splitTo = (spaceSize s ^. splitLens) - minSpaceSize param
 
+-- |Generates a subinterval of provided size.
 genSubInterval ::
      (RandomGen g, Random a, Num a) => a -> (a, a) -> g -> ((a, a), g)
 genSubInterval minSize (from, to) = runState generateInterval
@@ -158,6 +188,7 @@ genSubInterval minSize (from, to) = runState generateInterval
       start <- mRandomR (0, to - size - from)
       return (from + start, from + start + size)
 
+-- |Generates a random big enough room in provided space. If it is impossible, behavior is unspecified.
 roomIn :: RandomGen g => GeneratorParameters -> g -> Space -> (Room, g)
 roomIn param g (Space (Coord x1 y1) (Coord x2 y2)) = runState genRoom g
   where
@@ -167,6 +198,7 @@ roomIn param g (Space (Coord x1 y1) (Coord x2 y2)) = runState genRoom g
       return $ Room (Coord resX1 resY1) (Coord (resX2 - 2) (resY2 - 2))
     minSize = minRoomSize param
 
+-- |Generates a binary space tree of big enough spaces.
 generateSpaceTree ::
      RandomGen g => GeneratorParameters -> Space -> g -> (BTree Room, g)
 generateSpaceTree param s gen =
@@ -179,6 +211,10 @@ generateSpaceTree param s gen =
       rightTree <- generate $ generateSpaceTree param rightSpace
       return $ Branch leftTree rightTree
 
+-- |Generates random halls between tho rooms.
+-- 
+-- This implementation simply chooses a point in each room and connects them with two straight lines
+-- (direction is random)
 makeHalls :: (RandomMonad g m) => Room -> Room -> m [Hall]
 makeHalls (Room from1 to1) (Room from2 to2) = do
   c1@(Coord x1 y1) <- mRandomR (from1, to1)
@@ -187,6 +223,7 @@ makeHalls (Room from1 to1) (Room from2 to2) = do
   let middlePoint = if coinToss then Coord x1 y2 else Coord x2 y1
   return [Hall c1 middlePoint, Hall middlePoint c2]
 
+-- |Generates halls based on a binary tree of rooms
 generateHalls
   :: RandomMonad g m
   => GeneratorParameters
@@ -205,10 +242,3 @@ generateHalls _ tree = generateHallsHelper tree []
               then leftRoom
               else rightRoom
       return (returnRoom, newHalls ++ halls'')
-      
-generateLevel ::
-  (RandomMonad g m) => GeneratorParameters -> Space -> m ([Room], [Hall])
-generateLevel param s = do
-  spaceTree <- generate $ generateSpaceTree param s
-  (_, halls) <- generateHalls param spaceTree
-  return (foldMap return spaceTree, halls)
