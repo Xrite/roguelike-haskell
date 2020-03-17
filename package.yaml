@@ -28,6 +28,7 @@ dependencies:
 - safe
 - random
 - mtl >= 2.2.2
+- directory
 
 ghc-options:
 - -Wall
