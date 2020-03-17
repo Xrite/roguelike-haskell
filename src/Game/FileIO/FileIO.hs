@@ -17,15 +17,16 @@ import System.Directory
 import Control.Exception
 import Data.Array.IArray
 
-levelsFolder :: [Char]
+levelsFolder :: String
 levelsFolder = "resources/savedLevels/"
 
 -- Returns a list of saved levels name that could be loaded
 getSavedLevels :: IO (Either SomeException [String])
-getSavedLevels = try $ do
+getSavedLevels =
+  try $ do
     path <- makeAbsolute levelsFolder
     files <- listDirectory path
-    return $ map (takeWhile ((/=) '.'))files
+    return $ map (takeWhile ('.' /=)) files
 
 -- Loads a GameLevel from a file that corresponds to the given level name
 getLevelByName :: String -> IO (Either SomeException GameLevel)
@@ -34,12 +35,13 @@ getLevelByName name = do
     readLevelFromFile (path ++ name ++ ".txt")
 
 readLevelFromFile :: FilePath -> IO (Either SomeException GameLevel)
-readLevelFromFile filePath = try $ do
+readLevelFromFile filePath =
+  try $ do
     fileHandler <- openFile filePath ReadMode
     content <- hGetContents fileHandler
-    case (readGameLevel content) of
-        (Just x) -> return x
-        Nothing -> throw (userError "wrong format")
+    case readGameLevel content of
+      (Just x) -> return x
+      Nothing -> throw (userError "wrong format")
 
 readGameLevel :: String -> Maybe GameLevel
 readGameLevel str = do 
@@ -52,8 +54,9 @@ readMap str = do
     return $ makeMap _array
 
 readArray :: String -> Maybe (Array (Int, Int) MapCell)
-readArray str = let lists = map (map (readMapCell)) (lines str) in
-    fmap (listArray ((0, 0), (length lists, (length (lists !! 0))))) (sequence $ concat lists)
+readArray str =
+  let lists = map (map readMapCell) (lines str)
+   in fmap (listArray ((0, 0), (length lists, length (head lists)))) (sequence $ concat lists)
 
 readMapCell :: Char -> Maybe MapCell
 readMapCell str = do 
