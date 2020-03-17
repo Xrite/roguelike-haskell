@@ -28,6 +28,8 @@ dependencies:
 - safe
 - random
 - mtl >= 2.2.2
+- brick
+- vty
 
 ghc-options:
 - -Wall
