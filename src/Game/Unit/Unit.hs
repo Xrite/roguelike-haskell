@@ -4,6 +4,7 @@
 module Game.Unit.Unit
   ( UnitData
   , stats
+  , _stats
   , position
   , _position
   , timedEffects

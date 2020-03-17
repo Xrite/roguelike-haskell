@@ -16,7 +16,7 @@ where
 
 import           Game.Unit.Player               ( Player )
 import           Game.Unit.Mob                  ( Mob )
-import           Game.Unit.Unit                 ( AnyUnit, asUnitData, _position, applyEffect )
+import           Game.Unit.Unit                 ( AnyUnit, asUnitData, _position, applyEffect, stats, _stats )
 import           Game.GameLevels.GameLevel
 import           Control.Monad.State
 import           Control.Lens
@@ -25,6 +25,7 @@ import           Data.Foldable                  ( find )
 import           Data.List                      ( findIndex )
 import Game.Effect (Effect)
 import Game.Unit.DamageCalculation (attack)
+import Game.Unit.Stats
 
 -- | All manipulations with units in environment should use this type
 newtype UnitId = UnitId Int
@@ -37,10 +38,10 @@ makeLenses ''Environment
 {-|
   This function should remove dead units from environment.
   It is called after each function that can modify units in the environment. With current implementation of units storage it invalidates 'UnitId'.
-  As you can see, it is not yet implemented, so TODO implement filterDead
+  Item drop (and units death in general) is not yet implemented, so TODO implement death effects in filterDead
 -}
 filterDead :: Environment -> Environment
-filterDead = id
+filterDead = units %~ filter ((> 0) . _health . _stats . asUnitData)
 
 unitLensById :: UnitId -> Lens' Environment AnyUnit
 unitLensById (UnitId idxInt) = units . listLens idxInt
