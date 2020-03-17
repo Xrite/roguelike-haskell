@@ -47,13 +47,13 @@ moveUnit :: Environment -> Int -> (Int, Int) -> Maybe Environment
 moveUnit env unitNumber coord =
   if cantMoveThere
     then Nothing
-    else Just $ units %~ setAt unitNumber (anyUnitApplyEffect (setCoord coord) movingUnit) $ env
+    else Just $ units %~ setAt unitNumber (applyEffect (setCoord coord) movingUnit) $ env
   where
     movingUnit = _units env !! unitNumber
-    cantMoveThere = canGo env movingUnit (_position $ anyUnitAsData movingUnit) coord
+    cantMoveThere = canGo env movingUnit (_position $ asUnitData movingUnit) coord
 
 findByCoord :: Environment -> (Int, Int) -> Maybe AnyUnit
-findByCoord env coord = find ((== coord) . _position . anyUnitAsData) $ _units env
+findByCoord env coord = find ((== coord) . _position . asUnitData) $ _units env
 
 canGo :: Environment -> AnyUnit -> (Int, Int) -> (Int, Int) -> Bool
 canGo env unit oldCoord newCoord = oldCoord == newCoord || canMoveThere
@@ -61,4 +61,4 @@ canGo env unit oldCoord newCoord = oldCoord == newCoord || canMoveThere
       occupyingUnitMaybe = findByCoord env newCoord
       placeOccupied = isNothing occupyingUnitMaybe
       cell = getCell newCoord $ getCurrentLevel env ^. lvlMap
-      canMoveThere = not placeOccupied && (cell ^. cellType . passable $ anyUnitAsData unit ^. stats)
+      canMoveThere = not placeOccupied && (cell ^. cellType . passable $ asUnitData unit ^. stats)

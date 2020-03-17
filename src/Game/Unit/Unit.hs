@@ -12,8 +12,6 @@ module Game.Unit.Unit
   , Unit(..)
   , AnyUnit(..)
   , packUnit
-  , anyUnitAsData
-  , anyUnitApplyEffect
   , Action
   , createUnitData
   , position
@@ -67,11 +65,10 @@ data AnyUnit = forall a. (Unit a) => AnyUnit a
 
 makeLenses ''UnitData
 
+instance Unit AnyUnit where
+  asUnitData (AnyUnit u) = asUnitData u
+  applyEffect e (AnyUnit u) = AnyUnit $ applyEffect e u
+  attackEffect (AnyUnit u) = attackEffect u
+
 packUnit :: Unit a => a -> AnyUnit
 packUnit = AnyUnit 
-
-anyUnitAsData :: AnyUnit -> UnitData
-anyUnitAsData (AnyUnit u) = asUnitData u
-
-anyUnitApplyEffect :: Effect () -> AnyUnit -> AnyUnit
-anyUnitApplyEffect effect (AnyUnit u) = AnyUnit $ applyEffect effect u
