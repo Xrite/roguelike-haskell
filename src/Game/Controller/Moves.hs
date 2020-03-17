@@ -1,4 +1,4 @@
-module Game.Controller.Controller where
+module Game.Controller.Moves where
 
 import Control.Lens ((%~), (^.))
 import Control.Monad (guard)
