@@ -20,7 +20,7 @@ import Game.GameLevels.MapCell
 import Game.GameLevels.MapCellType
 import Data.Maybe (isNothing)
 import Game.Effect
-import Util
+import PreludeUtil
 
 
 data Environment =
@@ -43,22 +43,22 @@ getCurrentLevel :: Environment -> GameLevel
 getCurrentLevel env = _levels env !! _currentLevel env
 
 -- | Moves a unit to a place if they can go there. Returns 'Nothing' if it is occupied by someone else or if it is a wall.
-moveUnit :: Environment -> Int -> (Int, Int) -> Maybe Environment
-moveUnit env unitNumber coord =
+moveUnit :: Int -> (Int, Int) -> Environment -> Maybe Environment
+moveUnit unitNumber coord env =
   if cantMoveThere
     then Nothing
     else Just $ units %~ setAt unitNumber (applyEffect (setCoord coord) movingUnit) $ env
   where
     movingUnit = _units env !! unitNumber
-    cantMoveThere = canGo env movingUnit (_position $ asUnitData movingUnit) coord
+    cantMoveThere = canGo movingUnit (_position $ asUnitData movingUnit) coord env
 
-findByCoord :: Environment -> (Int, Int) -> Maybe AnyUnit
-findByCoord env coord = find ((== coord) . _position . asUnitData) $ _units env
+findByCoord :: (Int, Int) -> Environment -> Maybe AnyUnit
+findByCoord coord env = find ((== coord) . _position . asUnitData) $ _units env
 
-canGo :: Environment -> AnyUnit -> (Int, Int) -> (Int, Int) -> Bool
-canGo env unit oldCoord newCoord = oldCoord == newCoord || canMoveThere
+canGo :: AnyUnit -> (Int, Int) -> (Int, Int) -> Environment -> Bool
+canGo unit oldCoord newCoord env = oldCoord == newCoord || placeFree
   where
-      occupyingUnitMaybe = findByCoord env newCoord
+      occupyingUnitMaybe = findByCoord newCoord env
       placeOccupied = isNothing occupyingUnitMaybe
       cell = getCell newCoord $ getCurrentLevel env ^. lvlMap
-      canMoveThere = not placeOccupied && (cell ^. cellType . passable $ asUnitData unit ^. stats)
+      placeFree = not placeOccupied && (cell ^. cellType . passable $ asUnitData unit ^. stats)
