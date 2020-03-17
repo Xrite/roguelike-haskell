@@ -17,7 +17,7 @@ spec = do
 checkSavedLevelsList :: IO ()
 checkSavedLevelsList = do 
     Right result <- getSavedLevels :: IO (Either SomeException [FilePath])
-    result `shouldBe` ["Level1", "Level2", "Level3"]
+    result `shouldMatchList` ["Level1", "Level2", "Level3"]
 
 checkGetLevelByName :: String -> IO ()
 checkGetLevelByName name = do
