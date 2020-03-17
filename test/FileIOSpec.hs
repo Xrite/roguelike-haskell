@@ -2,7 +2,6 @@
 module FileIOSpec (spec) where
 
 import Import
-import Util
 import Game.FileIO.FileIO
 import Game.GameLevels.GameLevel
 import Test.Hspec
