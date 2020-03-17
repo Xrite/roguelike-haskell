@@ -7,6 +7,6 @@ import qualified UI.GameUIDesc                 as G
 import qualified UI.InventoryUIDesc            as I
 import qualified UI.ListMenuDesc               as LM
 
-data UI ctx = GameUI G.UIDesc
+data UI ctx = GameUI (G.UIDesc ctx)
             | InventoryUI (I.UIDesc ctx)
             | MainMenuUI (LM.UIDesc ctx)
