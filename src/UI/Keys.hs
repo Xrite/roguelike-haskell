@@ -10,5 +10,5 @@ data Arrows = Up
             | DownLeft
 
 data Keys = Letter Char
-    | Enter
-    | Space
+          | Enter
+          | Space

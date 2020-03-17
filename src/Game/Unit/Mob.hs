@@ -14,6 +14,7 @@ import           Game.Unit.Unit                 ( UnitData
                                                 , timedEffects
                                                 , stats
                                                 , inventory
+                                                , position
                                                 )
 
 data Mob = Mob {_unit :: UnitData}
@@ -25,13 +26,15 @@ instance Unit Mob where
 
   applyEffect (Pure _) m = m
   applyEffect (Free (GetStats nextF)) m =
-    applyEffect (nextF (m ^. unit . stats)) m
+    applyEffect (nextF (Just $ m ^. unit . stats)) m
   applyEffect (Free (SetStats newStats next)) u =
     applyEffect next (u & unit . stats .~ newStats)
   applyEffect (Free (ModifyStats f next)) u =
     applyEffect next (u & unit . stats %~ f)
   applyEffect (Free (SetTimedEffect time effect next)) u =
     applyEffect next $ over (unit . timedEffects) (addEffect time effect) u
+  applyEffect (Free (MoveTo coordTo next)) u =
+    applyEffect next $ unit . position .~ coordTo $ u
 
   attackEffect p =
     getWeaponEffect $ applyEffect wearableEff p ^. unit . inventory

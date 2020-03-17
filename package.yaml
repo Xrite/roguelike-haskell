@@ -30,6 +30,7 @@ dependencies:
 - mtl >= 2.2.2
 - brick
 - vty
+- directory
 
 ghc-options:
 - -Wall

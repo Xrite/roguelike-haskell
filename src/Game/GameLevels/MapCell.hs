@@ -1,7 +1,7 @@
 {-# LANGUAGE TemplateHaskell #-}
 
 module Game.GameLevels.MapCell
-  ( MapCell
+  ( MapCell (..)
   , makeCell
   , makeEmptyCell
   , cellType
@@ -34,3 +34,4 @@ makeEmptyCell cellType' = makeCell cellType' $ MapCellState []
 
 renderCell :: MapCell -> Char
 renderCell cell = maybe (cell ^. cellType . cellRender) itemRender (headMay $ cell ^. cellState . floorItems)
+

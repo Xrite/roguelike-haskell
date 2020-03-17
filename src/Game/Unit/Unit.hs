@@ -4,14 +4,18 @@
 module Game.Unit.Unit
   ( UnitData
   , stats
+  , position
+  , _position
   , timedEffects
   , inventory
   , baseWeapon
   , Unit(..)
-  , AnyUnit
+  , AnyUnit(..)
   , packUnit
-  , Action
+  , Action(..)
+  , Direction(..)
   , createUnitData
+  , position
   )
 where
 
@@ -23,16 +27,13 @@ import           Game.GameLevels.GameLevel
 import           Game.Item
 import           Game.Unit.Stats
 import           Game.Unit.TimedEffects
-
-data Direction = Positive
-               | Negative
-               | Zero
-
-data Action = Move Direction Direction
+import           Game.Unit.Action
 
 data UnitData
   = UnitData
-      { _stats :: Stats,
+      { _position :: (Int, Int),
+        _depth :: Int,
+        _stats :: Stats,
         _timedEffects :: TimedEffects,
         _inventory :: Inventory,
         _baseWeapon :: WeaponItem,
@@ -40,7 +41,9 @@ data UnitData
       }
 
 createUnitData
-  :: Stats
+  :: (Int, Int)
+  -> Int
+  -> Stats
   -> TimedEffects
   -> Inventory
   -> WeaponItem
@@ -54,9 +57,14 @@ class Unit a where
   applyEffect :: Effect () -> a -> a
   attackEffect :: a -> Effect ()
 
-data AnyUnit = forall a. Unit a => AnyUnit a
+data AnyUnit = forall a. (Unit a) => AnyUnit a
 
 makeLenses ''UnitData
+
+instance Unit AnyUnit where
+  asUnitData (AnyUnit u) = asUnitData u
+  applyEffect e (AnyUnit u) = AnyUnit $ applyEffect e u
+  attackEffect (AnyUnit u) = attackEffect u
 
 packUnit :: Unit a => a -> AnyUnit
 packUnit = AnyUnit 
