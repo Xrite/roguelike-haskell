@@ -15,7 +15,7 @@ data UIDesc action =
              , __onKeyPress :: Maybe (Keys.Keys -> action)
              }
 
-data Map = Map [[Char]]
+data Map = Map { __mapField :: [[Char]] }
 
 data Log = Log { __logRecords :: [String] }
 
@@ -70,3 +70,27 @@ addToLog item = modify $ over (_getLog . _logRecords) (item:)
 
 addItem :: String -> action -> Builder action ()
 addItem item act = modify $ over (_itemMenu . _menuItems) ((item, act):)
+
+getMap :: UIDesc action -> Map
+getMap = __getMap
+
+getLog :: UIDesc action -> Log
+getLog = __getLog
+
+getStats :: UIDesc action -> Stats
+getStats = __getStats
+
+getItemMenu :: UIDesc action -> ItemMenu action
+getItemMenu = __itemMenu
+
+getOnArrowsKeyPress :: UIDesc action -> Maybe (Keys.Arrows -> action)
+getOnArrowsKeyPress = __onArrowsPress
+
+getOnKeyPress :: UIDesc action -> Maybe (Keys.Keys -> action)
+getOnKeyPress = __onKeyPress
+
+mapField :: Map -> [[Char]]
+mapField = __mapField
+
+logRecords :: Log -> [String]
+logRecords = __logRecords
