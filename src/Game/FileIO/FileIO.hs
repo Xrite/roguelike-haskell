@@ -1,5 +1,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 
+-- Module responsible for reading levels from file
+
 module Game.FileIO.FileIO
     ( getSavedLevels
     , getLevelByName
@@ -15,67 +17,56 @@ import System.Directory
 import Control.Exception
 import Data.Array.IArray
 
+levelsFolder :: [Char]
 levelsFolder = "resources/savedLevels/"
--- TODO make not show not read
--- TODO handle errors
 
--- hPrint          :: Show a => Handle -> a -> IO ()
--- hPrint hdl      =  hPutStrLn hdl . show
-
-getSavedLevels :: Exception e => IO (Either e [String])
+-- Returns a list of saved levels name that could be loaded
+getSavedLevels :: IO (Either SomeException [String])
 getSavedLevels = try $ do
     path <- makeAbsolute levelsFolder
     files <- listDirectory path
     return $ map (takeWhile ((/=) '.'))files
 
-getLevelByName :: Exception e => String -> IO (Either e GameLevel)
+-- Loads a GameLevel from a file that corresponds to the given level name
+getLevelByName :: String -> IO (Either SomeException GameLevel)
 getLevelByName name = do
     path <- makeAbsolute levelsFolder
     readLevelFromFile (path ++ name ++ ".txt")
 
-saveLevelToFile :: GameLevel -> FilePath -> IO ()
-saveLevelToFile gameLevel filePath = do
-	fileHandler <- openFile filePath WriteMode
-	hPrint fileHandler gameLevel
-	hClose fileHandler
-
-readLevelFromFile :: Exception e => FilePath -> IO (Either e GameLevel)
+readLevelFromFile :: FilePath -> IO (Either SomeException GameLevel)
 readLevelFromFile filePath = try $ do
     fileHandler <- openFile filePath ReadMode
     content <- hGetContents fileHandler
-    return $ readGameLevel content
+    case (readGameLevel content) of
+        (Just x) -> return x
+        Nothing -> throw (userError "wrong format")
 
-instance Show GameLevel where
-	show (GameLevel map) = show map
+readGameLevel :: String -> Maybe GameLevel
+readGameLevel str = do 
+    _map <- readMap str
+    return $ makeGameLevel _map
 
-readGameLevel :: String -> GameLevel
-readGameLevel str = makeGameLevel $ readMap str
+readMap :: String -> Maybe Map
+readMap str = do
+    _array <- readArray str
+    return $ makeMap _array
 
-instance Show Map where
-	show (Map cells) = show cells
+readArray :: String -> Maybe (Array (Int, Int) MapCell)
+readArray str = let lists = map (map (readMapCell)) (lines str) in
+    fmap (listArray ((0, 0), (length lists, (length (lists !! 0))))) (sequence $ concat lists)
 
-readMap :: String -> Map
-readMap str = makeMap $ readArray str
+readMapCell :: Char -> Maybe MapCell
+readMapCell str = do 
+    mapCellType <- readMapCellType str
+    return $ makeEmptyCell mapCellType
 
-readArray :: String -> Array (Int, Int) MapCell
-readArray str = let lists = map (map readMapCell) (lines str) in
-    listArray ((0, 0), (length lists, (length (lists !! 0)))) (concat lists)
-
-instance Show MapCell where
-	show (MapCell _cellType _) = show _cellType
-
-readMapCell :: Char -> MapCell
-readMapCell str = makeEmptyCell $ readMapCellType str
-
-instance Show MapCellType where
-    show (MapCellType _cellRender _ _ _ _) = show _cellRender
-
-readMapCellType :: Char -> MapCellType
+readMapCellType :: Char -> Maybe MapCellType
 readMapCellType str = case str of 
-    '#' -> wall
-    '+' -> hallGround
-    '.' -> roomGround
-    'T' -> tree
-    '%' -> bush
-    '>' -> ladderDown
-    '<' -> ladderUp
+    '#' -> Just wall
+    '+' -> Just hallGround
+    '.' -> Just roomGround
+    'T' -> Just tree
+    '%' -> Just bush
+    '>' -> Just ladderDown
+    '<' -> Just ladderUp
+    _ -> Nothing
