@@ -31,7 +31,7 @@ data Coord =
     { _xCoord :: Int      -- ^ x coordinate
     , _yCoord :: Int      -- ^ y coordinate
     }
-  deriving (Show)
+  deriving (Show, Eq)
 
 makeLenses ''Coord
 
@@ -43,7 +43,7 @@ data Space =
     { _fromCoord :: Coord -- ^ starting corner of a space
     , _toCoord :: Coord   -- ^ finishing corner of a space
     }
-  deriving (Show)
+  deriving (Show, Eq)
 
 makeLenses ''Space
 
@@ -55,7 +55,7 @@ data Room =
     { _fromCorner :: Coord
     , _toCorner :: Coord
     }
-  deriving (Show)
+  deriving (Show, Eq)
 
 makeLenses ''Room
 
@@ -69,7 +69,7 @@ data Hall =
     { _startCorner :: Coord
     , _finishCorner :: Coord
     }
-  deriving (Show)
+  deriving (Show, Eq)
 
 makeLenses ''Hall
 
@@ -115,7 +115,7 @@ toPair (Coord x y) = (x, y)
 -- If parameters are inconsistent in any way, behavior of this function is unspecified.
 generateLevel :: (RandomMonad g m)
               => GeneratorParameters   -- ^ Parameters of a level
-              -> Space                 -- ^ Space in which a level should be contained
+              -> Space                 -- ^ Space in which a level should be contained (should be STRICTLY bigger than minimal room size)
               -> m ([Room], [Hall])    -- ^ All rooms and halls of a generated level in a random monad of choice
 generateLevel param s = do
   spaceTree <- generate $ generateSpaceTree param s
