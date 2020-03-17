@@ -8,6 +8,7 @@ import Game.Environment
 import Game.GameLevels.GameLevel
 import Game.GameLevels.MapCell
 import Game.GameLevels.MapCellType
+import Game.Unit.Action
 import Game.Unit.Unit
   ( AnyUnit
   , _position
@@ -15,9 +16,17 @@ import Game.Unit.Unit
   , asUnitData
   , position
   , stats
+  , Action(..)
   )
 import Control.Applicative ((<|>))
 
+maybeMakeAction :: UnitId -> Action -> Environment -> Maybe Environment
+maybeMakeAction unitId (Move xDir yDir) env = maybeMakeMoveUnbound unitId newCoord env
+  where
+    currentCoord = asUnitData (unitById unitId env) ^. position
+    newCoord = changeCoord xDir yDir currentCoord
+
+-- | Allows unit to make a move considering distance
 maybeMakeMove :: UnitId -> (Int, Int) -> Environment -> Maybe Environment
 maybeMakeMove unitId coord env = do
   let movingUnit = unitById unitId env

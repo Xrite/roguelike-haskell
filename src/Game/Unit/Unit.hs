@@ -12,7 +12,8 @@ module Game.Unit.Unit
   , Unit(..)
   , AnyUnit(..)
   , packUnit
-  , Action
+  , Action(..)
+  , Direction(..)
   , createUnitData
   , position
   )
@@ -26,12 +27,7 @@ import           Game.GameLevels.GameLevel
 import           Game.Item
 import           Game.Unit.Stats
 import           Game.Unit.TimedEffects
-
-data Direction = Positive
-               | Negative
-               | Zero
-
-data Action = Move Direction Direction
+import           Game.Unit.Action
 
 data UnitData
   = UnitData
