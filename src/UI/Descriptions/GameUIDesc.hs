@@ -4,12 +4,16 @@ module UI.Descriptions.GameUIDesc where
 
 import           Control.Monad.State
 import           Control.Lens
+import qualified UI.Keys as Keys
 
-data UIDesc action = GameUIDesc { __getMap :: Map
-                                , __getLog :: Log
-                                , __getStats :: Stats
-                                , __itemMenu :: ItemMenu action
-                                }
+data UIDesc action =
+  GameUIDesc { __getMap :: Map
+             , __getLog :: Log
+             , __getStats :: Stats
+             , __itemMenu :: ItemMenu action
+             , __onArrowsPress :: Maybe (Keys.Arrows -> action)
+             , __onKeyPress :: Maybe (Keys.Keys -> action)
+             }
 
 data Map = Map [[Char]]
 
@@ -19,36 +23,50 @@ data Stats = Stats [String]
 
 data ItemMenu action = ItemMenu { __menuItems :: [(String, action)] }
 
+type Builder action = State (UIDesc action)
+
 makeLenses ''UIDesc
 
 makeLenses ''Log
 
 makeLenses ''ItemMenu
 
+defaultMap :: Map
 defaultMap = Map [[]]
 
+defaultLog :: Log
 defaultLog = Log []
 
+defaultStats :: Stats
 defaultStats = Stats []
 
+defaultItemMenu :: ItemMenu action
 defaultItemMenu = ItemMenu []
 
-defalutUIDesc = GameUIDesc defaultMap defaultLog defaultStats defaultItemMenu
+defalutUIDesc :: UIDesc action
+defalutUIDesc =
+  GameUIDesc defaultMap defaultLog defaultStats defaultItemMenu Nothing Nothing
 
-mkGameUI :: State (UIDesc action) a -> UIDesc action
+mkGameUI :: Builder action a -> UIDesc action
 mkGameUI = flip execState defalutUIDesc
 
-setMap :: [[Char]] -> State (UIDesc action) ()
+setMap :: [[Char]] -> Builder action ()
 setMap m = modify $ set _getMap (Map m)
 
-setLog :: [String] -> State (UIDesc action) ()
+setLog :: [String] -> Builder action ()
 setLog log = modify $ set _getLog (Log log)
 
-setStats :: [String] -> State (UIDesc action) ()
+setArrowPress :: (Keys.Arrows -> action) -> Builder action ()
+setArrowPress f = modify $ set _onArrowsPress (Just f)
+
+setKeyPress :: (Keys.Keys -> action) -> Builder action ()
+setKeyPress f = modify $ set _onKeyPress (Just f)
+
+setStats :: [String] -> Builder action ()
 setStats stats = modify $ set _getStats (Stats stats)
 
-addToLog :: String -> State (UIDesc action) ()
+addToLog :: String -> Builder action ()
 addToLog item = modify $ over (_getLog . _logRecords) (item:)
 
-addItem :: String -> action -> State (UIDesc action) ()
+addItem :: String -> action -> Builder action ()
 addItem item act = modify $ over (_itemMenu . _menuItems) ((item, act):)

@@ -24,6 +24,9 @@ makeLenses ''BaseLayout
 
 makeLenses ''Dialog
 
+baseLayout :: UI action -> BaseLayout action
+baseLayout = __baseLayout
+
 showDialog :: Dialog action -> UI action -> UI action
 showDialog d = set _dialog $ Just d
 
