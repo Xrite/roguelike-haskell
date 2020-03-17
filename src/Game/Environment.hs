@@ -1,32 +1,72 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE RankNTypes #-}
 module Game.Environment
   ( Environment
+  , UnitId
+  , getCurrentLevel
+  , unitById
+  , unitLensById
+  , unitByCoord
+  , unitIdByCoord
+  , affectUnitById
+  , envAttack
   )
 where
 
 import           Game.Unit.Player               ( Player )
 import           Game.Unit.Mob                  ( Mob )
-import           Game.Unit.Unit                 ( AnyUnit )
+import           Game.Unit.Unit                 ( AnyUnit, asUnitData, _position, applyEffect )
 import           Game.GameLevels.GameLevel
 import           Control.Monad.State
-import           Control.Lens                   (makeLenses)
+import           Control.Lens
+import           PreludeUtil                    ( listLens )
+import           Data.Foldable                  ( find )
+import           Data.List                      ( findIndex )
+import Game.Effect (Effect)
+import Game.Unit.DamageCalculation (attack)
 
-import Game.Unit.Unit
-import Control.Lens ((^.), (%~))
-import Game.GameLevels.GameLevel
-import Data.Foldable (find)
-import Game.GameLevels.MapCell
-import Game.GameLevels.MapCellType
-import Data.Maybe (isNothing)
-import Game.Effect
-import Util
+-- | All manipulations with units in environment should use this type
+newtype UnitId = UnitId Int
 
-
+-- TODO maybe extract units to a different module?
 data Environment =
    Environment { _player :: Player, _units :: [AnyUnit], _levels :: [GameLevel], _currentLevel :: Int }
 makeLenses ''Environment
 
+{-|
+  This function should remove dead units from environment.
+  It is called after each function that can modify units in the environment. With current implementation of units storage it invalidates 'UnitId'.
+  As you can see, it is not yet implemented, so TODO implement filterDead
+-}
+filterDead :: Environment -> Environment
+filterDead = id
+
+unitLensById :: UnitId -> Lens' Environment AnyUnit
+unitLensById (UnitId idxInt) = units . listLens idxInt
+
+unitById :: UnitId -> Environment -> AnyUnit
+unitById idx env = env ^. unitLensById idx
+
+setUnitById :: UnitId -> AnyUnit -> Environment -> Environment
+setUnitById idx unit = filterDead . set (unitLensById idx) unit
+
+affectUnitById :: UnitId -> Effect () -> Environment -> Environment
+affectUnitById idx effect = filterDead . (unitLensById idx %~ applyEffect effect)
+
+unitIdByCoord :: (Int, Int) -> Environment -> Maybe UnitId
+unitIdByCoord coord env = UnitId <$> findIndex ((== coord) . _position . asUnitData) (_units env)
+
+unitByCoord :: (Int, Int) -> Environment -> Maybe AnyUnit
+unitByCoord coord env = find ((== coord) . _position . asUnitData) $ _units env
+
+envAttack :: UnitId -> UnitId -> Environment -> Environment
+envAttack attackerId attackedId env = filterDead $ applyAttack env
+  where
+    attacker = unitById attackerId env
+    attacked = unitById attackedId env
+    (attackerNew, attackedNew) = attack attacker attacked
+    applyAttack = (unitLensById attackerId .~ attackerNew) . (unitLensById attackedId .~ attackedNew)
 
 newtype GameEnv a = GameEnv (State Environment a) deriving (Functor, Applicative, Monad, MonadState Environment)
 
@@ -41,24 +81,3 @@ instance GameEnvironmentReader GameEnv where
 
 getCurrentLevel :: Environment -> GameLevel
 getCurrentLevel env = _levels env !! _currentLevel env
-
--- | Moves a unit to a place if they can go there. Returns 'Nothing' if it is occupied by someone else or if it is a wall.
-moveUnit :: Environment -> Int -> (Int, Int) -> Maybe Environment
-moveUnit env unitNumber coord =
-  if cantMoveThere
-    then Nothing
-    else Just $ units %~ setAt unitNumber (applyEffect (setCoord coord) movingUnit) $ env
-  where
-    movingUnit = _units env !! unitNumber
-    cantMoveThere = canGo env movingUnit (_position $ asUnitData movingUnit) coord
-
-findByCoord :: Environment -> (Int, Int) -> Maybe AnyUnit
-findByCoord env coord = find ((== coord) . _position . asUnitData) $ _units env
-
-canGo :: Environment -> AnyUnit -> (Int, Int) -> (Int, Int) -> Bool
-canGo env unit oldCoord newCoord = oldCoord == newCoord || canMoveThere
-  where
-      occupyingUnitMaybe = findByCoord env newCoord
-      placeOccupied = isNothing occupyingUnitMaybe
-      cell = getCell newCoord $ getCurrentLevel env ^. lvlMap
-      canMoveThere = not placeOccupied && (cell ^. cellType . passable $ asUnitData unit ^. stats)
