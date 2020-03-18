@@ -56,4 +56,4 @@ handleEvent ui event = case event of
   _ -> continue ui
 
 theMap :: AttrMap
-theMap = undefined
+theMap = attrMap V.defAttr []

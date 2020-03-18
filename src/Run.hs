@@ -7,11 +7,14 @@ import Game.GameLevels.Generation.BSPGen
 import System.Random
 import Game.IO.TempRender
 import Game.GameLevels.GenerateLevel
+import Brick.Main (defaultMain)
+import UI.Descriptions.GameUIDesc (GameState (MainMenu))
+import UI.BrickUI (app)
 
 run :: RIO App ()
---run = runIO $ void $ defaultMain app MainMenu
-run = do
-  foldMap (logInfo . displayShow) render
+run = liftIO $ void $ defaultMain app MainMenu
+--run = do
+--  foldMap (logInfo . displayShow) render
 --  logInfo $ displayShow $ runState (generateLevel param s) gen
   where
     param = GeneratorParameters 10 1.7 5
