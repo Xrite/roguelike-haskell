@@ -31,6 +31,7 @@ dependencies:
 - brick
 - vty
 - directory
+- comonad
 
 ghc-options:
 - -Wall

@@ -1,3 +1,4 @@
+{-# LANGUAGE MultiParamTypeClasses #-}
 module Game.IO.GameIO where
 
 -- I'll use it until actual io becomes available (Vlad)
@@ -10,5 +11,5 @@ newtype GameIO a = Maybe a
 pureGameIO :: a -> GameIO a
 pureGameIO = undefined
 
-class (Monad m) => GameUI m where
-    showUI :: UI (m a) -> m a
+class (Monad m) => GameUI m a where
+    showUI :: UI a b -> m ()
