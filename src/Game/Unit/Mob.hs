@@ -1,5 +1,6 @@
 {-# LANGUAGE TemplateHaskell #-}
 
+-- | Describes a 'Unit' type for mobs
 module Game.Unit.Mob where
 
 import           Control.Lens

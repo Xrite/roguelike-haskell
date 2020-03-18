@@ -1,6 +1,7 @@
 {-# LANGUAGE TemplateHaskell, DeriveFunctor, DeriveFoldable #-}
 {-# LANGUAGE MonoLocalBinds #-}
 
+-- | Describes level generation using binary space tree algorithm.
 module Game.GameLevels.Generation.BSPGen
   ( xCoord
   , yCoord

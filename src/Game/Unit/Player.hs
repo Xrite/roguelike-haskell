@@ -1,4 +1,6 @@
 {-# LANGUAGE TemplateHaskell #-}
+
+-- | Describes a 'Unit' type for players 
 module Game.Unit.Player
   ( LevellingStats
   , Player

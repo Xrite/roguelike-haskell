@@ -1,6 +1,7 @@
 {-# LANGUAGE ExistentialQuantification #-}
 {-# LANGUAGE TemplateHaskell #-}
 
+-- | Describes common interface for all units in the game.
 module Game.Unit.Unit
   ( UnitData
   , stats

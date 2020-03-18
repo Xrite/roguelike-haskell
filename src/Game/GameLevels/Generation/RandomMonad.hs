@@ -1,6 +1,8 @@
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE UndecidableInstances #-}
+
+-- | Describes a monad for computations involving random values generation.
 module Game.GameLevels.Generation.RandomMonad where
 
 import Control.Monad.State.Lazy
