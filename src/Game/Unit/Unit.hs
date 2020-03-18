@@ -33,27 +33,27 @@ import           Game.Unit.Action
 -- | Common data of all units.
 data UnitData
   = UnitData
-      { _position :: (Int, Int),                              -- ^| Coordinates on a level
-        _depth :: Int,                                        -- ^| Level (as in depth) on which the unit is now
-        _stats :: Stats,                                      -- ^| Stats of a unit
-        _timedEffects :: TimedEffects,                        -- ^| Timed effects that are affecting the unit
-        _inventory :: Inventory,                              -- ^| Inventory on a unit
-        _baseWeapon :: WeaponItem,                            -- ^| A weapon to use when unit is fighting bare-hand TODO use it in calculations
+      { _position :: (Int, Int),                              -- ^ Coordinates on a level
+        _depth :: Int,                                        -- ^ Level (as in depth) on which the unit is now
+        _stats :: Stats,                                      -- ^ Stats of a unit
+        _timedEffects :: TimedEffects,                        -- ^ Timed effects that are affecting the unit
+        _inventory :: Inventory,                              -- ^ Inventory on a unit
+        _baseWeapon :: WeaponItem,                            -- ^ A weapon to use when unit is fighting bare-hand TODO use it in calculations
         -- | Defines behavior of a unit. Arguments are level and all the other units on it. TODO remove if not used
         _control :: GameLevel -> [AnyUnit] -> GameIO Action
       }
 
 -- | Constructs a new 'UnitData'.
 createUnitData
-  :: (Int, Int)
-  -> Int
-  -> Stats
-  -> TimedEffects
-  -> Inventory
-  -> WeaponItem
-  -> (GameLevel -> [AnyUnit] -> GameIO Action)
-  -> UnitData
-createUnitData = UnitData 
+  :: (Int, Int)                                 -- ^ Coordinates on a level
+  -> Int                                        -- ^ Level (as in depth) on which the unit is now
+  -> Stats                                      -- ^ Stats of a unit
+  -> TimedEffects                               -- ^ Timed effects that are affecting the unit
+  -> Inventory                                  -- ^ Inventory on a unit
+  -> WeaponItem                                 -- ^ A weapon to use when unit is fighting bare-hand TODO use it in calculations
+  -> (GameLevel -> [AnyUnit] -> GameIO Action)  -- ^ Defines behavior of a unit. Arguments are level and all the other units on it.
+  -> UnitData                                   -- ^ Constructed 'Unit'
+createUnitData = UnitData
 
 -- | Something that can hit and run.
 -- A typeclass for every active participant of a game. If it moves and participates in combat system, it is a unit.
