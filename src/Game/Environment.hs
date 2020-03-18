@@ -11,6 +11,8 @@ module Game.Environment
   , unitIdByCoord
   , affectUnitById
   , envAttack
+  , makeEnvironment
+  , makeUnitId
   )
 where
 
@@ -30,16 +32,27 @@ import Game.Unit.Stats
 -- | All manipulations with units in environment should use this type
 newtype UnitId = UnitId Int
 
+-- | Creates 'UnitId' from unit number in the list of units.
+-- Created for testing purposes, avoid using at all costs.
+makeUnitId :: Int -> UnitId
+makeUnitId = UnitId
+
 -- TODO maybe extract units to a different module?
+-- TODO comment
 data Environment =
    Environment { _player :: Player, _units :: [AnyUnit], _levels :: [GameLevel], _currentLevel :: Int, _currentUnitTurn :: Int }
 makeLenses ''Environment
 
-{-|
-  This function should remove dead units from environment.
-  It is called after each function that can modify units in the environment. With current implementation of units storage it invalidates 'UnitId'.
-  Item drop (units death effects in general) is not yet implemented, so TODO implement death effects in filterDead
--}
+instance Show Environment where
+  show _ = "Environment"
+
+-- | Constructs a new 'Environment'.
+makeEnvironment :: Player -> [AnyUnit] -> [GameLevel] -> Environment
+makeEnvironment player units levels = Environment player units levels 0 0
+
+-- | This function should remove dead units from environment.
+-- It is called after each function that can modify units in the environment. With current implementation of units storage it invalidates 'UnitId'.
+-- Item drop (units death effects in general) is not yet implemented, so TODO implement death effects in filterDead
 filterDead :: Environment -> Environment
 filterDead env = (currentUnitTurn %~ flip (-) startUnitsDied) . (units .~ newUnits) $ env
   where
