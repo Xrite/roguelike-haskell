@@ -1,6 +1,6 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 
--- Module responsible for reading levels from file
+-- | Module responsible for constructing levels from file
 
 module Game.FileIO.FileIO
     ( getSavedLevels
@@ -20,7 +20,7 @@ import Data.Array.IArray
 levelsFolder :: String
 levelsFolder = "resources/savedLevels/"
 
--- Returns a list of saved levels name that could be loaded
+-- | Returns a list of saved levels' names that can be loaded
 getSavedLevels :: IO (Either SomeException [String])
 getSavedLevels =
   try $ do
@@ -28,7 +28,7 @@ getSavedLevels =
     files <- listDirectory path
     return $ map (takeWhile ('.' /=)) files
 
--- Loads a GameLevel from a file that corresponds to the given level name
+-- | Loads a GameLevel from a file that corresponds to the given level name
 getLevelByName :: String -> IO (Either SomeException GameLevel)
 getLevelByName name = do
     path <- makeAbsolute levelsFolder
