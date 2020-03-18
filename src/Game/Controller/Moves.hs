@@ -52,8 +52,8 @@ maybeAttackCoord attackerId coord env =
 -- | Makes a unit attack a unit by provided coord if there is a unit there. Prohibits attacking yourself.
 maybeAttackCoordSafe :: UnitId -> (Int, Int) -> Environment -> Maybe Environment
 maybeAttackCoordSafe attackerId coord env = do
+  guard $ asUnitData (unitById attackerId env) ^. position /= coord
   occupyingUnitId <- unitIdByCoord coord env
-  guard $ asUnitData (unitById occupyingUnitId env) ^. position /= coord
   return $ envAttack attackerId occupyingUnitId env
 
 -- | Moves a unit to a place if the place is free. Returns 'Nothing' if it is occupied by someone else or if it is a wall.
