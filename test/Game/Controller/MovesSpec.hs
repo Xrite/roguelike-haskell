@@ -31,7 +31,7 @@ canMoveSpec = do
 moveUnitSpec :: Spec
 moveUnitSpec =
   describe "moveUnit tests" $ do
-    it "can't move in wall" $ moveTo (3, 6) `shouldNotSatisfy` isNothing
+    it "can't move in wall" $ moveTo (3, 6) `shouldSatisfy` isNothing
     it "can't move in others" $ moveTo (14, 15) `shouldSatisfy` isNothing
     it "can move in yourself" $ moveTo (7, 8) `shouldSatisfy` isJust
     it "can move in free places" $ moveTo (3, 7) `shouldSatisfy` isJust

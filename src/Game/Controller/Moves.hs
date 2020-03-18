@@ -59,22 +59,21 @@ maybeAttackCoordSafe attackerId coord env = do
 -- | Moves a unit to a place if the place is free. Returns 'Nothing' if it is occupied by someone else or if it is a wall.
 maybeMoveUnit :: UnitId -> (Int, Int) -> Environment -> Maybe Environment
 maybeMoveUnit unitId coord env =
-  if cantMoveThere
-    then Nothing
-    else Just $ unitLensById unitId %~ applyEffect (setCoord coord) $ env
+  if canMoveThere
+    then Just $ unitLensById unitId %~ applyEffect (setCoord coord) $ env
+    else Nothing
   where
     movingUnit = unitById unitId env
-    cantMoveThere =
-      canMove movingUnit coord env
+    canMoveThere = canMove movingUnit coord env
 
 -- | Checks if a unit could be moved to a location
 -- Position is allowed if it is either equals to the previous position or the place is passable and there are 
 -- no one else there.
 canMove :: AnyUnit -> (Int, Int) -> Environment -> Bool
-canMove unit newCoord env = oldCoord == newCoord || placeFree
+canMove unit newCoord env = (oldCoord == newCoord) || placeFree
   where
     oldCoord = _position $ asUnitData unit
     occupyingUnitMaybe = unitByCoord newCoord env
-    placeOccupied = isNothing occupyingUnitMaybe
+    placeNotOccupied = isNothing occupyingUnitMaybe
     cell = getCell newCoord $ getCurrentLevel env ^. lvlMap
-    placeFree = not placeOccupied && (cell ^. cellType . passable $ asUnitData unit ^. stats)
+    placeFree = placeNotOccupied && (cell ^. cellType . passable $ asUnitData unit ^. stats)

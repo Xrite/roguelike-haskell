@@ -44,4 +44,4 @@ makeWall render' = makeConstCellType render' False False
 
 -- | Create non-transparent passable cell type
 makeGround :: Char -> MapCellType
-makeGround render' = makeConstCellType render' True False
+makeGround render' = makeConstCellType render' True True
