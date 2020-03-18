@@ -9,6 +9,7 @@ import Game.IO.TempRender
 import Game.GameLevels.GenerateLevel
 
 run :: RIO App ()
+--run = runIO $ void $ defaultMain app MainMenu
 run = do
   foldMap (logInfo . displayShow) render
 --  logInfo $ displayShow $ runState (generateLevel param s) gen

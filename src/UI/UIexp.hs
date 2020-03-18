@@ -10,9 +10,11 @@ import Game.Unit.Stats (Stats)
 import UI.Keys as Keys
 import Game.Controller.Moves (maybeMakeAction)
 import Game.Unit.Action
-import Game.Unit.Unit (asUnitData, _stats)
+import Game.Unit.Unit (asUnitData, _stats, UnitData)
 import UI.Descriptions.GameUIDesc
 import Game.GameLevels.MapCell (renderCell)
+import Game.Unit.Player (Player)
+import UI.TestEnvironment
 
 arrowPress :: Arrows -> Environment -> Environment
 arrowPress Keys.Up env = fromMaybe env $ maybeMakeAction (UnitId 0) (Move Positive Zero) env
@@ -32,10 +34,10 @@ instance UIexp GameState where
   keyPress key (Game env) = Game $ fromMaybe env $ do
       arrow <- parseArrows key
       return $ arrowPress arrow env
-  keyPress (Keys.Letter 'r') MainMenu = Game undefined
+  keyPress (Keys.Letter 't') MainMenu = Game testEnvironment
   keyPress _ state = state
 
-  render MainMenu = MenuUI $ ListMenuUIDesc (Title "Main menu") [ListItem "(r) Random", ListItem "(l) Load"]
+  render MainMenu = MenuUI $ ListMenuUIDesc (Title "Main menu") [ListItem "(r) Random", ListItem "(l) Load", ListItem "(t) Test environment"]
   render (Game env) = GameUI $ GameUIDesc (renderLevel $ getCurrentLevel env) (Log ["You've entered the game"])
 
 renderLevel :: GameLevel -> MapDesc
