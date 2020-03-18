@@ -9,7 +9,6 @@ import qualified UI.Keys as Keys
 import qualified Graphics.Vty as V
 import           Control.Lens
 import           Data.Maybe
-import UI.Keys (Keys (Letter))
 
 
 type Name = ()
@@ -31,7 +30,7 @@ drawUI ui = case UI.render ui of
 
 drawGameUI :: GameUIDesc -> [Widget n]
 drawGameUI desc =
-  [ drawMap (getMap desc) <=> drawLog (getLog desc) ]
+  [ padRight (Pad 2) (drawMap (getMap desc))]
 
 
 drawMap :: MapDesc -> Widget n
@@ -48,12 +47,16 @@ drawLog l = vBox rows
 
 
 drawItemMenu :: ListMenuUIDesc -> Widget n
-drawItemMenu _ = fill '$' 
+drawItemMenu menu = vBox rows
+  where
+    rows = map (\(ListItem s) -> str s) $ __items menu
 
 handleEvent :: (UIexp a) => a -> BrickEvent Name Tick -> EventM Name (Next a)
 handleEvent ui event = case event of
-  (VtyEvent (V.EvKey (V.KChar c) [])) -> continue $ keyPress (Letter c) ui
+  (VtyEvent (V.EvKey (V.KChar 'q') [])) -> halt ui
+  (VtyEvent (V.EvKey (V.KChar c) [])) -> continue $ keyPress (Keys.Letter c) ui
   _ -> continue ui
+
 
 theMap :: AttrMap
 theMap = attrMap V.defAttr []

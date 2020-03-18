@@ -18,6 +18,7 @@ data Arrows = Up
 data Keys = Letter Char
           | Enter
           | Space
+          | Arrow Arrows
 
 parseArrows :: Keys -> Maybe Arrows
 parseArrows (Letter c) = lookup c keyArrows

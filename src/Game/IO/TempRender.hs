@@ -11,3 +11,4 @@ renderLevel lvl =
   where
     mp = lvl ^. lvlMap
     ((xFrom, yFrom), (xTo, yTo)) = getMapSize mp
+
