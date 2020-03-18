@@ -14,13 +14,14 @@ import           Game.Unit.Inventory            ( getAllWearableEffects
                                                 , getWeaponEffect
                                                 )
 
-
+-- | Describes everything regarding level-up system of a 'Player'
 data LevellingStats = LevellingStats
   { _experience :: Int
   , _skillPoints :: Int
   }
 makeLenses ''LevellingStats
 
+-- | A unit that can get experience points and level-ups. Controlled from the outside world.
 data Player =
   Player { _playerUnit :: UnitData, _levelling :: LevellingStats}
 makeLenses ''Player
