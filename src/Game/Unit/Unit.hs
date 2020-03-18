@@ -16,7 +16,6 @@ module Game.Unit.Unit
   , Action(..)
   , Direction(..)
   , createUnitData
-  , position
   )
 where
 
@@ -30,17 +29,20 @@ import           Game.Unit.Stats
 import           Game.Unit.TimedEffects
 import           Game.Unit.Action
 
+-- | Common data of all units.
 data UnitData
   = UnitData
-      { _position :: (Int, Int),
-        _depth :: Int,
-        _stats :: Stats,
-        _timedEffects :: TimedEffects,
-        _inventory :: Inventory,
-        _baseWeapon :: WeaponItem,
+      { _position :: (Int, Int),                              -- ^| Coordinates on a level
+        _depth :: Int,                                        -- ^| Level (as in depth) on which the unit is now
+        _stats :: Stats,                                      -- ^| Stats of a unit
+        _timedEffects :: TimedEffects,                        -- ^| Timed effects that are affecting the unit
+        _inventory :: Inventory,                              -- ^| Inventory on a unit
+        _baseWeapon :: WeaponItem,                            -- ^| A weapon to use when unit is fighting bare-hand TODO use it in calculations
+        -- | Defines behavior of a unit. Arguments are level and all the other units on it. TODO remove if not used
         _control :: GameLevel -> [AnyUnit] -> GameIO Action
       }
 
+-- | Constructs a new 'UnitData'.
 createUnitData
   :: (Int, Int)
   -> Int
@@ -52,20 +54,29 @@ createUnitData
   -> UnitData
 createUnitData = UnitData 
 
--- | Something that can hit and run
+-- | Something that can hit and run.
+-- A typeclass for every active participant of a game. If it moves and participates in combat system, it is a unit.
 class Unit a where
+  -- |Returns 'UnitData' of a unit.
   asUnitData :: a -> UnitData
+  -- | How unit is affected by 'Effect's.
+  -- It is the main thing that differs a 'Unit' from 'UnitData'.
   applyEffect :: Effect () -> a -> a
+  -- | Effect for this unit's attacks
   attackEffect :: a -> Effect ()
 
+-- | An existential type wrapper for any type implementing 'Unit'.
+-- Existential classes is an antipattern, but what other choice do we have? 
 data AnyUnit = forall a. (Unit a) => AnyUnit a
 
 makeLenses ''UnitData
 
+-- | Instance of 'Unit' for the wrapper 'AnyUnit" that simply transfers every call to the wrapped object.
 instance Unit AnyUnit where
   asUnitData (AnyUnit u) = asUnitData u
   applyEffect e (AnyUnit u) = AnyUnit $ applyEffect e u
   attackEffect (AnyUnit u) = attackEffect u
 
+-- | Packs any unit into 'AnyUnit' box.
 packUnit :: Unit a => a -> AnyUnit
 packUnit = AnyUnit 
