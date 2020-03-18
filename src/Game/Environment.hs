@@ -3,7 +3,7 @@
 {-# LANGUAGE RankNTypes #-}
 module Game.Environment
   ( Environment
-  , UnitId
+  , UnitId(..)
   , getCurrentLevel
   , unitById
   , unitLensById

@@ -1,4 +1,5 @@
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE DeriveFunctor #-}
 
 module UI.Descriptions.GameUIDesc where
 
@@ -6,13 +7,13 @@ import           Control.Monad.State
 import           Control.Lens
 import qualified UI.Keys as Keys
 
-data UIDesc action =
+data UIDesc a b =
   GameUIDesc { __getMap :: Map
              , __getLog :: Log
              , __getStats :: Stats
-             , __itemMenu :: ItemMenu action
-             , __onArrowsPress :: Maybe (Keys.Arrows -> action)
-             , __onKeyPress :: Maybe (Keys.Keys -> action)
+             , __itemMenu :: ItemMenu a b
+             , __onArrowsPress :: Maybe (Keys.Arrows -> a -> b)
+             , __onKeyPress :: Maybe (Keys.Keys -> a -> b)
              }
 
 data Map = Map { __mapField :: [[Char]] }
@@ -21,9 +22,9 @@ data Log = Log { __logRecords :: [String] }
 
 data Stats = Stats [String]
 
-data ItemMenu action = ItemMenu { __menuItems :: [(String, action)] }
+data ItemMenu a b = ItemMenu { __menuItems :: [(String, a -> b)] }
 
-type Builder action = State (UIDesc action)
+type Builder a b = State (UIDesc a b)
 
 makeLenses ''UIDesc
 
@@ -40,53 +41,53 @@ defaultLog = Log []
 defaultStats :: Stats
 defaultStats = Stats []
 
-defaultItemMenu :: ItemMenu action
+defaultItemMenu :: ItemMenu a b
 defaultItemMenu = ItemMenu []
 
-defalutUIDesc :: UIDesc action
+defalutUIDesc :: UIDesc a b
 defalutUIDesc =
   GameUIDesc defaultMap defaultLog defaultStats defaultItemMenu Nothing Nothing
 
-mkGameUI :: Builder action a -> UIDesc action
+mkGameUI :: Builder a b c -> UIDesc a b
 mkGameUI = flip execState defalutUIDesc
 
-setMap :: [[Char]] -> Builder action ()
+setMap :: [[Char]] -> Builder a b ()
 setMap m = modify $ set _getMap (Map m)
 
-setLog :: [String] -> Builder action ()
+setLog :: [String] -> Builder a b ()
 setLog log = modify $ set _getLog (Log log)
 
-setArrowPress :: (Keys.Arrows -> action) -> Builder action ()
+setArrowPress :: (Keys.Arrows -> a -> b) -> Builder a b ()
 setArrowPress f = modify $ set _onArrowsPress (Just f)
 
-setKeyPress :: (Keys.Keys -> action) -> Builder action ()
+setKeyPress :: (Keys.Keys -> a -> b) -> Builder a b ()
 setKeyPress f = modify $ set _onKeyPress (Just f)
 
-setStats :: [String] -> Builder action ()
+setStats :: [String] -> Builder a b ()
 setStats stats = modify $ set _getStats (Stats stats)
 
-addToLog :: String -> Builder action ()
+addToLog :: String -> Builder a b ()
 addToLog item = modify $ over (_getLog . _logRecords) (item:)
 
-addItem :: String -> action -> Builder action ()
-addItem item act = modify $ over (_itemMenu . _menuItems) ((item, act):)
+addItem :: String -> (a -> b) -> Builder a b ()
+addItem item f = modify $ over (_itemMenu . _menuItems) ((item, f):)
 
-getMap :: UIDesc action -> Map
+getMap :: UIDesc a b -> Map
 getMap = __getMap
 
-getLog :: UIDesc action -> Log
+getLog :: UIDesc a b -> Log
 getLog = __getLog
 
-getStats :: UIDesc action -> Stats
+getStats :: UIDesc a b -> Stats
 getStats = __getStats
 
-getItemMenu :: UIDesc action -> ItemMenu action
+getItemMenu :: UIDesc a b -> ItemMenu a b
 getItemMenu = __itemMenu
 
-getOnArrowsKeyPress :: UIDesc action -> Maybe (Keys.Arrows -> action)
+getOnArrowsKeyPress :: UIDesc a b -> Maybe (Keys.Arrows -> a -> b)
 getOnArrowsKeyPress = __onArrowsPress
 
-getOnKeyPress :: UIDesc action -> Maybe (Keys.Keys -> action)
+getOnKeyPress :: UIDesc a b -> Maybe (Keys.Keys -> a -> b)
 getOnKeyPress = __onKeyPress
 
 mapField :: Map -> [[Char]]
