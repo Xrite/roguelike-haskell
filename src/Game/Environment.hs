@@ -13,20 +13,22 @@ module Game.Environment
   , makeEnvironment
   , envAttack
   , makeUnitId
+  , _player
   )
 where
 
-import           Game.Unit.Player               ( Player )
-import           Game.Unit.Mob                  ( Mob )
-import           Game.Unit.Unit                 ( AnyUnit, asUnitData, _position, applyEffect )
+import           Game.Unit.Player (Player, getPosition)
+import           Game.Unit.Mob (Mob)
+import           Game.Unit.Unit (AnyUnit, asUnitData, _position, applyEffect)
 import           Game.GameLevels.GameLevel
 import           Control.Monad.State
 import           Control.Lens
-import           PreludeUtil                    ( listLens )
-import           Data.Foldable                  ( find )
-import           Data.List                      ( findIndex )
-import Game.Effect (Effect)
-import Game.Unit.DamageCalculation (attack)
+import           PreludeUtil (listLens)
+import           Data.Foldable (find)
+import           Data.List (findIndex)
+import           Game.Effect (Effect)
+import           Game.Unit.DamageCalculation (attack)
+
 
 -- | All manipulations with units in environment should use this type
 newtype UnitId = UnitId Int
@@ -88,3 +90,6 @@ instance GameEnvironmentReader GameEnv where
 
 getCurrentLevel :: Environment -> GameLevel
 getCurrentLevel env = _levels env !! _currentLevel env
+
+getPlayerPosition :: Environment -> (Int, Int)
+getPlayerPosition env = getPosition  $ env ^. player

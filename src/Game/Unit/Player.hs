@@ -5,12 +5,13 @@ module Game.Unit.Player
   ( LevellingStats
   , Player
   , makePlayer
+  , getPosition
   )
 where
 
 import           Game.Effect
 import           Control.Lens
-import           Game.Unit.Unit
+import           Game.Unit.Unit as Unit
 import           Control.Monad.Free
 import           Game.Unit.TimedEffects
 import           Game.Unit.Inventory            ( getAllWearableEffects
@@ -32,6 +33,9 @@ makeLenses ''Player
 makePlayer :: UnitData -> Player
 makePlayer unitData = Player unitData (LevellingStats 0 0)
 
+getPosition :: Player -> (Int, Int)
+getPosition p = p ^. playerUnit . Unit.position
+
 instance Unit Player where
   asUnitData = _playerUnit
 
@@ -46,7 +50,7 @@ instance Unit Player where
     applyEffect next
       $ over (playerUnit . timedEffects) (addEffect time effect) u
   applyEffect (Free (MoveTo coordTo next)) u =
-    applyEffect next $ playerUnit . position .~ coordTo $ u
+    applyEffect next $ playerUnit . Unit.position .~ coordTo $ u
 
   attackEffect p =
     getWeaponEffect $ applyEffect wearableEff p ^. playerUnit . inventory

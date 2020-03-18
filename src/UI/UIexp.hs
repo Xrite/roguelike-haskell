@@ -4,7 +4,7 @@ module UI.UIexp where
 import           Control.Lens
 import           Control.Applicative
 import           Data.Maybe (fromMaybe)
-import Game.Environment (Environment, UnitId(..), getCurrentLevel, unitById)
+import Game.Environment (Environment, UnitId(..), getCurrentLevel, unitById, _player)
 import Game.GameLevels.GameLevel
 import Game.Unit.Stats (Stats)
 import UI.Keys as Keys
@@ -13,7 +13,7 @@ import Game.Unit.Action
 import Game.Unit.Unit (asUnitData, _stats, UnitData)
 import UI.Descriptions.GameUIDesc
 import Game.GameLevels.MapCell (renderCell)
-import Game.Unit.Player (Player)
+import Game.Unit.Player (Player, getPosition)
 import UI.TestEnvironment
 
 arrowPress :: Arrows -> Environment -> Environment
@@ -38,11 +38,13 @@ instance UIexp GameState where
   keyPress _ state = state
 
   render MainMenu = MenuUI $ ListMenuUIDesc (Title "Main menu") [ListItem "(r) Random", ListItem "(l) Load", ListItem "(t) Test environment"]
-  render (Game env) = GameUI $ GameUIDesc (renderLevel $ getCurrentLevel env) (Log ["You've entered the game"])
+  render (Game env) = GameUI $ GameUIDesc (renderLevel (getCurrentLevel env) (_player env)) (Log ["You've entered the game"])
 
-renderLevel :: GameLevel -> MapDesc
-renderLevel lvl = MapDesc
-  [[renderCell $ getCell (x, y) mp | x <- [xFrom .. xTo]] | y <- [yFrom .. yTo]]
+renderLevel :: GameLevel -> Player -> MapDesc
+renderLevel lvl pl = MapDesc
+  [[if x == px && y == py then 'a' else renderCell $  getCell (x, y) mp | x <- [xFrom .. xTo]] | y <- [yFrom .. yTo]]
   where
     mp = lvl ^. lvlMap
     ((xFrom, yFrom), (xTo, yTo)) = getMapSize mp
+    px = fst $ getPosition pl
+    py = snd $ getPosition pl
