@@ -2,6 +2,7 @@
 module Game.Unit.Player
   ( LevellingStats
   , Player
+  , makePlayer
   )
 where
 
@@ -24,6 +25,9 @@ makeLenses ''LevellingStats
 data Player =
   Player { _playerUnit :: UnitData, _levelling :: LevellingStats}
 makeLenses ''Player
+
+makePlayer :: UnitData -> Player
+makePlayer unitData = Player unitData (LevellingStats 0 0)
 
 instance Unit Player where
   asUnitData = _playerUnit

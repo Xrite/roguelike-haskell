@@ -16,6 +16,7 @@ module Game.Unit.Unit
   , Direction(..)
   , createUnitData
   , position
+  , getPosition
   )
 where
 
@@ -68,3 +69,6 @@ instance Unit AnyUnit where
 
 packUnit :: Unit a => a -> AnyUnit
 packUnit = AnyUnit 
+
+getPosition :: Unit a => a -> (Int, Int)
+getPosition u = asUnitData u ^. position

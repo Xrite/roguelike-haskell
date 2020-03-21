@@ -20,8 +20,8 @@ makeLenses ''UIDesc
 defalutUIDesc :: UIDesc a b
 defalutUIDesc = Desc [] [] Nothing Nothing Nothing
 
-mkInventoryUI :: Builder a b c -> UIDesc a b
-mkInventoryUI = flip execState defalutUIDesc
+makeUI :: Builder a b c -> UIDesc a b
+makeUI = flip execState defalutUIDesc
 
 addItem :: String -> Builder a b ()
 addItem item = modify $ over _items (item:)

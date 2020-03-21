@@ -48,8 +48,8 @@ defalutUIDesc :: UIDesc a b
 defalutUIDesc =
   GameUIDesc defaultMap defaultLog defaultStats defaultItemMenu Nothing Nothing
 
-mkGameUI :: Builder a b c -> UIDesc a b
-mkGameUI = flip execState defalutUIDesc
+makeUI :: Builder a b c -> UIDesc a b
+makeUI = flip execState defalutUIDesc
 
 setMap :: [[Char]] -> Builder a b ()
 setMap m = modify $ set _getMap (Map m)

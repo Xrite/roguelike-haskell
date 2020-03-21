@@ -10,6 +10,3 @@ newtype GameIO a = Maybe a
 
 pureGameIO :: a -> GameIO a
 pureGameIO = undefined
-
-class (Monad m) => GameUI m a where
-    showUI :: UI a b -> m ()

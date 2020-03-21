@@ -1,6 +1,6 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE DeriveFunctor #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE ExistentialQuantification #-}
 
 module UI.UI where
 
@@ -8,43 +8,51 @@ import qualified UI.Descriptions.GameUIDesc as Game
 import qualified UI.Descriptions.InventoryUIDesc as Inventory
 import qualified UI.Descriptions.ListMenuDesc as ListMenu
 import           Control.Lens
-import           Control.Applicative
 
-data UI a b =
-  UIDesc { __baseLayout :: BaseLayout a b, __dialog :: Maybe (Dialog a b) }
+data UI a =
+  UIDesc { __baseLayout :: BaseLayout a, __dialog :: Maybe (Dialog a) }
 
-data BaseLayout a b = GameUI (Game.UIDesc a b)
-                  | InventoryUI (Inventory.UIDesc a b)
-                  | MenuUI (ListMenu.UIDesc a b)
-                  | EmptyLayout
+data BaseLayout a = GameUI (Game.UIDesc a a)
+                  | InventoryUI (Inventory.UIDesc a a)
+                  | MenuUI (ListMenu.UIDesc a a)
+                  | End
 
-data Dialog a b =
-  Dialog { _dialogMessage :: String, _dialogOptions :: [(String, a -> b)] }
+data Dialog a =
+  Dialog { _dialogMessage :: String, _dialogOptions :: [(String, a -> a)] }
 
 class HasUI a where
-    currentUI :: a -> UI a a
+  currentUI :: a -> UI a
 
 makeLenses ''UI
 
 makeLenses ''BaseLayout
 
-makeLenses ''Dialog
-
-baseLayout :: UI a b -> BaseLayout a b
+baseLayout :: UI a -> BaseLayout a
 baseLayout = __baseLayout
 
-showDialog :: Dialog a b -> UI a b -> UI a b
+showDialog :: Dialog a -> UI a -> UI a
 showDialog d = undefined
 
-makeDialog :: String -> [(String, a -> b)] -> Dialog a b
+makeDialog :: String -> [(String, a -> a)] -> Dialog a
 makeDialog = Dialog
 
-makeGameUI :: Game.UIDesc a b -> UI a b
-makeGameUI desc = UIDesc { __baseLayout = GameUI desc, __dialog = Nothing }
+makeGameUI :: Game.Builder a a () -> UI a
+makeGameUI builder =
+  UIDesc { __baseLayout = GameUI $ Game.makeUI builder, __dialog = Nothing }
 
-makeInventoryUI :: Inventory.UIDesc a b -> UI a b
-makeInventoryUI
-  desc = UIDesc { __baseLayout = InventoryUI desc, __dialog = Nothing }
+makeInventoryUI :: Inventory.Builder a a () -> UI a
+makeInventoryUI builder =
+  UIDesc { __baseLayout = InventoryUI $ Inventory.makeUI builder
+         , __dialog = Nothing
+         }
 
-makeMenuUI :: ListMenu.UIDesc a b -> UI a b
-makeMenuUI desc = UIDesc { __baseLayout = MenuUI desc, __dialog = Nothing }
+makeMenuUI :: ListMenu.Builder a a () -> UI a
+makeMenuUI builder = UIDesc { __baseLayout = MenuUI $ ListMenu.makeUI builder
+                            , __dialog = Nothing
+                            }
+
+simpleListMenuUI :: ListMenu.UIDesc a a -> UI a
+simpleListMenuUI desc = UIDesc (MenuUI desc) Nothing 
+
+terminalUI :: UI a
+terminalUI = UIDesc End Nothing 

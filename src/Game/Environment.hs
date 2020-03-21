@@ -4,6 +4,8 @@
 module Game.Environment
   ( Environment
   , UnitId(..)
+  , makeEnvironment
+  , makeUnitId
   , getCurrentLevel
   , unitById
   , unitLensById
@@ -11,6 +13,7 @@ module Game.Environment
   , unitIdByCoord
   , affectUnitById
   , envAttack
+  , playerId
   )
 where
 
@@ -29,10 +32,15 @@ import Game.Unit.DamageCalculation (attack)
 -- | All manipulations with units in environment should use this type
 newtype UnitId = UnitId Int
 
+makeUnitId = UnitId
+
 -- TODO maybe extract units to a different module?
 data Environment =
    Environment { _player :: Player, _units :: [AnyUnit], _levels :: [GameLevel], _currentLevel :: Int }
 makeLenses ''Environment
+
+makeEnvironment :: Player -> [AnyUnit] -> [GameLevel] -> Int -> Environment
+makeEnvironment = Environment
 
 {-|
   This function should remove dead units from environment.
@@ -81,3 +89,6 @@ instance GameEnvironmentReader GameEnv where
 
 getCurrentLevel :: Environment -> GameLevel
 getCurrentLevel env = _levels env !! _currentLevel env
+
+playerId :: Environment -> UnitId
+playerId _ = UnitId 0
