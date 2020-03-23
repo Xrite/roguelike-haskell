@@ -1,5 +1,6 @@
 {-# LANGUAGE TemplateHaskell #-}
 
+-- | Describes a 'Unit' type for mobs
 module Game.Unit.Mob where
 
 import           Control.Lens
@@ -17,6 +18,7 @@ import           Game.Unit.Unit                 ( UnitData
                                                 , position
                                                 )
 
+-- | A mob is a simple computer-controlled 'Unit'.
 data Mob = Mob {_unit :: UnitData}
 
 makeLenses ''Mob
@@ -41,7 +43,3 @@ instance Unit Mob where
    where
     inv         = p ^. unit . inventory
     wearableEff = getAllWearableEffects inv
-
---makeMob :: Stats -> (GameLevel -> [AnyUnit] -> Action) -> AnyUnit
---makeMob stat ai =
---  Mob $ createUnitData stat (TimedEffects []) $ \lvl units -> pureGameIO (ai lvl units)

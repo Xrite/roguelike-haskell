@@ -1,3 +1,5 @@
+-- | Module that defines all the cells types that can be used in the game
+
 module Game.GameLevels.MapCellTypeImpl where
 
 import Game.GameLevels.MapCellType

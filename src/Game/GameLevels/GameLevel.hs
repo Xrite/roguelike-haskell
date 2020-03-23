@@ -1,4 +1,7 @@
 {-# LANGUAGE TemplateHaskell, Rank2Types #-}
+
+-- | Module responsible for working with the level's map
+
 module Game.GameLevels.GameLevel
   ( getCell
   , getMapSize
@@ -32,11 +35,3 @@ makeGameLevel = GameLevel
 
 makeMap :: Array (Int, Int) MapCell -> Map
 makeMap = Map
-
--- ST versions
---getCellST :: (Int, Int) -> MapST s -> ST s MapCell
---getCellST i map = readArray (map ^. cellsST) i
-
---data MapST s = MapST
---  { _cellsST :: STArray s (Int, Int) MapCell }
---makeLenses ''MapST

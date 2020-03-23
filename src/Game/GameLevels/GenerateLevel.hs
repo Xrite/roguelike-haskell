@@ -1,4 +1,7 @@
 {-# LANGUAGE RankNTypes #-}
+
+-- | Module responsible for levels generation
+
 module Game.GameLevels.GenerateLevel
   ( testGameLevel
   , randomLevel
@@ -28,6 +31,7 @@ testGameLevel =
     foldMap (\ i -> writeArray arrType i bush) [(x, 10) | x <- [2..15]]
     mapArray makeEmptyCell arrType
 
+-- Generate random level according to the given parameters
 randomLevel :: (RandomGen g) => Space -> GeneratorParameters -> g -> (GameLevel, g)
 randomLevel s params gen = (level, gen')
   where

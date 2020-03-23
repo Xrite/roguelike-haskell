@@ -1,5 +1,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 
+-- | Module responsible for constructing levels from file
+
 module Game.FileIO.FileIO
     ( getSavedLevels
     , getLevelByName
@@ -13,65 +15,61 @@ import Game.GameLevels.MapCellType
 import Game.GameLevels.MapCellTypeImpl
 import System.Directory
 import Control.Exception
+import Data.Array.IArray
 
+levelsFolder :: String
 levelsFolder = "resources/savedLevels/"
--- TODO make not show not read
 
--- hPrint          :: Show a => Handle -> a -> IO ()
--- hPrint hdl      =  hPutStrLn hdl . show
-
-getSavedLevels :: Exception e => IO (Either e [String])
-getSavedLevels = try $ do
+-- | Returns a list of saved levels' names that can be loaded
+getSavedLevels :: IO (Either SomeException [String])
+getSavedLevels =
+  try $ do
     path <- makeAbsolute levelsFolder
     files <- listDirectory path
-    return $ map (takeWhile ((/=) '.'))files	
+    return $ map (takeWhile ('.' /=)) files
 
-getLevelByName :: Exception e => String -> IO (Either e GameLevel)
+-- | Loads a GameLevel from a file that corresponds to the given level name
+getLevelByName :: String -> IO (Either SomeException GameLevel)
 getLevelByName name = do
     path <- makeAbsolute levelsFolder
     readLevelFromFile (path ++ name ++ ".txt")
 
-saveLevelToFile :: GameLevel -> FilePath -> IO ()
-saveLevelToFile gameLevel filePath = do
-	fileHandler <- openFile filePath WriteMode
-	hPrint fileHandler gameLevel
-	hClose fileHandler
+readLevelFromFile :: FilePath -> IO (Either SomeException GameLevel)
+readLevelFromFile filePath =
+  try $ do
+    fileHandler <- openFile filePath ReadMode
+    content <- hGetContents fileHandler
+    case readGameLevel content of
+      (Just x) -> return x
+      Nothing -> throw (userError "wrong format")
 
-readLevelFromFile :: Exception e => FilePath -> IO (Either e GameLevel)
-readLevelFromFile filePath = try $ do
-	fileHandler <- openFile filePath ReadMode
-	content <- hGetContents fileHandler
-	hClose fileHandler
-	return $ read content
+readGameLevel :: String -> Maybe GameLevel
+readGameLevel str = do 
+    _map <- readMap str
+    return $ makeGameLevel _map
 
-instance Show GameLevel where
-	show (GameLevel map) = show map
+readMap :: String -> Maybe Map
+readMap str = do
+    _array <- readArray str
+    return $ makeMap _array
 
-instance Read GameLevel where
-	readsPrec _ str = [(makeGameLevel $ read str,"")]
+readArray :: String -> Maybe (Array (Int, Int) MapCell)
+readArray str =
+  let lists = map (map readMapCell) (lines str)
+   in fmap (listArray ((0, 0), (length lists, length (head lists)))) (sequence $ concat lists)
 
-instance Show Map where
-	show (Map cells) = show cells
+readMapCell :: Char -> Maybe MapCell
+readMapCell str = do 
+    mapCellType <- readMapCellType str
+    return $ makeEmptyCell mapCellType
 
-instance Read Map where
-	readsPrec _ str = [(makeMap $ read str, "")]
-
-instance Show MapCell where
-	show (MapCell _cellType _) = show _cellType
-
-instance Read MapCell where
-	readsPrec _ str = [(makeEmptyCell $ read str, "")] 
-
-instance Show MapCellType where
-    show (MapCellType _cellRender _ _ _ _) = show _cellRender
-
-instance Read MapCellType where
-    readsPrec _ str = case str of 
-	    "#" -> [(wall, "")]
-	    "+" -> [(hallGround, "")]
-	    "." -> [(roomGround, "")]
-	    "T" -> [(tree, "")]
-	    "%" -> [(bush, "")]
-	    ">" -> [(ladderDown, "")]
-	    "<" -> [(ladderUp, "")]
-	    _ -> []
+readMapCellType :: Char -> Maybe MapCellType
+readMapCellType str = case str of 
+    '#' -> Just wall
+    '+' -> Just hallGround
+    '.' -> Just roomGround
+    'T' -> Just tree
+    '%' -> Just bush
+    '>' -> Just ladderDown
+    '<' -> Just ladderUp
+    _ -> Nothing

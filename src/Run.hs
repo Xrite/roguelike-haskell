@@ -18,7 +18,7 @@ run = do
 --  logInfo $ displayShow $ runState (generateLevel param s) gen
   liftIO $ void $ defaultMain app (MainMenu mainMenuUI, mainMenuUI )
   where
-    param = makeGeneratorParameters 10 1.7 5
+    param = GeneratorParameters 10 1.7 5
     s = Space (Coord 0 0) (Coord 50 50)
     gen = mkStdGen 42
     (lvl, _) = randomLevel s param gen

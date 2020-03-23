@@ -14,12 +14,14 @@ module Game.Environment
   , affectUnitById
   , envAttack
   , playerId
+  , makeEnvironment
+  , makeUnitId
   )
 where
 
 import           Game.Unit.Player               ( Player )
 import           Game.Unit.Mob                  ( Mob )
-import           Game.Unit.Unit                 ( AnyUnit, asUnitData, _position, applyEffect )
+import           Game.Unit.Unit                 ( AnyUnit, asUnitData, _position, applyEffect, stats, _stats )
 import           Game.GameLevels.GameLevel
 import           Control.Monad.State
 import           Control.Lens
@@ -28,27 +30,42 @@ import           Data.Foldable                  ( find )
 import           Data.List                      ( findIndex )
 import Game.Effect (Effect)
 import Game.Unit.DamageCalculation (attack)
+import Game.Unit.Stats
 
 -- | All manipulations with units in environment should use this type
 newtype UnitId = UnitId Int
 
+-- | Creates 'UnitId' from unit number in the list of units.
+-- Created for testing purposes, avoid using at all costs.
+makeUnitId :: Int -> UnitId
 makeUnitId = UnitId
 
 -- TODO maybe extract units to a different module?
+-- TODO comment
 data Environment =
-   Environment { _player :: Player, _units :: [AnyUnit], _levels :: [GameLevel], _currentLevel :: Int }
+   Environment { _player :: Player, _units :: [AnyUnit], _levels :: [GameLevel], _currentLevel :: Int, _currentUnitTurn :: Int }
 makeLenses ''Environment
 
-makeEnvironment :: Player -> [AnyUnit] -> [GameLevel] -> Int -> Environment
-makeEnvironment = Environment
+instance Show Environment where
+  show _ = "Environment"
 
-{-|
-  This function should remove dead units from environment.
-  It is called after each function that can modify units in the environment. With current implementation of units storage it invalidates 'UnitId'.
-  As you can see, it is not yet implemented, so TODO implement filterDead
--}
+-- | Constructs a new 'Environment'.
+makeEnvironment :: Player -> [AnyUnit] -> [GameLevel] -> Environment
+makeEnvironment player units levels = Environment player units levels 0 0
+
+-- | This function should remove dead units from environment.
+-- It is called after each function that can modify units in the environment. With current implementation of units storage it invalidates 'UnitId'.
+-- Item drop (units death effects in general) is not yet implemented, so TODO implement death effects in filterDead
 filterDead :: Environment -> Environment
-filterDead = id
+filterDead env = (currentUnitTurn %~ flip (-) startUnitsDied) . (units .~ newUnits) $ env
+  where
+    newUnits = undefined
+    startUnits = take (_currentUnitTurn env) $ _units env
+    endUnits = drop (_currentUnitTurn env) $ _units env
+    filterAlive = filter ((> 0) . _health . _stats . asUnitData)
+    newStartUnits = filterAlive startUnits
+    newEndUnits = filterAlive endUnits
+    startUnitsDied = length startUnits - length newStartUnits
 
 unitLensById :: UnitId -> Lens' Environment AnyUnit
 unitLensById (UnitId idxInt) = units . listLens idxInt
