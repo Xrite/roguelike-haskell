@@ -3,7 +3,9 @@
 {-# LANGUAGE RankNTypes #-}
 module Game.Environment
   ( Environment
-  , UnitId
+  , UnitId(..)
+  , makeEnvironment
+  , makeUnitId
   , getCurrentLevel
   , unitById
   , unitLensById
@@ -11,6 +13,7 @@ module Game.Environment
   , unitIdByCoord
   , affectUnitById
   , envAttack
+  , playerId
   , makeEnvironment
   , makeUnitId
   )
@@ -103,3 +106,6 @@ instance GameEnvironmentReader GameEnv where
 
 getCurrentLevel :: Environment -> GameLevel
 getCurrentLevel env = _levels env !! _currentLevel env
+
+playerId :: Environment -> UnitId
+playerId _ = UnitId 0

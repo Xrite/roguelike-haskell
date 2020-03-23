@@ -17,6 +17,8 @@ module Game.Unit.Unit
   , Action(..)
   , Direction(..)
   , createUnitData
+  , position
+  , getPosition
   )
 where
 
@@ -81,3 +83,6 @@ instance Unit AnyUnit where
 -- | Packs any unit into 'AnyUnit' box.
 packUnit :: Unit a => a -> AnyUnit
 packUnit = AnyUnit 
+
+getPosition :: Unit a => a -> (Int, Int)
+getPosition u = asUnitData u ^. position

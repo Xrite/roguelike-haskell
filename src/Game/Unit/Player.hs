@@ -1,32 +1,24 @@
 {-# LANGUAGE TemplateHaskell #-}
 
 -- | Describes a 'Unit' type for players 
-module Game.Unit.Player
-  ( LevellingStats
-  , Player
-  , makePlayer
-  )
-where
+module Game.Unit.Player (LevellingStats, Player, makePlayer) where
 
 import           Game.Effect
 import           Control.Lens
 import           Game.Unit.Unit
 import           Control.Monad.Free
 import           Game.Unit.TimedEffects
-import           Game.Unit.Inventory            ( getAllWearableEffects
-                                                , getWeaponEffect
-                                                )
+import           Game.Unit.Inventory (getAllWearableEffects, getWeaponEffect)
 
 -- | Describes everything regarding level-up system of a 'Player'
-data LevellingStats = LevellingStats
-  { _experience :: Int
-  , _skillPoints :: Int
-  }
+data LevellingStats =
+  LevellingStats { _experience :: Int, _skillPoints :: Int }
+
 makeLenses ''LevellingStats
 
 -- | A unit that can get experience points and level-ups. Controlled from the outside world.
-data Player =
-  Player { _playerUnit :: UnitData, _levelling :: LevellingStats}
+data Player = Player { _playerUnit :: UnitData, _levelling :: LevellingStats }
+
 makeLenses ''Player
 
 makePlayer :: UnitData -> Player
@@ -42,14 +34,15 @@ instance Unit Player where
     applyEffect next (u & playerUnit . stats .~ newStats)
   applyEffect (Free (ModifyStats f next)) u =
     applyEffect next (u & playerUnit . stats %~ f)
-  applyEffect (Free (SetTimedEffect time effect next)) u =
-    applyEffect next
-      $ over (playerUnit . timedEffects) (addEffect time effect) u
+  applyEffect (Free (SetTimedEffect time effect next)) u = applyEffect next
+    $ over (playerUnit . timedEffects) (addEffect time effect) u
   applyEffect (Free (MoveTo coordTo next)) u =
     applyEffect next $ playerUnit . position .~ coordTo $ u
+  applyEffect _ p = p
 
-  attackEffect p =
-    getWeaponEffect $ applyEffect wearableEff p ^. playerUnit . inventory
-   where
-    inv         = p ^. playerUnit . inventory
-    wearableEff = getAllWearableEffects inv
+  attackEffect
+    p = getWeaponEffect $ applyEffect wearableEff p ^. playerUnit . inventory
+    where
+      inv = p ^. playerUnit . inventory
+
+      wearableEff = getAllWearableEffects inv
