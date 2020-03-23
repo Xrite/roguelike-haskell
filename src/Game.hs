@@ -103,7 +103,6 @@ testEnvironment =
     , packUnit $ Mob $ makeUnitData (5, 6)
     ]
     [testGameLevel]
-    0
 
 makeUnitData :: (Int, Int) -> UnitData
 makeUnitData position =

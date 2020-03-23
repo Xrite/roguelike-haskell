@@ -50,10 +50,12 @@ makeLenses ''WearableSlots
 
 makeLenses ''WeaponSlots
 
+-- | Get effect from wearable item
 getWearableEffect :: Maybe WearableItem -> Effect ()
 getWearableEffect (Just item) = wearableDefenceEffect item
 getWearableEffect Nothing     = return ()
 
+-- | Get composite effect from all equipped wearable items in an inventory
 getAllWearableEffects :: Inventory -> Effect ()
 getAllWearableEffects inv = do
   let slots = inv ^. wearableSlots
@@ -61,18 +63,22 @@ getAllWearableEffects inv = do
   getWearableEffect $ slots ^. chestSlot
   getWearableEffect $ slots ^. legsSlot
 
+-- | Get an effect from an equipped weapon
 getWeaponEffect :: Inventory -> Effect ()
 getWeaponEffect inv = case inv ^. weaponSlots . hand of
   (Just item) -> item ^. weaponAttackEffect
   Nothing     -> return ()
 
+-- | Empty inventory
 emptyInventory :: Inventory
 emptyInventory =
   Inventory [] (WearableSlots Nothing Nothing Nothing) (WeaponSlots Nothing)
 
+-- | Add item to the inventory
 addItem :: Item -> Inventory -> Inventory
 addItem item = over items (item :)
 
+-- | Try to equip item to the head slot, this action can fail, in that case it returns error type
 fillHeadSlot :: Inventory -> Item -> Either InventoryError Inventory
 fillHeadSlot inv item = case toWearable item of
   Nothing    -> Left WrongItemType
@@ -82,6 +88,7 @@ fillHeadSlot inv item = case toWearable item of
       Head -> Right $ inv & wearableSlots . headSlot .~ pure wItem
       _    -> Left WrongWearableType
 
+-- | Try to equip item to the chest slot, this action can fail, in that case it returns error type
 fillChestSlot :: Inventory -> Item -> Either InventoryError Inventory
 fillChestSlot inv item = case toWearable item of
   Nothing    -> Left WrongItemType
@@ -91,6 +98,7 @@ fillChestSlot inv item = case toWearable item of
       Chest -> Right $ inv & wearableSlots . chestSlot .~ pure wItem
       _     -> Left WrongWearableType
 
+-- | Try to equip item to the legs slot, this action can fail, in that case it returns error type
 fillLegsSlot :: Inventory -> Item -> Either InventoryError Inventory
 fillLegsSlot inv item = case toWearable item of
   Nothing    -> Left WrongItemType
@@ -100,6 +108,7 @@ fillLegsSlot inv item = case toWearable item of
       Legs -> Right $ inv & wearableSlots . legsSlot .~ pure wItem
       _    -> Left WrongWearableType
 
+-- | Try to equip item to the weapon slot, this action can fail, in that case it returns error type
 fillWeaponSlot :: Inventory -> Item -> Either InventoryError Inventory
 fillWeaponSlot inv item = case toWeapon item of
   Nothing -> Left WrongItemType
