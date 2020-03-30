@@ -20,7 +20,7 @@ import           Control.Lens
 import           Data.Maybe
 import           Game.Environment (makeEnvironment, Environment, UnitId
                                  , makeUnitId, unitById)
-import           Game.GameLevels.GenerateLevel (testGameLevel)
+import           Game.GameLevels.GenerateLevel (testGameLevel, randomLevel)
 import           Game.Item (createWeapon)
 import           Game.Unit.Inventory (emptyInventory)
 import           Game.Unit.Mob
@@ -29,9 +29,11 @@ import           Game.Unit.Stats as Stats
 import           Game.Unit.TimedEffects (empty)
 import           Game.Unit.Unit (createUnitData, packUnit, UnitData, asUnitData, AnyUnit, getPosition)
 import           Data.Maybe (isNothing, isJust)
+import qualified Game.GameLevels.Generation.BSPGen as Gen
+import           Game.Unit.Action ()
+import System.Random (mkStdGen)
 
 
-import Game.Unit.Action()
 
 
 
@@ -83,11 +85,22 @@ mainMenuUI :: GameUI
 mainMenuUI = makeMenuUI
   $ do
     ListMenu.setTitle "Main menu"
-    ListMenu.addItem "random" id
+    ListMenu.addItem "random" (const (Game $ randomEnvironment 42)) -- !!!! TODO use random generator or at least ask for user input of seed
     ListMenu.addItem "load level" id
     ListMenu.addItem "test level" (const (Game testEnvironment))
     ListMenu.addItem "quit" (const EndState)
     ListMenu.selectItem 0
+
+randomEnvironment :: Int -> Environment
+randomEnvironment seed =
+  makeEnvironment
+    ourPlayer
+    [ packUnit $ Mob $ makeUnitData startCoord]
+    [lvl]
+   where
+    lvl = fst $ randomLevel (Gen.Space (Gen.Coord 0 0) (Gen.Coord 50 50)) (Gen.GeneratorParameters 10 1.7 5) $ mkStdGen seed
+    startCoord = _entrance $ _lvlMap lvl
+    ourPlayer = makeSomePlayer $ makeUnitData startCoord
 
 testEnvironment :: Environment
 testEnvironment =

@@ -44,14 +44,14 @@ readLevelFromFile filePath =
       Nothing -> throw (userError "wrong format")
 
 readGameLevel :: String -> Maybe GameLevel
-readGameLevel str = do 
+readGameLevel str = do
     _map <- readMap str
     return $ makeGameLevel _map
 
 readMap :: String -> Maybe Map
 readMap str = do
     _array <- readArray str
-    return $ makeMap _array
+    return $ makeMap (0, 0) (0, 0) _array -- !!!! should read coordinates too !!!!
 
 readArray :: String -> Maybe (Array (Int, Int) MapCell)
 readArray str =

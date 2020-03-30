@@ -14,6 +14,7 @@ module Game.GameLevels.Generation.BSPGen
   , generateLevel
   , Space (..)
   , Coord (..)
+  , Room
   , toPair
   , GeneratorParameters (..)
   ) where

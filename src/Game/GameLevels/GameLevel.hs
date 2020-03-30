@@ -17,7 +17,11 @@ import Game.GameLevels.MapCell
 import Control.Lens (makeLenses, (^.))
 import Data.Array.IArray
 
-newtype Map = Map{_cells :: Array (Int, Int) MapCell}
+data Map = Map
+  { _entrance :: (Int, Int)
+  , _exit :: (Int, Int)
+  , _cells :: Array (Int, Int) MapCell
+  }
 makeLenses ''Map
 
 data GameLevel = GameLevel
@@ -40,5 +44,5 @@ inBounds mp (x, y) = inBounds1D xFrom xTo x && inBounds1D yFrom yTo y
 makeGameLevel :: Map -> GameLevel
 makeGameLevel = GameLevel
 
-makeMap :: Array (Int, Int) MapCell -> Map
+makeMap :: (Int, Int) -> (Int, Int) -> Array (Int, Int) MapCell -> Map
 makeMap = Map

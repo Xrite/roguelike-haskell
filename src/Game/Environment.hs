@@ -14,8 +14,6 @@ module Game.Environment
   , affectUnitById
   , envAttack
   , playerId
-  , makeEnvironment
-  , makeUnitId
   )
 where
 
