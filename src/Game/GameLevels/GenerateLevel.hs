@@ -4,7 +4,7 @@
 
 module Game.GameLevels.GenerateLevel
   ( testGameLevel
-  , randomLevel
+  , randomBSPGeneratedLevel
   ) where
 
 import Game.GameLevels.MapCellTypeImpl
@@ -18,6 +18,7 @@ import Game.GameLevels.Generation.RandomMonad
 import System.Random
 import Control.Monad.State
 import Control.Lens ((^.))
+import Game.GameLevels.Generation.GenerationUtil
 
 -- |A small hand-crafted level with various types of cells
 testGameLevel :: GameLevel
@@ -33,13 +34,17 @@ testGameLevel =
     mapArray makeEmptyCell arrType
 
 -- |Generates a random level according to given parameters
-randomLevel :: (RandomGen g) => Space -> GeneratorParameters -> g -> (GameLevel, g)
-randomLevel s params gen = (level, gen'')
+randomBSPGeneratedLevel :: (RandomGen g) => Space -> GeneratorParameters -> g -> (GameLevel, g)
+randomBSPGeneratedLevel s params gen = buildLevel s rooms halls gen'
   where
-    fromTo start finish = [min start finish .. max start finish]
     ((rooms, halls), gen') = runState (generateLevel params s) gen
 
-    ((upLadderPosition, downLadderPosition), gen'') = flip runState gen' $ liftM2 (,) (pickRandomPlaceInRooms rooms) (pickRandomPlaceInRooms rooms)
+buildLevel :: (RandomGen g) => Space -> [Room] -> [Hall] -> g -> (GameLevel, g)
+buildLevel s rooms halls gen = (level, gen')
+  where
+    fromTo start finish = [min start finish .. max start finish]
+
+    ((upLadderPosition, downLadderPosition), gen') = flip runState gen $ liftM2 (,) (pickRandomPlaceInRooms rooms) (pickRandomPlaceInRooms rooms)
 
     writeInterval :: forall s. STArray s (Int, Int) MapCellType -> Coord -> Coord -> MapCellType -> ST s ()
     writeInterval arr (Coord x1 y1) (Coord x2 y2) cellType =
@@ -54,7 +59,6 @@ randomLevel s params gen = (level, gen'')
         writeArray arrType downLadderPosition ladderDown
         mapArray makeEmptyCell arrType
     level = makeGameLevel $ makeMap upLadderPosition downLadderPosition levelArray
-
 
 pickRandomPlaceInRooms :: (MonadState g m, RandomGen g) => [Room] -> m (Int, Int)
 pickRandomPlaceInRooms rooms = do
