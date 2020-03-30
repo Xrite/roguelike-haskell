@@ -26,13 +26,12 @@ import           Game.Unit.Inventory (emptyInventory)
 import           Game.Unit.Mob
 import           Game.Unit.Player (makePlayer, Player)
 import           Game.Unit.Stats as Stats
-import           Game.Unit.Unit
 import           Game.Unit.TimedEffects (empty)
-import           Game.Unit.Unit (createUnitData, packUnit, UnitData, asUnitData)
+import           Game.Unit.Unit (createUnitData, packUnit, UnitData, asUnitData, AnyUnit, getPosition)
 import           Data.Maybe (isNothing, isJust)
 
 
-import Game.Unit.Action
+import Game.Unit.Action()
 
 
 
@@ -90,9 +89,6 @@ mainMenuUI = makeMenuUI
     ListMenu.addItem "quit" (const EndState)
     ListMenu.selectItem 0
 
-
-ourPlayer = makeSomePlayer $ makeUnitData (5, 6)
-
 testEnvironment :: Environment
 testEnvironment =
   makeEnvironment
@@ -103,6 +99,8 @@ testEnvironment =
     , packUnit $ Mob $ makeUnitData (5, 6)
     ]
     [testGameLevel]
+   where 
+    ourPlayer = makeSomePlayer $ makeUnitData (5, 6)
 
 makeUnitData :: (Int, Int) -> UnitData
 makeUnitData position =
