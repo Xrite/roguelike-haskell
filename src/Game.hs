@@ -74,7 +74,7 @@ gameUI gameEnv = makeGameUI
     keyPress (Keys.Letter 'q') (Game env) = MainMenu mainMenuUI
 
 renderLevel :: GameLevel -> AnyUnit -> [String]
-renderLevel lvl player = [[if px == x && py == y then 'A' else renderCell $ getCell (x, y) mp | x <- [xFrom .. xTo]]
+renderLevel lvl player = [[if px == x && py == y then 'λ' else renderCell $ getCell (x, y) mp | x <- [xFrom .. xTo]]
                   | y <- [yFrom .. yTo]]
   where
     mp = lvl ^. lvlMap
