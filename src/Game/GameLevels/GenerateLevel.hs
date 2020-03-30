@@ -38,9 +38,9 @@ randomLevel s params gen = (level, gen'')
   where
     fromTo start finish = [min start finish .. max start finish]
     ((rooms, halls), gen') = runState (generateLevel params s) gen
-    
+
     ((upLadderPosition, downLadderPosition), gen'') = flip runState gen' $ liftM2 (,) (pickRandomPlaceInRooms rooms) (pickRandomPlaceInRooms rooms)
-    
+
     writeInterval :: forall s. STArray s (Int, Int) MapCellType -> Coord -> Coord -> MapCellType -> ST s ()
     writeInterval arr (Coord x1 y1) (Coord x2 y2) cellType =
       foldMap (\coord -> writeArray arr coord cellType) [(i, j) | i <- x1 `fromTo` x2, j <- y1 `fromTo` y2]
@@ -50,10 +50,12 @@ randomLevel s params gen = (level, gen'')
           newArray (toPair $ s ^. fromCoord, toPair $ s ^. toCoord) wall :: ST s (STArray s (Int, Int) MapCellType)
         foldMap (\hall -> writeInterval arrType (hall ^. startCorner) (hall ^. finishCorner) hallGround) halls
         foldMap (\room -> writeInterval arrType (room ^. fromCorner) (room ^. toCorner) roomGround) rooms
+        writeArray arrType upLadderPosition ladderUp
+        writeArray arrType downLadderPosition ladderDown
         mapArray makeEmptyCell arrType
     level = makeGameLevel $ makeMap upLadderPosition downLadderPosition levelArray
 
- 
+
 pickRandomPlaceInRooms :: (MonadState g m, RandomGen g) => [Room] -> m (Int, Int)
 pickRandomPlaceInRooms rooms = do
   room <- (rooms !!) <$> mRandomR (0, length rooms - 1)
