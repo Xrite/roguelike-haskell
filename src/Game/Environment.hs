@@ -57,15 +57,22 @@ makeEnvironment player units levels = Environment player units levels 0 0
 -- It is called after each function that can modify units in the environment. With current implementation of units storage it invalidates 'UnitId'.
 -- Item drop (units death effects in general) is not yet implemented, so TODO implement death effects in filterDead
 filterDead :: Environment -> Environment
-filterDead env = (currentUnitTurn %~ flip (-) startUnitsDied) . (units .~ newUnits) $ env
+filterDead env = cycleCurrentUnit . (currentUnitTurn %~ flip (-) startUnitsDied) . (units .~ newUnits) $ env
   where
-    newUnits = undefined
     startUnits = take (_currentUnitTurn env) $ _units env
     endUnits = drop (_currentUnitTurn env) $ _units env
     filterAlive = filter ((> 0) . _health . _stats . asUnitData)
     newStartUnits = filterAlive startUnits
     newEndUnits = filterAlive endUnits
     startUnitsDied = length startUnits - length newStartUnits
+    newUnits = newStartUnits ++ newEndUnits
+
+cycleCurrentUnit :: Environment -> Environment
+cycleCurrentUnit env = 
+  if _currentUnitTurn env == (length . _units) env
+    then env { _currentUnitTurn = 0 }
+    else env
+
 
 unitLensById :: UnitId -> Lens' Environment AnyUnit
 unitLensById (UnitId idxInt) = units . listLens idxInt
