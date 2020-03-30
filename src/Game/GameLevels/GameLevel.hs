@@ -5,6 +5,7 @@
 module Game.GameLevels.GameLevel
   ( getCell
   , getMapSize
+  , inBounds
   , makeGameLevel
   , lvlMap
   , makeMap
@@ -29,6 +30,12 @@ getCell i mp = (mp ^. cells) ! i
 
 getMapSize :: Map -> ((Int, Int), (Int, Int))
 getMapSize mp = bounds (mp ^. cells)
+
+inBounds :: Map -> (Int, Int) -> Bool
+inBounds mp (x, y) = inBounds1D xFrom xTo x && inBounds1D yFrom yTo y
+  where
+    ((xFrom, yFrom), (xTo, yTo)) = getMapSize mp
+    inBounds1D from to coord = from <= coord && coord <= to
 
 makeGameLevel :: Map -> GameLevel
 makeGameLevel = GameLevel

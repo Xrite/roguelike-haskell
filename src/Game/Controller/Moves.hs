@@ -70,10 +70,13 @@ maybeMoveUnit unitId coord env =
 -- Position is allowed if it is either equals to the previous position or the place is passable and there are 
 -- no one else there.
 canMove :: AnyUnit -> (Int, Int) -> Environment -> Bool
-canMove unit newCoord env = (oldCoord == newCoord) || placeFree
+canMove unit newCoord env = (oldCoord == newCoord) || (placeInBounds && placeFree {- would crash if not for laziness -})
   where
+    mp = getCurrentLevel env ^. lvlMap
+    placeInBounds = inBounds mp newCoord
     oldCoord = _position $ asUnitData unit
     occupyingUnitMaybe = unitByCoord newCoord env
     placeNotOccupied = isNothing occupyingUnitMaybe
-    cell = getCell newCoord $ getCurrentLevel env ^. lvlMap
+    cell = getCell newCoord mp
     placeFree = placeNotOccupied && (cell ^. cellType . passable $ asUnitData unit ^. stats)
+
