@@ -60,7 +60,7 @@ createUnitData = UnitData
 -- | Something that can hit and run.
 -- A typeclass for every active participant of a game. If it moves and participates in combat system, it is a unit.
 class Unit a where
-  -- |Returns 'UnitData' of a unit.
+  -- | Returns 'UnitData' of a unit.
   asUnitData :: a -> UnitData
   -- | How unit is affected by 'Effect's.
   -- It is the main thing that differs a 'Unit' from 'UnitData'.
