@@ -90,4 +90,5 @@ makeUnitData position =
     empty
     emptyInventory
     (createWeapon "weapon" (return ()) 'A')
+    'U'
     undefined

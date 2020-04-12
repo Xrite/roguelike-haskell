@@ -57,7 +57,7 @@ gameUI :: Environment -> GameUI
 gameUI gameEnv = makeGameUI
   $ do
     let level = getCurrentLevel gameEnv
-    setMap $ renderLevel level (unitById (playerId gameEnv) gameEnv)
+    setMap $ renderEnvironment gameEnv
     setArrowPress arrowPress
     setKeyPress keyPress
   where
@@ -74,14 +74,6 @@ gameUI gameEnv = makeGameUI
     keyPress :: Keys.Keys -> GameState -> GameState
     keyPress (Keys.Letter 'q') (Game env) = MainMenu mainMenuUI
 
-renderLevel :: GameLevel -> AnyUnit -> [String]
-renderLevel lvl player = [[if px == x && py == y then 'λ' else renderCell $ getCell (x, y) mp | x <- [xFrom .. xTo]]
-                  | y <- [yFrom .. yTo]]
-  where
-    mp = lvl ^. lvlMap
-    (px, py) = getPosition player
-    ((xFrom, yFrom), (xTo, yTo)) = getMapSize mp
-
 mainMenuUI :: GameUI
 mainMenuUI = makeMenuUI
   $ do
@@ -96,28 +88,28 @@ randomEnvironment :: Int -> Environment
 randomEnvironment seed =
   makeEnvironment
     ourPlayer
-    [ packUnit $ Mob $ makeUnitData startCoord]
+    [ packUnit $ ourPlayer]
     [lvl]
    where
     lvl = fst $ randomBSPGeneratedLevel (GU.Space (GU.Coord 0 0) (GU.Coord 50 50)) (GeneratorParameters 10 1.7 5) $ mkStdGen seed
     startCoord = _entrance $ _lvlMap lvl
-    ourPlayer = makeSomePlayer $ makeUnitData startCoord
+    ourPlayer = makeSomePlayer $ makeUnitData startCoord 'λ'
 
 testEnvironment :: Environment
 testEnvironment =
   makeEnvironment
     ourPlayer
-    [ packUnit $ Mob $ makeUnitData (7, 8)
-    , packUnit $ Mob $ makeUnitData (14, 15)
-    , packUnit $ Mob $ makeUnitData (4, 6)
-    , packUnit $ Mob $ makeUnitData (5, 6)
+    [ packUnit $ ourPlayer --Mob $ makeUnitData (7, 8) 'U'
+    , packUnit $ Mob $ makeUnitData (14, 15) 'U'
+    , packUnit $ Mob $ makeUnitData (4, 6) 'U'
+    , packUnit $ Mob $ makeUnitData (5, 6) 'U'
     ]
     [testGameLevel]
    where 
-    ourPlayer = makeSomePlayer $ makeUnitData (5, 6)
+    ourPlayer = makeSomePlayer $ makeUnitData (7, 9) 'λ'
 
-makeUnitData :: (Int, Int) -> UnitData
-makeUnitData position =
+makeUnitData :: (Int, Int) -> Char -> UnitData
+makeUnitData position render =
   createUnitData
     position
     0
@@ -125,6 +117,7 @@ makeUnitData position =
     empty
     emptyInventory
     (createWeapon "weapon" (modifyStats (health %~ subtract 5)) 'A')
+    render
     undefined
 
 makeSomePlayer :: UnitData -> Player

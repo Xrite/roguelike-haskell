@@ -14,12 +14,13 @@ module Game.Environment
   , affectUnitById
   , envAttack
   , playerId
+  , renderEnvironment
   )
 where
 
 import           Game.Unit.Player               ( Player )
 import           Game.Unit.Mob                  ( Mob )
-import           Game.Unit.Unit                 ( AnyUnit, asUnitData, _position, applyEffect, stats, _stats )
+import           Game.Unit.Unit                 ( AnyUnit, asUnitData, _position, applyEffect, stats, _stats, position, _portrait )
 import           Game.GameLevels.GameLevel
 import           Control.Monad.State
 import           Control.Lens
@@ -29,6 +30,7 @@ import           Data.List                      ( findIndex )
 import Game.Effect (Effect)
 import Game.Unit.DamageCalculation (attack)
 import Game.Unit.Stats
+import Game.GameLevels.MapCell (renderCell)
 
 -- | All manipulations with units in environment should use this type
 newtype UnitId = UnitId Int
@@ -114,3 +116,10 @@ getCurrentLevel env = _levels env !! _currentLevel env
 
 playerId :: Environment -> UnitId
 playerId _ = UnitId 0
+
+renderEnvironment :: Environment -> [String]
+renderEnvironment env = [[maybe (renderCell $ getCell (x, y) mp) (_portrait . asUnitData)  $ find (\u -> (asUnitData u ^. position) == (x, y)) $ _units env | x <- [xFrom .. xTo]]
+                  | y <- [yFrom .. yTo]]
+  where
+    mp = getCurrentLevel env ^. lvlMap
+    ((xFrom, yFrom), (xTo, yTo)) = getMapSize mp

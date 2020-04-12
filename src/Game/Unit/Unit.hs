@@ -8,6 +8,7 @@ module Game.Unit.Unit
   , _stats
   , position
   , _position
+  , _portrait
   , timedEffects
   , inventory
   , baseWeapon
@@ -42,6 +43,7 @@ data UnitData
         _timedEffects :: TimedEffects,                        -- ^ Timed effects that are affecting the unit
         _inventory :: Inventory,                              -- ^ Inventory on a unit
         _baseWeapon :: WeaponItem,                            -- ^ A weapon to use when unit is fighting bare-hand TODO use it in calculations
+        _portrait :: Char,                                    -- ^ How to display this unit
         -- | Defines behavior of a unit. Arguments are level and all the other units on it. TODO remove if not used
         _control :: GameLevel -> [AnyUnit] -> GameIO Action
       }
@@ -54,6 +56,7 @@ createUnitData
   -> TimedEffects                               -- ^ Timed effects that are affecting the unit
   -> Inventory                                  -- ^ Inventory on a unit
   -> WeaponItem                                 -- ^ A weapon to use when unit is fighting bare-hand TODO use it in calculations
+  -> Char                                       -- ^ How to display this unit
   -> (GameLevel -> [AnyUnit] -> GameIO Action)  -- ^ Defines behavior of a unit. Arguments are level and all the other units on it.
   -> UnitData                                   -- ^ Constructed 'Unit'
 createUnitData = UnitData
