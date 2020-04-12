@@ -12,7 +12,7 @@ data UIDesc a b = Desc { __title :: Title
                        , __selectedItem :: Maybe Int
                        }
 
-data ListItem a b = ListItem { __name :: String, __function :: (a -> b) }
+data ListItem a b = ListItem { __name :: String, __function :: a -> b }
 
 data Title = Title String
 
@@ -20,12 +20,14 @@ type Builder a b = State (UIDesc a b)
 
 makeLenses ''UIDesc
 
+defaultTitle :: Title
 defaultTitle = Title ""
 
-defalutUIDesc = Desc defaultTitle [] Nothing
+defaultUIDesc :: UIDesc a b
+defaultUIDesc = Desc defaultTitle [] Nothing
 
 makeUI :: Builder a b c -> UIDesc a b
-makeUI = flip execState defalutUIDesc
+makeUI = flip execState defaultUIDesc
 
 setTitle :: String -> Builder a b ()
 setTitle str = modify $ set _title (Title str)
