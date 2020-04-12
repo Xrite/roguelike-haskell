@@ -55,7 +55,7 @@ makeEnvironment player units levels = Environment player units levels 0 0
 -- It is called after each function that can modify units in the environment. With current implementation of units storage it invalidates 'UnitId'.
 -- Item drop (units death effects in general) is not yet implemented, so TODO implement death effects in filterDead
 filterDead :: Environment -> Environment
-filterDead env = cycleCurrentUnit . (currentUnitTurn %~ flip (-) startUnitsDied) . (units .~ newUnits) $ env
+filterDead env = cycleCurrentUnit . (currentUnitTurn %~ subtract startUnitsDied) . (units .~ newUnits) $ env
   where
     startUnits = take (_currentUnitTurn env) $ _units env
     endUnits = drop (_currentUnitTurn env) $ _units env

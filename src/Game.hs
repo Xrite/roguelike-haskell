@@ -33,7 +33,7 @@ import qualified Game.GameLevels.Generation.GenerationUtil as GU
 import           Game.Unit.Action ()
 import           System.Random (mkStdGen)
 import           Game.GameLevels.Generation.BSPGen (GeneratorParameters(..))
-
+import           Game.Effect (modifyStats)
 
 
 
@@ -124,7 +124,7 @@ makeUnitData position =
     (Stats.Stats 10 10 10 1)
     empty
     emptyInventory
-    (createWeapon "weapon" (return ()) 'A')
+    (createWeapon "weapon" (modifyStats (health %~ subtract 5)) 'A')
     undefined
 
 makeSomePlayer :: UnitData -> Player

@@ -31,6 +31,7 @@ import           Game.Item
 import           Game.Unit.Stats
 import           Game.Unit.TimedEffects
 import           Game.Unit.Action
+import Data.Maybe (fromMaybe)
 
 -- | Common data of all units.
 data UnitData
@@ -57,6 +58,9 @@ createUnitData
   -> UnitData                                   -- ^ Constructed 'Unit'
 createUnitData = UnitData
 
+getAttackEffect :: UnitData -> Effect ()
+getAttackEffect unitData =  (^. weaponAttackEffect) $ fromMaybe (_baseWeapon unitData) (getWeapon $ _inventory unitData)
+
 -- | Something that can hit and run.
 -- A typeclass for every active participant of a game. If it moves and participates in combat system, it is a unit.
 class Unit a where
@@ -67,6 +71,10 @@ class Unit a where
   applyEffect :: Effect () -> a -> a
   -- | Effect for this unit's attacks
   attackEffect :: a -> Effect ()
+  attackEffect p = getAttackEffect . asUnitData $ applyEffect wearableEff p
+      where
+        inv = _inventory $ asUnitData p
+        wearableEff = getAllWearableEffects inv
 
 -- | An existential type wrapper for any type implementing 'Unit'.
 -- Existential classes is an antipattern, but what other choice do we have? 

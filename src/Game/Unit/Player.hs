@@ -8,7 +8,7 @@ import           Control.Lens
 import           Game.Unit.Unit
 import           Control.Monad.Free
 import           Game.Unit.TimedEffects
-import           Game.Unit.Inventory (getAllWearableEffects, getWeaponEffect)
+import           Game.Unit.Inventory (getAllWearableEffects)
 
 -- | Describes everything regarding level-up system of a 'Player'
 data LevellingStats =
@@ -39,10 +39,3 @@ instance Unit Player where
   applyEffect (Free (MoveTo coordTo next)) u =
     applyEffect next $ playerUnit . position .~ coordTo $ u
   applyEffect _ p = p
-
-  attackEffect
-    p = getWeaponEffect $ applyEffect wearableEff p ^. playerUnit . inventory
-    where
-      inv = p ^. playerUnit . inventory
-
-      wearableEff = getAllWearableEffects inv

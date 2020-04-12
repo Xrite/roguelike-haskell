@@ -7,9 +7,7 @@ import           Control.Lens
 import           Control.Monad.Free
 import           Game.Effect
 import           Game.Unit.TimedEffects
-import           Game.Unit.Inventory            ( getAllWearableEffects
-                                                , getWeaponEffect
-                                                )
+import           Game.Unit.Inventory            ( getAllWearableEffects )
 import           Game.Unit.Unit                 ( UnitData
                                                 , Unit(..)
                                                 , timedEffects
@@ -37,9 +35,3 @@ instance Unit Mob where
     applyEffect next $ over (unit . timedEffects) (addEffect time effect) u
   applyEffect (Free (MoveTo coordTo next)) u =
     applyEffect next $ unit . position .~ coordTo $ u
-
-  attackEffect p =
-    getWeaponEffect $ applyEffect wearableEff p ^. unit . inventory
-   where
-    inv         = p ^. unit . inventory
-    wearableEff = getAllWearableEffects inv
