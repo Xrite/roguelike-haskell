@@ -88,7 +88,7 @@ randomEnvironment :: Int -> Environment
 randomEnvironment seed =
   makeEnvironment
     ourPlayer
-    [ packUnit $ ourPlayer]
+    [ packUnit ourPlayer ]
     [lvl]
    where
     lvl = fst $ randomBSPGeneratedLevel (GU.Space (GU.Coord 0 0) (GU.Coord 50 50)) (GeneratorParameters 10 1.7 5) $ mkStdGen seed
@@ -99,13 +99,13 @@ testEnvironment :: Environment
 testEnvironment =
   makeEnvironment
     ourPlayer
-    [ packUnit $ ourPlayer --Mob $ makeUnitData (7, 8) 'U'
+    [ packUnit ourPlayer --Mob $ makeUnitData (7, 8) 'U'
     , packUnit $ Mob $ makeUnitData (14, 15) 'U'
     , packUnit $ Mob $ makeUnitData (4, 6) 'U'
     , packUnit $ Mob $ makeUnitData (5, 6) 'U'
     ]
     [testGameLevel]
-   where 
+  where
     ourPlayer = makeSomePlayer $ makeUnitData (7, 9) 'λ'
 
 makeUnitData :: (Int, Int) -> Char -> UnitData
@@ -121,4 +121,4 @@ makeUnitData position render =
     undefined
 
 makeSomePlayer :: UnitData -> Player
-makeSomePlayer unitData = makePlayer unitData
+makeSomePlayer = makePlayer
