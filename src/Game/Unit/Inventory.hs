@@ -17,7 +17,7 @@ module Game.Unit.Inventory
   , fillChestSlot
   , fillLegsSlot
   , fillWeaponSlot
-  , getWeapon
+  , getEquippedWeapon
   )
 where
 
@@ -63,9 +63,9 @@ getAllWearableEffects inv = do
   getWearableEffect $ slots ^. chestSlot
   getWearableEffect $ slots ^. legsSlot
 
--- | Get an effect from an equipped weapon (if there is one)
-getWeapon :: Inventory -> Maybe WeaponItem
-getWeapon inv = inv ^. weaponSlots . hand
+-- | Get an equipped weapon (if there is one)
+getEquippedWeapon :: Inventory -> Maybe WeaponItem
+getEquippedWeapon inv = inv ^. weaponSlots . hand
 
 -- | Empty inventory
 emptyInventory :: Inventory

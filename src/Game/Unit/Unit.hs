@@ -58,8 +58,14 @@ createUnitData
   -> UnitData                                   -- ^ Constructed 'Unit'
 createUnitData = UnitData
 
+-- | Returns an active weapon unit data implies.
+-- That is, returns equipped weapon or base weapon if none equipped
+getWeapon :: UnitData -> WeaponItem
+getWeapon unitData = fromMaybe (_baseWeapon unitData) (getEquippedWeapon $ _inventory unitData)
+
+-- | Returns attack effect this unit data implies
 getAttackEffect :: UnitData -> Effect ()
-getAttackEffect unitData =  (^. weaponAttackEffect) $ fromMaybe (_baseWeapon unitData) (getWeapon $ _inventory unitData)
+getAttackEffect unitData = getWeapon unitData ^. weaponAttackEffect
 
 -- | Something that can hit and run.
 -- A typeclass for every active participant of a game. If it moves and participates in combat system, it is a unit.
