@@ -15,6 +15,8 @@ import           Game.Unit.Unit                 ( UnitData
                                                 , inventory
                                                 , position
                                                 )
+import           Game.Effects.EffectAtom
+import           Game.Unit.Stats                ( health )
 
 -- | A mob is a simple computer-controlled 'Unit'.
 data Mob = Mob {_unit :: UnitData}
@@ -36,4 +38,8 @@ instance Unit Mob where
   applyEffect (Free (MoveTo coordTo next)) u =
     applyEffect next $ unit . position .~ coordTo $ u
   applyEffect (Free (ApplyEffect effect next)) u =
-    applyEffect next $ undefined
+    applyEffect next $ appEffect effect u
+    where
+      appEffect (Damage dmg) = unit . stats . health %~ subtract dmg
+      appEffect (Heal h) = unit . stats . health %~ (+) h
+      appEffect (GiveExp _) = id

@@ -9,6 +9,8 @@ import           Game.Unit.Unit
 import           Control.Monad.Free
 import           Game.Unit.TimedEffects
 import           Game.Unit.Inventory (getAllWearableEffects)
+import Game.Effects.EffectAtom
+import Game.Unit.Stats (health)
 
 -- | Describes everything regarding level-up system of a 'Player'
 data LevellingStats =
@@ -38,4 +40,9 @@ instance Unit Player where
     $ over (playerUnit . timedEffects) (addEffect time effect) u
   applyEffect (Free (MoveTo coordTo next)) u =
     applyEffect next $ playerUnit . position .~ coordTo $ u
-  applyEffect _ p = p
+  applyEffect (Free (ApplyEffect effect next)) u =
+    applyEffect next $ appEffect effect u
+    where
+      appEffect (Damage dmg) = playerUnit . stats . health %~ subtract dmg
+      appEffect (Heal h) = playerUnit . stats . health %~ (+) h
+      appEffect (GiveExp _) = id

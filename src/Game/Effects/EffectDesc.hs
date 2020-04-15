@@ -11,4 +11,4 @@ type EffectKey = String
 data EffectDesc = Atom EffectAtom
                 | DefaultEffect EffectKey
                 | Sequential [EffectDesc]
-                -- TODO add timed effect here?
+                -- TODO add timed effect here? or to atom?

@@ -13,7 +13,7 @@ where
 
 import           Game.Unit.Stats
 import           Control.Monad.Free
-import           Game.Effects.EffectDesc
+import           Game.Effects.EffectAtom
 
 -- I want EffectReceiver typeclass so that map cells could do smth like
 -- also "burn down then receiving fire dmg"
@@ -23,7 +23,7 @@ data ModifierDSL a = GetStats (Maybe Stats -> a)
                                  | ModifyStats (Stats -> Stats) a
                                  | SetTimedEffect Int (Int -> Modifier ()) a
                                  | MoveTo (Int, Int) a
-                                 | ApplyEffect EffectDesc a
+                                 | ApplyEffect EffectAtom a
                   deriving (Functor)
 
 type Modifier a = Free ModifierDSL a
