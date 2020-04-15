@@ -9,17 +9,17 @@ module Game.Unit.TimedEffects
   )
 where
 
-import           Game.Effect
+import           Game.Effects.Manipulatsi
 import           Control.Lens
 
-data TimedEffects = TimedEffects { _effects :: [(Int, Int -> Effect ())] }
+data TimedEffects = TimedEffects { _effects :: [(Int, Int -> ProizvolnueManipulatsi ())] }
 
 makeLenses ''TimedEffects
 
 empty :: TimedEffects
 empty = TimedEffects []
 
-addEffect :: Int -> (Int -> Effect ()) -> TimedEffects -> TimedEffects
+addEffect :: Int -> (Int -> ProizvolnueManipulatsi ()) -> TimedEffects -> TimedEffects
 addEffect time effect timedEffects
   | time > 0  = TimedEffects $ (time, effect) : _effects timedEffects
   | otherwise = timedEffects
@@ -28,5 +28,5 @@ tick :: TimedEffects -> TimedEffects
 tick (TimedEffects effs) =
   TimedEffects $ filter ((> 0) . fst) $ map (over _1 (+ (-1))) effs
 
-composeEffect :: TimedEffects -> Effect ()
+composeEffect :: TimedEffects -> ProizvolnueManipulatsi ()
 composeEffect = mapM_ (\(i, eff) -> eff i) . _effects

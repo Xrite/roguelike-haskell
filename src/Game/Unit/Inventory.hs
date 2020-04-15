@@ -22,7 +22,7 @@ module Game.Unit.Inventory
 where
 
 import           Control.Lens
-import           Game.Effect
+import           Game.Effects.Manipulatsi
 import           Game.Item
 import           Prelude                 hiding ( head )
 
@@ -51,12 +51,12 @@ makeLenses ''WearableSlots
 makeLenses ''WeaponSlots
 
 -- | Get effect from wearable item
-getWearableEffect :: Maybe WearableItem -> Effect ()
+getWearableEffect :: Maybe WearableItem -> ProizvolnueManipulatsi ()
 getWearableEffect (Just item) = wearableDefenceEffect item
 getWearableEffect Nothing     = return ()
 
 -- | Get composite effect from all equipped wearable items in an inventory
-getAllWearableEffects :: Inventory -> Effect ()
+getAllWearableEffects :: Inventory -> ProizvolnueManipulatsi ()
 getAllWearableEffects inv = do
   let slots = inv ^. wearableSlots
   getWearableEffect $ slots ^. headSlot

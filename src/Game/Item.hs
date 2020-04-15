@@ -30,7 +30,7 @@ module Game.Item
   
 where
 
-import           Game.Effect
+import           Game.Effects.Manipulatsi
 import           Control.Lens
 
 data WearableType = Head
@@ -43,17 +43,17 @@ data Item = Consumable ConsumableItem
           | Junk JunkItem
 
 data WeaponItem =
-  WeaponItem { _weaponName :: String, _weaponAttackEffect :: Effect () , _weaponRender :: Char}
+  WeaponItem { _weaponName :: String, _weaponAttackEffect :: ProizvolnueManipulatsi () , _weaponRender :: Char}
 
 data WearableItem = WearableItem { _wearableName :: String
                                  , wearableType :: WearableType
-                                 , wearableDefenceEffect :: Effect ()
-                                 , wearableRepulseEffect :: Effect ()
+                                 , wearableDefenceEffect :: ProizvolnueManipulatsi ()
+                                 , wearableRepulseEffect :: ProizvolnueManipulatsi ()
                                  , _wearableRender :: Char
                                  }
 
 data ConsumableItem =
-  ConsumableItem { _consumableName :: String, _consumableEffect :: Effect () , _consumableRender :: Char}
+  ConsumableItem { _consumableName :: String, _consumableEffect :: ProizvolnueManipulatsi () , _consumableRender :: Char}
 
 data JunkItem = JunkItem { _junkName :: String, _junkRender :: Char}
 
@@ -62,14 +62,14 @@ makeLenses ''WearableItem
 makeLenses ''ConsumableItem
 makeLenses ''JunkItem
 
-createWeapon :: String -> Effect () -> Char -> WeaponItem
+createWeapon :: String -> ProizvolnueManipulatsi () -> Char -> WeaponItem
 createWeapon = WeaponItem
 
 createWearable
-  :: String -> WearableType -> Effect () -> Effect () -> Char -> WearableItem
+  :: String -> WearableType -> ProizvolnueManipulatsi () -> ProizvolnueManipulatsi () -> Char -> WearableItem
 createWearable = WearableItem
 
-createConsumable :: String -> Effect () -> Char -> ConsumableItem
+createConsumable :: String -> ProizvolnueManipulatsi () -> Char -> ConsumableItem
 createConsumable = ConsumableItem
 
 weaponToItem :: WeaponItem -> Item

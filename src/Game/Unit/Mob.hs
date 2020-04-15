@@ -5,7 +5,7 @@ module Game.Unit.Mob where
 
 import           Control.Lens
 import           Control.Monad.Free
-import           Game.Effect
+import           Game.Effects.Manipulatsi
 import           Game.Unit.TimedEffects
 import           Game.Unit.Inventory            ( getAllWearableEffects )
 import           Game.Unit.Unit                 ( UnitData

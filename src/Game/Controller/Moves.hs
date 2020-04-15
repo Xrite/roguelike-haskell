@@ -5,7 +5,7 @@ module Game.Controller.Moves where
 import Control.Lens ((%~), (^.))
 import Control.Monad (guard)
 import Data.Maybe (isNothing)
-import Game.Effect
+import Game.Effects.Manipulatsi
 import Game.Environment
 import Game.GameLevels.GameLevel
 import Game.GameLevels.MapCell
