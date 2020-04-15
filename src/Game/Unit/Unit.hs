@@ -9,7 +9,7 @@ module Game.Unit.Unit
   , position
   , _position
   , _portrait
-  , timedEffects
+  , timedModifiers
   , inventory
   , baseWeapon
   , Unit(..)
@@ -24,13 +24,13 @@ module Game.Unit.Unit
 where
 
 import           Control.Lens
-import           Game.Effects.Modifier
+import           Game.Modifiers.Modifier
 import           Game.Unit.Inventory
 import           Game.IO.GameIO
 import           Game.GameLevels.GameLevel
 import           Game.Item
 import           Game.Unit.Stats
-import           Game.Unit.TimedEffects
+import           Game.Unit.TimedModifiers
 import           Game.Unit.Action
 import Data.Maybe (fromMaybe)
 
@@ -40,7 +40,7 @@ data UnitData
       { _position :: (Int, Int),                              -- ^ Coordinates on a level
         _depth :: Int,                                        -- ^ Level (as in depth) on which the unit is now
         _stats :: Stats,                                      -- ^ Stats of a unit
-        _timedEffects :: TimedEffects,                        -- ^ Timed effects that are affecting the unit
+        _timedModifiers :: TimedModifiers,                        -- ^ Timed modifiers that are affecting the unit
         _inventory :: Inventory,                              -- ^ Inventory on a unit
         _baseWeapon :: WeaponItem,                            -- ^ A weapon to use when unit is fighting bare-hand TODO use it in calculations
         _portrait :: Char,                                    -- ^ How to display this unit
@@ -53,7 +53,7 @@ createUnitData
   :: (Int, Int)                                 -- ^ Coordinates on a level
   -> Int                                        -- ^ Level (as in depth) on which the unit is now
   -> Stats                                      -- ^ Stats of a unit
-  -> TimedEffects                               -- ^ Timed effects that are affecting the unit
+  -> TimedModifiers                               -- ^ Timed modifiers that are affecting the unit
   -> Inventory                                  -- ^ Inventory on a unit
   -> WeaponItem                                 -- ^ A weapon to use when unit is fighting bare-hand TODO use it in calculations
   -> Char                                       -- ^ How to display this unit
@@ -66,24 +66,24 @@ createUnitData = UnitData
 getWeapon :: UnitData -> WeaponItem
 getWeapon unitData = fromMaybe (_baseWeapon unitData) (getEquippedWeapon $ _inventory unitData)
 
--- | Returns attack effect this unit data implies
-getAttackEffect :: UnitData -> Modifier ()
-getAttackEffect unitData = getWeapon unitData ^. weaponAttackEffect
+-- | Returns attack modifier this unit data implies
+getAttackModifier :: UnitData -> Modifier ()
+getAttackModifier unitData = getWeapon unitData ^. weaponAttackModifier
 
 -- | Something that can hit and run.
 -- A typeclass for every active participant of a game. If it moves and participates in combat system, it is a unit.
 class Unit a where
   -- | Returns 'UnitData' of a unit.
   asUnitData :: a -> UnitData
-  -- | How unit is affected by 'Effect's.
+  -- | How unit is affected by 'Modifier's.
   -- It is the main thing that differs a 'Unit' from 'UnitData'.
-  applyEffect :: Modifier () -> a -> a
-  -- | Effect for this unit's attacks
-  attackEffect :: a -> Modifier ()
-  attackEffect p = getAttackEffect . asUnitData $ applyEffect wearableEff p
+  applyModifier :: Modifier () -> a -> a
+  -- | Modifier for this unit's attacks
+  attackModifier :: a -> Modifier ()
+  attackModifier p = getAttackModifier . asUnitData $ applyModifier wearableEff p
       where
         inv = _inventory $ asUnitData p
-        wearableEff = getAllWearableEffects inv
+        wearableEff = getAllWearableModifiers inv
 
 -- | An existential type wrapper for any type implementing 'Unit'.
 -- Existential classes is an antipattern, but what other choice do we have? 
@@ -94,8 +94,8 @@ makeLenses ''UnitData
 -- | Instance of 'Unit' for the wrapper 'AnyUnit" that simply transfers every call to the wrapped object.
 instance Unit AnyUnit where
   asUnitData (AnyUnit u) = asUnitData u
-  applyEffect e (AnyUnit u) = AnyUnit $ applyEffect e u
-  attackEffect (AnyUnit u) = attackEffect u
+  applyModifier e (AnyUnit u) = AnyUnit $ applyModifier e u
+  attackModifier (AnyUnit u) = attackModifier u
 
 -- | Packs any unit into 'AnyUnit' box.
 packUnit :: Unit a => a -> AnyUnit

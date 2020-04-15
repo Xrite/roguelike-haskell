@@ -10,7 +10,7 @@ module Game.Unit.Inventory
   , headSlot
   , chestSlot
   , legsSlot
-  , getAllWearableEffects
+  , getAllWearableModifiers
   , emptyInventory
   , addItem
   , fillHeadSlot
@@ -22,7 +22,7 @@ module Game.Unit.Inventory
 where
 
 import           Control.Lens
-import           Game.Effects.Modifier
+import           Game.Modifiers.Modifier
 import           Game.Item
 import           Prelude                 hiding ( head )
 
@@ -50,18 +50,18 @@ makeLenses ''WearableSlots
 
 makeLenses ''WeaponSlots
 
--- | Get effect from wearable item
-getWearableEffect :: Maybe WearableItem -> Modifier ()
-getWearableEffect (Just item) = wearableDefenceEffect item
-getWearableEffect Nothing     = return ()
+-- | Get modifier from wearable item
+getWearableModifier :: Maybe WearableItem -> Modifier ()
+getWearableModifier (Just item) = wearableDefenceModifier item
+getWearableModifier Nothing     = return ()
 
--- | Get composite effect from all equipped wearable items in an inventory
-getAllWearableEffects :: Inventory -> Modifier ()
-getAllWearableEffects inv = do
+-- | Get composite modifier from all equipped wearable items in an inventory
+getAllWearableModifiers :: Inventory -> Modifier ()
+getAllWearableModifiers inv = do
   let slots = inv ^. wearableSlots
-  getWearableEffect $ slots ^. headSlot
-  getWearableEffect $ slots ^. chestSlot
-  getWearableEffect $ slots ^. legsSlot
+  getWearableModifier $ slots ^. headSlot
+  getWearableModifier $ slots ^. chestSlot
+  getWearableModifier $ slots ^. legsSlot
 
 -- | Get an equipped weapon (if there is one)
 getEquippedWeapon :: Inventory -> Maybe WeaponItem

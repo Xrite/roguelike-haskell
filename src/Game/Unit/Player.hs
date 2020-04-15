@@ -3,13 +3,13 @@
 -- | Describes a 'Unit' type for players 
 module Game.Unit.Player (LevellingStats, Player, makePlayer) where
 
-import           Game.Effects.Modifier
+import           Game.Modifiers.Modifier
 import           Control.Lens
 import           Game.Unit.Unit
 import           Control.Monad.Free
-import           Game.Unit.TimedEffects
-import           Game.Unit.Inventory (getAllWearableEffects)
-import Game.Effects.EffectAtom
+import           Game.Unit.TimedModifiers
+import           Game.Unit.Inventory (getAllWearableModifiers)
+import Game.Modifiers.EffectAtom
 import Game.Unit.Stats (health)
 
 -- | Describes everything regarding level-up system of a 'Player'
@@ -29,20 +29,20 @@ makePlayer unitData = Player unitData (LevellingStats 0 0)
 instance Unit Player where
   asUnitData = _playerUnit
 
-  applyEffect (Pure _) m = m
-  applyEffect (Free (GetStats nextF)) m =
-    applyEffect (nextF (Just $ m ^. playerUnit . stats)) m
-  applyEffect (Free (SetStats newStats next)) u =
-    applyEffect next (u & playerUnit . stats .~ newStats)
-  applyEffect (Free (ModifyStats f next)) u =
-    applyEffect next (u & playerUnit . stats %~ f)
-  applyEffect (Free (SetTimedEffect time effect next)) u = applyEffect next
-    $ over (playerUnit . timedEffects) (addEffect time effect) u
-  applyEffect (Free (MoveTo coordTo next)) u =
-    applyEffect next $ playerUnit . position .~ coordTo $ u
-  applyEffect (Free (ApplyEffect effect next)) u =
-    applyEffect next $ appEffect effect u
+  applyModifier (Pure _) m = m
+  applyModifier (Free (GetStats nextF)) m =
+    applyModifier (nextF (Just $ m ^. playerUnit . stats)) m
+  applyModifier (Free (SetStats newStats next)) u =
+    applyModifier next (u & playerUnit . stats .~ newStats)
+  applyModifier (Free (ModifyStats f next)) u =
+    applyModifier next (u & playerUnit . stats %~ f)
+  applyModifier (Free (SetTimedModifier time modifier next)) u = applyModifier next
+    $ over (playerUnit . timedModifiers) (addModifier time modifier) u
+  applyModifier (Free (MoveTo coordTo next)) u =
+    applyModifier next $ playerUnit . position .~ coordTo $ u
+  applyModifier (Free (ApplyModifier modifier next)) u =
+    applyModifier next $ applyEffect modifier u
     where
-      appEffect (Damage dmg) = playerUnit . stats . health %~ subtract dmg
-      appEffect (Heal h) = playerUnit . stats . health %~ (+) h
-      appEffect (GiveExp _) = id
+      applyEffect (Damage dmg) = playerUnit . stats . health %~ subtract dmg
+      applyEffect (Heal h) = playerUnit . stats . health %~ (+) h
+      applyEffect (GiveExp _) = id

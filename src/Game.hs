@@ -26,14 +26,14 @@ import           Game.Unit.Inventory (emptyInventory)
 import           Game.Unit.Mob
 import           Game.Unit.Player (makePlayer, Player)
 import           Game.Unit.Stats as Stats
-import           Game.Unit.TimedEffects (empty)
+import           Game.Unit.TimedModifiers (empty)
 import           Game.Unit.Unit (createUnitData, packUnit, UnitData, asUnitData, AnyUnit, getPosition)
 import           Data.Maybe (isNothing, isJust)
 import qualified Game.GameLevels.Generation.GenerationUtil as GU
 import           Game.Unit.Action ()
 import           System.Random (mkStdGen)
 import           Game.GameLevels.Generation.BSPGen (GeneratorParameters(..))
-import           Game.Effects.Modifier (modifyStats)
+import           Game.Modifiers.Modifier (modifyStats)
 
 
 

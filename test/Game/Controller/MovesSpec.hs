@@ -9,7 +9,7 @@ import Game.Unit.Mob
 import Game.Unit.Player (makePlayer)
 import Game.Unit.Stats (Stats(..))
 import Game.Unit.Unit (_position)
-import Game.Unit.TimedEffects (empty)
+import Game.Unit.TimedModifiers (empty)
 import Game.GameLevels.GameLevel (_lvlMap, getMapSize)
 import Game.Unit.Unit (createUnitData, packUnit, UnitData, asUnitData)
 import Test.Hspec

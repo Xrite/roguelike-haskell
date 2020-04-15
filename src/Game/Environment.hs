@@ -20,14 +20,14 @@ where
 
 import           Game.Unit.Player               ( Player )
 import           Game.Unit.Mob                  ( Mob )
-import           Game.Unit.Unit                 ( AnyUnit, asUnitData, _position, applyEffect, stats, _stats, position, _portrait )
+import           Game.Unit.Unit                 ( AnyUnit, asUnitData, _position, applyModifier, stats, _stats, position, _portrait )
 import           Game.GameLevels.GameLevel
 import           Control.Monad.State
 import           Control.Lens
 import           PreludeUtil                    ( listLens )
 import           Data.Foldable                  ( find )
 import           Data.List                      ( findIndex )
-import Game.Effects.Modifier (Modifier)
+import Game.Modifiers.Modifier (Modifier)
 import Game.Unit.DamageCalculation (attack)
 import Game.Unit.Stats
 import Game.GameLevels.MapCell (renderCell)
@@ -55,7 +55,7 @@ makeEnvironment player units levels = Environment player units levels 0 0
 
 -- | This function should remove dead units from environment.
 -- It is called after each function that can modify units in the environment. With current implementation of units storage it invalidates 'UnitId'.
--- Item drop (units death effects in general) is not yet implemented, so TODO implement death effects in filterDead
+-- Item drop (units death modifiers in general) is not yet implemented, so TODO implement death modifiers in filterDead
 filterDead :: Environment -> Environment
 filterDead env = cycleCurrentUnit . (currentUnitTurn %~ subtract startUnitsDied) . (units .~ newUnits) $ env
   where
@@ -84,7 +84,7 @@ setUnitById :: UnitId -> AnyUnit -> Environment -> Environment
 setUnitById idx unit = filterDead . set (unitLensById idx) unit
 
 affectUnitById :: UnitId -> Modifier () -> Environment -> Environment
-affectUnitById idx effect = filterDead . (unitLensById idx %~ applyEffect effect)
+affectUnitById idx modifier = filterDead . (unitLensById idx %~ applyModifier modifier)
 
 unitIdByCoord :: (Int, Int) -> Environment -> Maybe UnitId
 unitIdByCoord coord env = UnitId <$> findIndex ((== coord) . _position . asUnitData) (_units env)

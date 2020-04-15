@@ -5,5 +5,5 @@ import           Game.Unit.Unit
 
 attack :: (Unit a, Unit b) => a -> b -> (a, b)
 attack attacker victim =
-    (attacker, applyEffect (attackEffect attacker) victim)
+    (attacker, applyModifier (attackModifier attacker) victim)
 

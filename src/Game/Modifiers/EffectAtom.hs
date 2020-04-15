@@ -1,6 +1,6 @@
-module Game.Effects.EffectAtom
+module Game.Modifiers.EffectAtom
   ( EffectAtom (..)
-  ) 
+  )
 where
 
 data EffectAtom = Damage Int
