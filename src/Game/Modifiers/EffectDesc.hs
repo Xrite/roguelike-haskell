@@ -1,6 +1,6 @@
 module Game.Modifiers.EffectDesc
   ( ModifierKey
-  , EffectDesc
+  , EffectDesc (..)
   )
 where
 

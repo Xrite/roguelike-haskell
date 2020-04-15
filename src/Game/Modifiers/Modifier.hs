@@ -8,6 +8,7 @@ module Game.Modifiers.Modifier
   , modifyStats
   , setTimedModifier
   , setCoord
+  , setEffect
   )
 where
 
@@ -15,18 +16,15 @@ import           Game.Unit.Stats
 import           Control.Monad.Free
 import           Game.Modifiers.EffectAtom
 
--- I want ModifierReceiver typeclass so that map cells could do smth like
--- also "burn down then receiving fire dmg"
-
 data ModifierDSL a = GetStats (Maybe Stats -> a)
                                  | SetStats Stats a
                                  | ModifyStats (Stats -> Stats) a
                                  | SetTimedModifier Int (Int -> Modifier ()) a
                                  | MoveTo (Int, Int) a
-                                 | ApplyModifier EffectAtom a
+                                 | ApplyEffect EffectAtom a
                   deriving (Functor)
 
-type Modifier a = Free ModifierDSL a
+type Modifier a = Free ModifierDSL a 
 
 getStats :: Modifier (Maybe Stats)
 getStats = liftF $ GetStats id
@@ -42,3 +40,6 @@ setTimedModifier time modifier = Free $ SetTimedModifier time modifier (Pure ())
 
 setCoord :: (Int, Int) -> Modifier ()
 setCoord coord = Free $ MoveTo coord $ Pure ()
+
+setEffect :: EffectAtom -> Modifier ()
+setEffect atom = Free $ ApplyEffect atom (Pure ())

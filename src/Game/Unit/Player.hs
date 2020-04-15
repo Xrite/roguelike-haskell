@@ -40,8 +40,8 @@ instance Unit Player where
     $ over (playerUnit . timedModifiers) (addModifier time modifier) u
   applyModifier (Free (MoveTo coordTo next)) u =
     applyModifier next $ playerUnit . position .~ coordTo $ u
-  applyModifier (Free (ApplyModifier modifier next)) u =
-    applyModifier next $ applyEffect modifier u
+  applyModifier (Free (ApplyEffect effect next)) u =
+    applyModifier next $ applyEffect effect u
     where
       applyEffect (Damage dmg) = playerUnit . stats . health %~ subtract dmg
       applyEffect (Heal h) = playerUnit . stats . health %~ (+) h

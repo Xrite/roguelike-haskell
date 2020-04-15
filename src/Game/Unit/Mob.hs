@@ -37,8 +37,8 @@ instance Unit Mob where
     applyModifier next $ over (unit . timedModifiers) (addModifier time modifier) u
   applyModifier (Free (MoveTo coordTo next)) u =
     applyModifier next $ unit . position .~ coordTo $ u
-  applyModifier (Free (ApplyModifier modifier next)) u =
-    applyModifier next $ applyEffect modifier u
+  applyModifier (Free (ApplyEffect effect next)) u =
+    applyModifier next $ applyEffect effect u
     where
       applyEffect (Damage dmg) = unit . stats . health %~ subtract dmg
       applyEffect (Heal h) = unit . stats . health %~ (+) h
