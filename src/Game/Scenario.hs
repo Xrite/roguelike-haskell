@@ -3,13 +3,13 @@
 module Game.Scenario where
 
 import           Control.Monad.Free
-import           Game.Effects.Manipulatsi (ProizvolnueManipulatsi)
+import           Game.Effects.Modifier (Modifier)
 import           Game.Environment
 
 
 data ScenarioDSL a = Attack UnitId UnitId a
                    | MoveUnitTo UnitId (Int, Int) a
-                   | AOEEffect Int (Int -> ProizvolnueManipulatsi ()) a
+                   | AOEEffect Int (Int -> Modifier ()) a
   deriving (Functor)
 
 type Scenario a = Free ScenarioDSL a
@@ -17,7 +17,7 @@ type Scenario a = Free ScenarioDSL a
 attack :: UnitId -> UnitId -> Scenario ()
 attack attacker attacked = liftF $ Attack attacker attacked ()
 
-setAOEEffect :: Int -> (Int -> ProizvolnueManipulatsi ()) -> Scenario ()
+setAOEEffect :: Int -> (Int -> Modifier ()) -> Scenario ()
 setAOEEffect range effect = liftF $ AOEEffect range effect ()
 
 setCoord :: UnitId -> (Int, Int) -> Scenario ()

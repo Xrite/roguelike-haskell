@@ -30,7 +30,7 @@ module Game.Item
   
 where
 
-import           Game.Effects.Manipulatsi
+import           Game.Effects.Modifier
 import           Control.Lens
 
 data WearableType = Head
@@ -43,17 +43,17 @@ data Item = Consumable ConsumableItem
           | Junk JunkItem
 
 data WeaponItem =
-  WeaponItem { _weaponName :: String, _weaponAttackEffect :: ProizvolnueManipulatsi () , _weaponRender :: Char}
+  WeaponItem { _weaponName :: String, _weaponAttackEffect :: Modifier () , _weaponRender :: Char}
 
 data WearableItem = WearableItem { _wearableName :: String
                                  , wearableType :: WearableType
-                                 , wearableDefenceEffect :: ProizvolnueManipulatsi ()
-                                 , wearableRepulseEffect :: ProizvolnueManipulatsi ()
+                                 , wearableDefenceEffect :: Modifier ()
+                                 , wearableRepulseEffect :: Modifier ()
                                  , _wearableRender :: Char
                                  }
 
 data ConsumableItem =
-  ConsumableItem { _consumableName :: String, _consumableEffect :: ProizvolnueManipulatsi () , _consumableRender :: Char}
+  ConsumableItem { _consumableName :: String, _consumableEffect :: Modifier () , _consumableRender :: Char}
 
 data JunkItem = JunkItem { _junkName :: String, _junkRender :: Char}
 
@@ -62,14 +62,14 @@ makeLenses ''WearableItem
 makeLenses ''ConsumableItem
 makeLenses ''JunkItem
 
-createWeapon :: String -> ProizvolnueManipulatsi () -> Char -> WeaponItem
+createWeapon :: String -> Modifier () -> Char -> WeaponItem
 createWeapon = WeaponItem
 
 createWearable
-  :: String -> WearableType -> ProizvolnueManipulatsi () -> ProizvolnueManipulatsi () -> Char -> WearableItem
+  :: String -> WearableType -> Modifier () -> Modifier () -> Char -> WearableItem
 createWearable = WearableItem
 
-createConsumable :: String -> ProizvolnueManipulatsi () -> Char -> ConsumableItem
+createConsumable :: String -> Modifier () -> Char -> ConsumableItem
 createConsumable = ConsumableItem
 
 weaponToItem :: WeaponItem -> Item

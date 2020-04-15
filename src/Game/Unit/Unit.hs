@@ -24,7 +24,7 @@ module Game.Unit.Unit
 where
 
 import           Control.Lens
-import           Game.Effects.Manipulatsi
+import           Game.Effects.Modifier
 import           Game.Unit.Inventory
 import           Game.IO.GameIO
 import           Game.GameLevels.GameLevel
@@ -67,7 +67,7 @@ getWeapon :: UnitData -> WeaponItem
 getWeapon unitData = fromMaybe (_baseWeapon unitData) (getEquippedWeapon $ _inventory unitData)
 
 -- | Returns attack effect this unit data implies
-getAttackEffect :: UnitData -> ProizvolnueManipulatsi ()
+getAttackEffect :: UnitData -> Modifier ()
 getAttackEffect unitData = getWeapon unitData ^. weaponAttackEffect
 
 -- | Something that can hit and run.
@@ -77,9 +77,9 @@ class Unit a where
   asUnitData :: a -> UnitData
   -- | How unit is affected by 'Effect's.
   -- It is the main thing that differs a 'Unit' from 'UnitData'.
-  applyEffect :: ProizvolnueManipulatsi () -> a -> a
+  applyEffect :: Modifier () -> a -> a
   -- | Effect for this unit's attacks
-  attackEffect :: a -> ProizvolnueManipulatsi ()
+  attackEffect :: a -> Modifier ()
   attackEffect p = getAttackEffect . asUnitData $ applyEffect wearableEff p
       where
         inv = _inventory $ asUnitData p

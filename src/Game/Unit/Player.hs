@@ -3,7 +3,7 @@
 -- | Describes a 'Unit' type for players 
 module Game.Unit.Player (LevellingStats, Player, makePlayer) where
 
-import           Game.Effects.Manipulatsi
+import           Game.Effects.Modifier
 import           Control.Lens
 import           Game.Unit.Unit
 import           Control.Monad.Free

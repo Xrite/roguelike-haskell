@@ -6,7 +6,7 @@ module Game.GameLevels.MapCellType where
 
 import Game.Unit.Stats
 import Control.Lens (makeLenses)
-import Game.Effects.Manipulatsi
+import Game.Effects.Modifier
 
 -- | Describes properties of a cell on the map
 data MapCellType = MapCellType
@@ -20,11 +20,11 @@ data MapCellType = MapCellType
 
     -- For lack of better option I'll make it "Effect ()", but
     -- it probably should be something more permissive, at least use GameIO 
-  , _interact :: ProizvolnueManipulatsi ()
+  , _interact :: Modifier ()
     -- | Cells can do things then a unit steps on them (fire applies burn effect etc.).
       
     -- Also cells should be able to modify themselves (MapCell -> CellState), but we'll leave it to later versions. 
-  , _onStep :: ProizvolnueManipulatsi ()
+  , _onStep :: Modifier ()
   }
 makeLenses ''MapCellType
 

@@ -5,7 +5,7 @@ module Game.Unit.Mob where
 
 import           Control.Lens
 import           Control.Monad.Free
-import           Game.Effects.Manipulatsi
+import           Game.Effects.Modifier
 import           Game.Unit.TimedEffects
 import           Game.Unit.Inventory            ( getAllWearableEffects )
 import           Game.Unit.Unit                 ( UnitData
@@ -35,3 +35,5 @@ instance Unit Mob where
     applyEffect next $ over (unit . timedEffects) (addEffect time effect) u
   applyEffect (Free (MoveTo coordTo next)) u =
     applyEffect next $ unit . position .~ coordTo $ u
+  applyEffect (Free (ApplyEffect effect next)) u =
+    applyEffect next $ undefined

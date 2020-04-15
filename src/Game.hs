@@ -33,7 +33,7 @@ import qualified Game.GameLevels.Generation.GenerationUtil as GU
 import           Game.Unit.Action ()
 import           System.Random (mkStdGen)
 import           Game.GameLevels.Generation.BSPGen (GeneratorParameters(..))
-import           Game.Effects.Manipulatsi (modifyStats)
+import           Game.Effects.Modifier (modifyStats)
 
 
 

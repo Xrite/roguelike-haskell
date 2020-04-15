@@ -27,7 +27,7 @@ import           Control.Lens
 import           PreludeUtil                    ( listLens )
 import           Data.Foldable                  ( find )
 import           Data.List                      ( findIndex )
-import Game.Effects.Manipulatsi (ProizvolnueManipulatsi)
+import Game.Effects.Modifier (Modifier)
 import Game.Unit.DamageCalculation (attack)
 import Game.Unit.Stats
 import Game.GameLevels.MapCell (renderCell)
@@ -83,7 +83,7 @@ unitById idx env = env ^. unitLensById idx
 setUnitById :: UnitId -> AnyUnit -> Environment -> Environment
 setUnitById idx unit = filterDead . set (unitLensById idx) unit
 
-affectUnitById :: UnitId -> ProizvolnueManipulatsi () -> Environment -> Environment
+affectUnitById :: UnitId -> Modifier () -> Environment -> Environment
 affectUnitById idx effect = filterDead . (unitLensById idx %~ applyEffect effect)
 
 unitIdByCoord :: (Int, Int) -> Environment -> Maybe UnitId
