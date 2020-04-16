@@ -3,75 +3,110 @@
 
 -- | Describes common interface for all units in the game.
 module Game.Unit.Unit
-    ( UnitData
-    , depth
-    , depthLens
-    , stats
-    , statsLens
-    , position
-    , positionLens
-    , timedEffects
-    , timedEffectsLens
-    , inventory
-    , inventoryLens
-    , baseWeapon
-    , Unit(..)
-    , AnyUnit(..)
-    , packUnit
-    , createUnitData
-    , getPosition) where
+  ( UnitData,
+    stats,
+    _stats,
+    position,
+    _position,
+    _portrait,
+    timedModifiers,
+    inventory,
+    baseWeapon,
+    Unit (..),
+    AnyUnit (..),
+    packUnit,
+    Action (..),
+    Direction (..),
+    createUnitData,
+    position,
+    getPosition,
+  )
+where
 
-import           Control.Lens
-import qualified Game.Effect as Effect
-import qualified Game.Unit.Inventory as Inventory
-import           Game.IO.GameIO
-import qualified Game.GameLevels.GameLevel as GameLevel
-import qualified Game.Item as Item
-import qualified Game.Unit.Stats as Stats
-import qualified Game.Unit.TimedEffects as TimedEffects
-import qualified Game.Unit.Action as Action
-import qualified Game.Scenario as Scenario
+import Control.Lens
+import Data.Maybe (fromMaybe)
+import Game.GameLevels.GameLevel
+import Game.IO.GameIO
+import Game.Item
+import Game.Modifiers.EffectDesc (EffectDesc)
+import Game.Modifiers.Modifier
+import Game.Modifiers.ModifierFactory
+import Game.Unit.Action
+import Game.Unit.Inventory
+import Game.Unit.Stats
+import Game.Unit.TimedModifiers
 
 -- | Common data of all units.
-data UnitData =
-  UnitData { _positionLens :: (Int, Int)                               -- ^ Coordinates on a level
-           , _depthLens :: Int                                         -- ^ Level (as in depth) on which the unit is now
-           , _statsLens :: Stats.Stats                                       -- ^ Stats of a unit
-           , _timedEffectsLens :: TimedEffects.TimedEffects                         -- ^ Timed effects that are affecting the unit
-           , _inventoryLens :: Inventory.Inventory                               -- ^ Inventory on a unit
-           , _baseWeaponLens :: Item.WeaponItem                             -- ^ A weapon to use when unit is fighting bare-hand TODO use it in calculations
-             -- | Defines behavior of a unit. Arguments are level and all the other units on it. TODO remove if not used
-           , control
-               :: GameLevel.GameLevel -> [AnyUnit] -> GameIO Action.Action
-           }
+data UnitData
+  = UnitData
+      { -- | Coordinates on a level
+        _position :: (Int, Int),
+        -- | Level (as in depth) on which the unit is now
+        _depth :: Int,
+        -- | Stats of a unit
+        _stats :: Stats,
+        -- | Timed modifiers that are affecting the unit
+        _timedModifiers :: TimedModifiers,
+        -- | Inventory on a unit
+        _inventory :: Inventory,
+        -- | A weapon to use when unit is fighting bare-hand TODO use it in calculations
+        _baseWeapon :: WeaponItem,
+        -- | How to display this unit
+        -- | Defines behavior of a unit. Arguments are level and all the other units on it. TODO remove if not used
+        _portrait :: Char,
+        _control :: GameLevel -> [AnyUnit] -> GameIO Action
+      }
 
 -- | Constructs a new 'UnitData'.
-createUnitData
-  :: (Int, Int)                                 -- ^ Coordinates on a level
-  -> Int                                        -- ^ Level (as in depth) on which the unit is now
-  -> Stats.Stats                                -- ^ Stats of a unit
-  -> TimedEffects.TimedEffects                  -- ^ Timed effects that are affecting the unit
-  -> Inventory.Inventory                        -- ^ Inventory on a unit
-  -> Item.WeaponItem                            -- ^ A weapon to use when unit is fighting bare-hand TODO use it in calculations
-  -> (GameLevel.GameLevel
-      -> [AnyUnit]
-      -> GameIO Action.Action)                  -- ^ Defines behavior of a unit. Arguments are level and all the other units on it.
-  -> UnitData                                   -- ^ Constructed 'Unit'
-
+createUnitData ::
+  -- | Coordinates on a level
+  (Int, Int) ->
+  -- | Level (as in depth) on which the unit is now
+  Int ->
+  -- | Stats of a unit
+  Stats ->
+  -- | Timed modifiers that are affecting the unit
+  TimedModifiers ->
+  -- | Inventory on a unit
+  Inventory ->
+  -- | A weapon to use when unit is fighting bare-hand TODO use it in calculations
+  WeaponItem ->
+  -- | How to display this unit
+  Char ->
+  -- | Defines behavior of a unit. Arguments are level and all the other units on it.
+  (GameLevel -> [AnyUnit] -> GameIO Action) ->
+  -- | Constructed 'Unit'
+  UnitData
 createUnitData = UnitData
+
+-- | Returns an active weapon unit data implies.
+-- That is, returns equipped weapon or base weapon if none equipped
+getWeapon :: UnitData -> WeaponItem
+getWeapon unitData = fromMaybe (_baseWeapon unitData) (getEquippedWeapon $ _inventory unitData)
+
+-- | Returns attack modifier this unit data implies
+getAttackModifier :: UnitData -> EffectDesc
+getAttackModifier unitData = getWeapon unitData ^. weaponAttackModifier
 
 -- | Something that can hit and run.
 -- A typeclass for every active participant of a game. If it moves and participates in combat system, it is a unit.
 class Unit u where
   -- | Returns 'UnitData' of a unit.
-  asUnitData :: u -> UnitData
+  asUnitData :: a -> UnitData
 
-  -- | How unit is affected by 'Effect's.
+  -- | How unit is affected by 'Modifier's.
   -- It is the main thing that differs a 'Unit' from 'UnitData'.
-  applyEffect :: Effect.Effect a -> u -> (u, a)
+  applyModifier :: Modifier () -> a -> a
+
+  -- | Modifier for this unit's attacks
+  attackModifier :: ModifierFactory -> a -> Modifier ()
+  attackModifier factory p = buildModifier factory $ getAttackModifier . asUnitData $ applyModifier (buildModifier factory wearableEff) p
+    where
+      inv = _inventory $ asUnitData p
+      wearableEff = getAllWearableModifiers inv
 
 -- | An existential type wrapper for any type implementing 'Unit'.
--- Existential classes is an antipattern, but what other choice do we have? 
+-- Existential classes is an antipattern, but what other choice do we have?
 data AnyUnit = forall a. (Unit a) => AnyUnit a
 
 makeLenses ''UnitData
@@ -97,10 +132,8 @@ baseWeapon = _baseWeaponLens
 -- | Instance of 'Unit' for the wrapper 'AnyUnit" that simply transfers every call to the wrapped object.
 instance Unit AnyUnit where
   asUnitData (AnyUnit u) = asUnitData u
-
-  applyEffect e (AnyUnit u) = (AnyUnit newUnit, result)
-    where
-      (newUnit, result) = applyEffect e u
+  applyModifier e (AnyUnit u) = AnyUnit $ applyModifier e u
+  attackModifier fact (AnyUnit u) = attackModifier fact u
 
 -- | Packs any unit into 'AnyUnit' box.
 packUnit :: Unit a => a -> AnyUnit

@@ -3,15 +3,24 @@
 -- | Describes a 'Unit' type for mobs
 module Game.Unit.Mob where
 
-import           Control.Lens
-import           Control.Monad.Free
-import qualified Game.Effect as Effect
-import qualified Game.Unit.TimedEffects as TimedEffects
-import qualified Game.Unit.Inventory as Inventory
-import qualified Game.Unit.Unit as Unit
+import Control.Lens
+import Control.Monad.Free
+import Game.Modifiers.EffectAtom
+import Game.Modifiers.Modifier
+import Game.Unit.Inventory (getAllWearableModifiers)
+import Game.Unit.Stats (health)
+import Game.Unit.TimedModifiers
+import Game.Unit.Unit
+  ( Unit (..),
+    UnitData,
+    inventory,
+    position,
+    stats,
+    timedModifiers,
+  )
 
 -- | A mob is a simple computer-controlled 'Unit'.
-data Mob = Mob { _unitLens :: Unit.UnitData }
+data Mob = Mob {_unitLens :: Unit.UnitData}
 
 makeLenses ''Mob
 
@@ -20,22 +29,20 @@ unit = _unitLens
 instance Unit.Unit Mob where
   asUnitData = _unit
 
-  applyEffect (Pure value) m = (m, value)
-  applyEffect (Free (Effect.GetStats nextF)) m =
-    Unit.applyEffect (nextF (Just $ m ^. unitLens . Unit.statsLens)) m
-  applyEffect (Free (Effect.ModifyStats f next)) u =
-    Unit.applyEffect next (u & unitLens . Unit.statsLens %~ f)
-  applyEffect (Free (Effect.SetTimedEffect time effect next)) u =
-    Unit.applyEffect next
-    $ over
-      (unitLens . Unit.timedEffectsLens)
-      (TimedEffects.addEffect time effect)
-      u
-  applyEffect (Free (Effect.GetPosition nextF)) m =
-    Unit.applyEffect (nextF $ m ^. unitLens . Unit.positionLens) m
-  applyEffect (Free (Effect.ModifyPosition f next)) u = Unit.applyEffect next
-    $ over (unitLens . Unit.positionLens) f u
-  applyEffect (Free (Effect.GetLevelDepth nextF)) m =
-    Unit.applyEffect (nextF $ m ^. unitLens . Unit.depthLens) m
-  applyEffect (Free (Effect.ModifyLevelDepth f next)) m = Unit.applyEffect next
-    $ over (unitLens . Unit.depthLens) f m
+  applyModifier (Pure _) m = m
+  applyModifier (Free (GetStats nextF)) m =
+    applyModifier (nextF (Just $ m ^. unit . stats)) m
+  applyModifier (Free (SetStats newStats next)) u =
+    applyModifier next (u & unit . stats .~ newStats)
+  applyModifier (Free (ModifyStats f next)) u =
+    applyModifier next (u & unit . stats %~ f)
+  applyModifier (Free (SetTimedModifier time modifier next)) u =
+    applyModifier next $ over (unit . timedModifiers) (addModifier time modifier) u
+  applyModifier (Free (MoveTo coordTo next)) u =
+    applyModifier next $ unit . position .~ coordTo $ u
+  applyModifier (Free (ApplyEffect effect next)) u =
+    applyModifier next $ applyEffect effect u
+    where
+      applyEffect (Damage dmg) = unit . stats . health %~ subtract dmg
+      applyEffect (Heal h) = unit . stats . health %~ (+) h
+      applyEffect (GiveExp _) = id

@@ -5,7 +5,7 @@ module Game.Controller.Moves where
 import Control.Lens ((%~), (^.))
 import Control.Monad (guard)
 import Data.Maybe (isNothing)
-import Game.Effect
+import Game.Modifiers.Modifier
 import Game.Environment
 import Game.GameLevels.GameLevel
 import Game.GameLevels.MapCell
@@ -15,7 +15,7 @@ import Game.Unit.Unit
 import qualified Game.Scenario as Scenario
   ( AnyUnit
   , _position
-  , applyEffect
+  , applyModifier
   , asUnitData
   , position
   , stats
@@ -64,7 +64,7 @@ maybeAttackCoordSafe attackerId coord env = do
 maybeMoveUnit :: UnitId -> (Int, Int) -> Environment -> Maybe Environment
 maybeMoveUnit unitId coord env =
   if canMoveThere
-    then Just $ unitLensById unitId %~ applyEffect (setCoord coord) $ env
+    then Just $ unitLensById unitId %~ applyModifier (setCoord coord) $ env
     else Nothing
   where
     movingUnit = unitById unitId env

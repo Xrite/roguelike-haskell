@@ -1,37 +1,38 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE TemplateHaskell #-}
+
 module Game.Environment
-  ( Environment
-  , UnitId(..)
-  , makeEnvironment
-  , makeUnitId
-  , getCurrentLevel
-  , unitById
-  , unitLensById
-  , unitByCoord
-  , unitIdByCoord
-  , affectUnitById
-  , envAttack
-  , playerId
+  ( Environment,
+    UnitId (..),
+    makeEnvironment,
+    makeUnitId,
+    getCurrentLevel,
+    unitById,
+    unitLensById,
+    unitByCoord,
+    unitIdByCoord,
+    affectUnitById,
+    envAttack,
+    playerId,
+    renderEnvironment,
   )
 where
 
-import qualified Game.Unit.Player as Player
-import qualified Game.Unit.Mob as Mob
-import qualified Game.Unit.Unit as Unit
-import qualified Game.GameLevels.GameLevel as GameLevel
-import           Control.Monad.State
-import           Control.Lens
-import           PreludeUtil (listLens)
-import           Data.Foldable (find)
-import           Data.List (findIndex)
-import qualified Game.Effect as Effect
-import           Game.Unit.DamageCalculation (attack)
-import           Game.Unit.Stats
-import qualified Game.Scenario as Scenario
-import           Control.Monad.Free
-
+import Control.Lens
+import Control.Monad.State
+import Data.Foldable (find)
+import Data.List (findIndex)
+import Game.GameLevels.GameLevel
+import Game.GameLevels.MapCell (renderCell)
+import Game.Modifiers.Modifier (Modifier)
+import Game.Modifiers.ModifierFactory (ModifierFactory)
+import Game.Unit.DamageCalculation (attack)
+import Game.Unit.Mob (Mob)
+import Game.Unit.Player (Player)
+import Game.Unit.Stats
+import Game.Unit.Unit (AnyUnit, _portrait, _position, _stats, applyModifier, asUnitData, position, stats)
+import PreludeUtil (listLens)
 
 -- | All manipulations with units in environment should use this type
 newtype UnitId = UnitId Int
@@ -43,22 +44,30 @@ makeUnitId = UnitId
 
 -- TODO maybe extract units to a different module?
 -- TODO comment
-data Environment =
-   Environment { _player :: Player.Player, _units :: [Unit.AnyUnit], _levels :: [GameLevel.GameLevel], _currentLevel :: Int, _currentUnitTurn :: Int }
+data Environment
+  = Environment
+      { _player :: Player,
+        _units :: [AnyUnit],
+        _levels :: [GameLevel],
+        _currentLevel :: Int,
+        _currentUnitTurn :: Int,
+        _modifierFactory :: ModifierFactory
+      }
+
 makeLenses ''Environment
 
 instance Show Environment where
   show _ = "Environment"
 
 -- | Constructs a new 'Environment'.
-makeEnvironment :: Player.Player -> [Unit.AnyUnit] -> [GameLevel.GameLevel] -> Environment
+makeEnvironment :: Player -> [AnyUnit] -> [GameLevel] -> ModifierFactory -> Environment
 makeEnvironment player units levels = Environment player units levels 0 0
 
 -- | This function should remove dead units from environment.
 -- It is called after each function that can modify units in the environment. With current implementation of units storage it invalidates 'UnitId'.
--- Item drop (units death effects in general) is not yet implemented, so TODO implement death effects in filterDead
+-- Item drop (units death modifiers in general) is not yet implemented, so TODO implement death modifiers in filterDead
 filterDead :: Environment -> Environment
-filterDead env = cycleCurrentUnit . (currentUnitTurn %~ flip (-) startUnitsDied) . (units .~ newUnits) $ env
+filterDead env = cycleCurrentUnit . (currentUnitTurn %~ subtract startUnitsDied) . (units .~ newUnits) $ env
   where
     startUnits = take (_currentUnitTurn env) $ _units env
     endUnits = drop (_currentUnitTurn env) $ _units env
@@ -69,11 +78,10 @@ filterDead env = cycleCurrentUnit . (currentUnitTurn %~ flip (-) startUnitsDied)
     newUnits = newStartUnits ++ newEndUnits
 
 cycleCurrentUnit :: Environment -> Environment
-cycleCurrentUnit env = 
+cycleCurrentUnit env =
   if _currentUnitTurn env == (length . _units) env
-    then env { _currentUnitTurn = 0 }
+    then env {_currentUnitTurn = 0}
     else env
-
 
 unitLensById :: UnitId -> Lens' Environment Unit.AnyUnit
 unitLensById (UnitId idxInt) = units . listLens idxInt
@@ -84,8 +92,8 @@ unitById idx env = env ^. unitLensById idx
 setUnitById :: UnitId -> Unit.AnyUnit -> Environment -> Environment
 setUnitById idx unit = filterDead . set (unitLensById idx) unit
 
-affectUnitById :: UnitId -> Effect.Effect () -> Environment -> Environment
-affectUnitById idx effect = filterDead . (unitLensById idx %~ Unit.applyEffect effect)
+affectUnitById :: UnitId -> Modifier () -> Environment -> Environment
+affectUnitById idx modifier = filterDead . (unitLensById idx %~ applyModifier modifier)
 
 unitIdByCoord :: (Int, Int) -> Environment -> Maybe UnitId
 unitIdByCoord coord env = UnitId <$> findIndex ((== coord) . _position . Unit.asUnitData) (_units env)
@@ -98,13 +106,13 @@ envAttack attackerId attackedId env = filterDead $ applyAttack env
   where
     attacker = unitById attackerId env
     attacked = unitById attackedId env
-    (attackerNew, attackedNew) = attack attacker attacked
+    (attackerNew, attackedNew) = attack (_modifierFactory env) attacker attacked
     applyAttack = (unitLensById attackerId .~ attackerNew) . (unitLensById attackedId .~ attackedNew)
 
 newtype GameEnv a = GameEnv (State Environment a) deriving (Functor, Applicative, Monad, MonadState Environment)
 
 class (Monad m) => GameEnvironmentReader m where
-    getCurrentGameLevel :: m GameLevel.GameLevel
+  getCurrentGameLevel :: m GameLevel.GameLevel
 
 instance GameEnvironmentReader GameEnv where
   getCurrentGameLevel = do
@@ -120,18 +128,23 @@ playerId _ = UnitId 0
 
 performScenario :: Scenario.Scenario UnitId a -> Environment -> (Environment, a)
 performScenario (Pure value) env = (env, value)
-
 performScenario (Free (Scenario.ApplyEffect effect unit next)) env = performScenario next $ over unitLens (Unit.applyEffect effect) env
   where
     unitLens = unitLensById
-
-performScenario (Free (Scenario.MoveUnitTo uid coord next)) env =  performScenario next $ over unitLens (Unit.applyEffect effect) env
+performScenario (Free (Scenario.MoveUnitTo uid coord next)) env = performScenario next $ over unitLens (Unit.applyEffect effect) env
   where
     unitLens = unitLensById unit
     effect = Effect.setPosition coord
-
-performScenario (Free (Scenario.AOEEffect radius effectByDistance next)) env =  undefined 
-
-performScenario (Free (Scenario.GetUnitByPosition position nextF)) env =  performScenario (nextF unit) env
+performScenario (Free (Scenario.AOEEffect radius effectByDistance next)) env = undefined
+performScenario (Free (Scenario.GetUnitByPosition position nextF)) env = performScenario (nextF unit) env
   where
     unit = unitIdByCoord position
+
+renderEnvironment :: Environment -> [String]
+renderEnvironment env =
+  [ [maybe (renderCell $ getCell (x, y) mp) (_portrait . asUnitData) $ find (\u -> (asUnitData u ^. position) == (x, y)) $ _units env | x <- [xFrom .. xTo]]
+    | y <- [yFrom .. yTo]
+  ]
+  where
+    mp = getCurrentLevel env ^. lvlMap
+    ((xFrom, yFrom), (xTo, yTo)) = getMapSize mp

@@ -1,19 +1,25 @@
 {-# LANGUAGE TemplateHaskell #-}
 
--- | Describes a 'Unit' type for players 
-module Game.Unit.Player (LevellingStats, Player, makePlayer) where
+-- | Describes a 'Unit' type for players
+module Game.Unit.Player
+  ( LevellingStats,
+    Player,
+    makePlayer,
+  )
+where
 
-import qualified Game.Effect as Effect
-import           Control.Lens 
-import qualified Game.Unit.Unit as Unit
-import           Control.Monad.Free
-import qualified Game.Unit.TimedEffects as TimedEffects
-import qualified Game.Unit.Inventory as Inventory
-import qualified Game.Scenario as Scenario
+import Control.Lens
+import Control.Monad.Free
+import Game.Modifiers.EffectAtom
+import Game.Modifiers.Modifier
+import Game.Unit.Inventory (getAllWearableModifiers)
+import Game.Unit.Stats (health)
+import Game.Unit.TimedModifiers
+import Game.Unit.Unit
 
 -- | Describes everything regarding level-up system of a 'Player'
-data LevellingStats =
-  LevellingStats { _experienceLens :: Int, _skillPointsLens :: Int }
+data LevellingStats
+  = LevellingStats {_experienceLens :: Int, _skillPointsLens :: Int}
 
 makeLenses ''LevellingStats
 
@@ -22,7 +28,7 @@ experience = _experienceLens
 skillPoints = _skillPointsLens
 
 -- | A unit that can get experience points and level-ups. Controlled from the outside world.
-data Player = Player { _playerUnitLens :: Unit.UnitData, _levellingLens :: LevellingStats }
+data Player = Player {_playerUnitLens :: Unit.UnitData, _levellingLens :: LevellingStats}
 
 makeLenses ''Player
 
@@ -33,24 +39,24 @@ levelling = _levellingLens
 makePlayer :: Unit.UnitData -> Player
 makePlayer unitData = Player unitData (LevellingStats 0 0)
 
-instance Unit.Unit Player where
-  asUnitData = playerUnit
+instance Unit Player where
+  asUnitData = _playerUnit
 
-  applyEffect (Pure value) p = (p, value)
-  applyEffect (Free (Effect.GetStats nextF)) p =
-    Unit.applyEffect (nextF (Just $ p ^. playerUnitLens . Unit.statsLens)) p
-  applyEffect (Free (Effect.ModifyStats f next)) p =
-    Unit.applyEffect next (p & playerUnitLens . Unit.statsLens %~ f)
-  applyEffect (Free (Effect.SetTimedEffect time effect next)) p = 
-    Unit.applyEffect next
-    $ over (playerUnitLens . Unit.timedEffectsLens) (TimedEffects.addEffect time effect) p
-  applyEffect (Free (Effect.GetPosition nextF)) p = Unit.applyEffect (nextF $ p ^. playerUnitLens . Unit.positionLens) p
-  applyEffect (Free (Effect.ModifyPosition f next)) u =
-    Unit.applyEffect next $ over (playerUnitLens . Unit.positionLens) f u
-  applyEffect (Free (Effect.GetLevelDepth nextF)) p = Unit.applyEffect (nextF $ p ^. playerUnitLens . Unit.depthLens) p
-  applyEffect (Free (Effect.ModifyLevelDepth f next)) p = Unit.applyEffect next $ (over (playerUnitLens . Unit.depthLens) f p)
-
-{-     where
-      (newPlayer, _) = Unit.applyEffect wearableEff p ^. playerUnitLens . inventoryLens
-      inv = newPlayer ^. playerUnit . inventoryLens
-      wearableEff = getAllWearableEffects inv -}
+  applyModifier (Pure _) m = m
+  applyModifier (Free (GetStats nextF)) m =
+    applyModifier (nextF (Just $ m ^. playerUnit . stats)) m
+  applyModifier (Free (SetStats newStats next)) u =
+    applyModifier next (u & playerUnit . stats .~ newStats)
+  applyModifier (Free (ModifyStats f next)) u =
+    applyModifier next (u & playerUnit . stats %~ f)
+  applyModifier (Free (SetTimedModifier time modifier next)) u =
+    applyModifier next $
+      over (playerUnit . timedModifiers) (addModifier time modifier) u
+  applyModifier (Free (MoveTo coordTo next)) u =
+    applyModifier next $ playerUnit . position .~ coordTo $ u
+  applyModifier (Free (ApplyEffect effect next)) u =
+    applyModifier next $ applyEffect effect u
+    where
+      applyEffect (Damage dmg) = playerUnit . stats . health %~ subtract dmg
+      applyEffect (Heal h) = playerUnit . stats . health %~ (+) h
+      applyEffect (GiveExp _) = id

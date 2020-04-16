@@ -7,6 +7,7 @@ module Game where
 
 import Control.Lens
 import Control.Monad.State
+import qualified Data.Map as Map (empty)
 import Data.Maybe
 import Data.Maybe (isJust, isNothing)
 import Game.Controller.Moves
@@ -25,13 +26,17 @@ import qualified Game.GameLevels.Generation.GenerationUtil as GU
 import Game.GameLevels.MapCell
 import Game.IO.GameIO
 import Game.Item (createWeapon)
+import Game.Modifiers.EffectAtom
+import Game.Modifiers.EffectDesc (effectAtom)
+import Game.Modifiers.Modifier (modifyStats)
+import Game.Modifiers.ModifierFactory (makeModifierFactory)
 import Game.Unit.Action
 import Game.Unit.Action ()
 import Game.Unit.Inventory (emptyInventory)
 import Game.Unit.Mob
 import Game.Unit.Player (Player, makePlayer)
 import Game.Unit.Stats as Stats
-import Game.Unit.TimedEffects (empty)
+import Game.Unit.TimedModifiers (empty)
 import Game.Unit.Unit (AnyUnit, UnitData, asUnitData, createUnitData, getPosition, packUnit)
 import System.Random (mkStdGen)
 import UI.Descriptions.GameUIDesc
@@ -57,7 +62,7 @@ gameUI :: Environment -> GameUI
 gameUI gameEnv = makeGameUI $
   do
     let level = getCurrentLevel gameEnv
-    setMap $ renderLevel level (unitById (playerId gameEnv) gameEnv)
+    setMap $ renderEnvironment gameEnv
     setArrowPress arrowPress
     setKeyPress keyPress
   where
@@ -101,36 +106,39 @@ randomEnvironment :: Int -> Environment
 randomEnvironment seed =
   makeEnvironment
     ourPlayer
-    [packUnit $ Mob $ makeUnitData startCoord]
+    [packUnit ourPlayer]
     [lvl]
+    (makeModifierFactory Map.empty)
   where
     lvl = fst $ randomBSPGeneratedLevel (GU.Space (GU.Coord 0 0) (GU.Coord 50 50)) (GeneratorParameters 10 1.7 5) $ mkStdGen seed
     startCoord = _entrance $ _lvlMap lvl
-    ourPlayer = makeSomePlayer $ makeUnitData startCoord
+    ourPlayer = makeSomePlayer $ makeUnitData startCoord 'λ'
 
 testEnvironment :: Environment
 testEnvironment =
   makeEnvironment
     ourPlayer
-    [ packUnit $ Mob $ makeUnitData (7, 8),
-      packUnit $ Mob $ makeUnitData (14, 15),
-      packUnit $ Mob $ makeUnitData (4, 6),
-      packUnit $ Mob $ makeUnitData (5, 6)
+    [ packUnit ourPlayer, --Mob $ makeUnitData (7, 8) 'U'
+      packUnit $ Mob $ makeUnitData (14, 15) 'U',
+      packUnit $ Mob $ makeUnitData (4, 6) 'U',
+      packUnit $ Mob $ makeUnitData (5, 6) 'U'
     ]
     [testGameLevel]
+    (makeModifierFactory Map.empty)
   where
-    ourPlayer = makeSomePlayer $ makeUnitData (5, 6)
+    ourPlayer = makeSomePlayer $ makeUnitData (7, 9) 'λ'
 
-makeUnitData :: (Int, Int) -> UnitData
-makeUnitData position =
+makeUnitData :: (Int, Int) -> Char -> UnitData
+makeUnitData position render =
   createUnitData
     position
     0
     (Stats.Stats 10 10 10 1)
     empty
     emptyInventory
-    (createWeapon "weapon" (return ()) 'A')
+    (createWeapon "weapon" (effectAtom $ Damage 5) 'A')
+    render
     undefined
 
 makeSomePlayer :: UnitData -> Player
-makeSomePlayer unitData = makePlayer unitData
+makeSomePlayer = makePlayer

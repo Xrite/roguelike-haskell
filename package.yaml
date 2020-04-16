@@ -32,6 +32,7 @@ dependencies:
 - vty
 - directory
 - comonad
+- containers
 
 ghc-options:
 - -Wall

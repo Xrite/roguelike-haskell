@@ -3,12 +3,13 @@
 module Game.Scenario where
 
 import           Control.Monad.Free
-import           Game.Effect (Effect)
+import           Game.Modifiers.Modifier (Modifier)
+import           Game.Environment
 
-data ScenarioDSL unitAccessor a = ApplyEffect (Effect ()) unitAccessor a
-                                | MoveUnitTo unitAccessor (Int, Int) a
-                                | AOEEffect Int (Int -> Effect ()) a
-                                | GetUnitByCoord (Int, Int) (Maybe unitAccessor -> a)
+
+data ScenarioDSL a = Attack UnitId UnitId a
+                   | MoveUnitTo UnitId (Int, Int) a
+                   | AOEModifier Int (Int -> Modifier ()) a
   deriving (Functor)
 
 type Scenario unitAccessor a = Free (ScenarioDSL unitAccessor) a
@@ -16,8 +17,8 @@ type Scenario unitAccessor a = Free (ScenarioDSL unitAccessor) a
 applyEffect :: Effect () -> unitAccessor -> Scenario unitAccessor ()
 applyEffect effect unit = liftF $ ApplyEffect effect unit ()
 
-setAOEEffect :: Int -> (Int -> Effect ()) -> Scenario unitAccessor ()
-setAOEEffect range effect = liftF $ AOEEffect range effect ()
+setAOEModifier :: Int -> (Int -> Modifier ()) -> Scenario ()
+setAOEModifier range modifier = liftF $ AOEModifier range modifier ()
 
 setCoord :: unitAccessor -> (Int, Int) -> Scenario unitAccessor ()
 setCoord unit coord = liftF $ MoveUnitTo unit coord ()

@@ -22,11 +22,11 @@ makeLenses ''UIDesc
 defaultTitle :: Title
 defaultTitle = Title ""
 
-defalutUIDesc :: UIDesc a b
-defalutUIDesc = Desc defaultTitle [] Nothing
+defaultUIDesc :: UIDesc a b
+defaultUIDesc = Desc defaultTitle [] Nothing
 
 makeUI :: Builder a b c -> UIDesc a b
-makeUI = flip execState defalutUIDesc
+makeUI = flip execState defaultUIDesc
 
 setTitle :: String -> Builder a b ()
 setTitle str = modify $ set title (Title str)
