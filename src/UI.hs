@@ -4,7 +4,7 @@ module UI
     , UI.makeDialog
     , UI.makeGameUI
     , UI.makeInventoryUI
-    , UI.makeMenuUI) where
+    , UI.makeListMenuUI) where
 
 import qualified UI.UI as UI
 import qualified UI.Descriptions.GameUIDesc as Game

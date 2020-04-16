@@ -25,8 +25,6 @@ where
 import Control.Lens
 import Game.Item
 import Game.Modifiers.EffectDesc
-import qualified Game.Scenario as Scenario
-import {-# SOURCE #-} Game.Unit.Unit (Unit)
 import Prelude hiding (head)
 
 data Inventory

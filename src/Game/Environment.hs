@@ -5,54 +5,49 @@
 module Game.Environment
   ( Environment,
     UnitId (..),
+    GameEnv,
     makeEnvironment,
-    makeUnitId,
     getCurrentLevel,
-    unitById,
-    unitLensById,
     unitByCoord,
-    unitIdByCoord,
-    affectUnitById,
     envAttack,
     playerId,
-    renderEnvironment,
+    affectUnit,
+    moveUnit,
   )
 where
 
-import Control.Lens
+import Control.Lens hiding (levels)
 import Control.Monad.State
 import Data.Foldable (find)
 import Data.List (findIndex)
+import Data.Maybe (isJust, isNothing, listToMaybe)
 import Game.GameLevels.GameLevel
 import Game.GameLevels.MapCell (renderCell)
-import Game.Modifiers.Modifier (Modifier)
+import Game.Modifiers.Modifier as Modifier
 import Game.Modifiers.ModifierFactory (ModifierFactory)
 import Game.Unit.DamageCalculation (attack)
 import Game.Unit.Mob (Mob)
 import Game.Unit.Player (Player)
 import Game.Unit.Stats
-import Game.Unit.Unit (AnyUnit, _portrait, _position, _stats, applyModifier, asUnitData, position, stats)
+import Game.Unit.Unit
 import PreludeUtil (listLens)
 
 -- | All manipulations with units in environment should use this type
-newtype UnitId = UnitId Int
-
--- | Creates 'UnitId' from unit number in the list of units.
--- Created for testing purposes, avoid using at all costs.
-makeUnitId :: Int -> UnitId
-makeUnitId = UnitId
+data UnitId = MobUnitId Int | PlayerUnitId
 
 -- TODO maybe extract units to a different module?
 -- TODO comment
 data Environment
   = Environment
       { _player :: Player,
-        _units :: [AnyUnit],
+        _mobs :: [(Int, Mob GameEnv)],
         _levels :: [GameLevel],
         _currentLevel :: Int,
         _currentUnitTurn :: Int,
         _modifierFactory :: ModifierFactory
       }
+
+newtype GameEnv a = GameEnv {runGameEnv :: State Environment a} deriving (Functor, Applicative, Monad, MonadState Environment)
 
 makeLenses ''Environment
 
@@ -60,59 +55,102 @@ instance Show Environment where
   show _ = "Environment"
 
 -- | Constructs a new 'Environment'.
-makeEnvironment :: Player -> [AnyUnit] -> [GameLevel] -> ModifierFactory -> Environment
-makeEnvironment player units levels = Environment player units levels 0 0
+makeEnvironment :: Player -> [Mob GameEnv] -> [GameLevel] -> ModifierFactory -> Environment
+makeEnvironment player mobs levels = Environment player (zip [0 ..] mobs) levels 0 0
 
 -- | This function should remove dead units from environment.
 -- It is called after each function that can modify units in the environment. With current implementation of units storage it invalidates 'UnitId'.
 -- Item drop (units death modifiers in general) is not yet implemented, so TODO implement death modifiers in filterDead
-filterDead :: Environment -> Environment
-filterDead env = cycleCurrentUnit . (currentUnitTurn %~ subtract startUnitsDied) . (units .~ newUnits) $ env
+filterDead :: GameEnv ()
+filterDead = do
+  env <- get
+  modify $ set mobs (newMobs env)
   where
-    startUnits = take (_currentUnitTurn env) $ _units env
-    endUnits = drop (_currentUnitTurn env) $ _units env
-    filterAlive = filter ((> 0) . _health . _stats . Unit.asUnitData)
-    newStartUnits = filterAlive startUnits
-    newEndUnits = filterAlive endUnits
-    startUnitsDied = length startUnits - length newStartUnits
-    newUnits = newStartUnits ++ newEndUnits
+    newMobs env = filter (isAlive . snd) (env ^. mobs)
 
-cycleCurrentUnit :: Environment -> Environment
-cycleCurrentUnit env =
-  if _currentUnitTurn env == (length . _units) env
-    then env {_currentUnitTurn = 0}
-    else env
+getActiveUnits :: GameEnv [UnitId]
+getActiveUnits = do
+  filterDead
+  env <- get
+  let players = if isAlive (env ^. player) then [PlayerUnitId] else []
+  let activeMobs = map (MobUnitId . fst) (env ^. mobs)
+  return $ players ++ activeMobs
 
-unitLensById :: UnitId -> Lens' Environment Unit.AnyUnit
-unitLensById (UnitId idxInt) = units . listLens idxInt
+{- unitLensById :: UnitId -> Lens' Environment Unit.AnyUnit
+unitLensById (UnitId idxInt) = units . listLens idxInt -}
 
-unitById :: UnitId -> Environment -> Unit.AnyUnit
-unitById idx env = env ^. unitLensById idx
+{- unitById :: UnitId -> Environment -> Unit.AnyUnit
+unitById idx env = env ^. unitLensById idx -}
 
-setUnitById :: UnitId -> Unit.AnyUnit -> Environment -> Environment
-setUnitById idx unit = filterDead . set (unitLensById idx) unit
+{- setUnitById :: UnitId -> Unit.AnyUnit -> Environment -> Environment
+setUnitById idx unit = filterDead . set (unitLensById idx) unit -}
 
-affectUnitById :: UnitId -> Modifier () -> Environment -> Environment
-affectUnitById idx modifier = filterDead . (unitLensById idx %~ applyModifier modifier)
+affectUnit :: UnitId -> Modifier a -> GameEnv a
+affectUnit PlayerUnitId modifier = do
+  env <- get
+  let (newPlayer, result) = applyModifier modifier (env ^. player)
+  modify $ set player newPlayer
+  filterDead
+  return result
+affectUnit (MobUnitId idx) modifier = do
+  env <- get
+  let (newMob, result) = applyModifier modifier (snd $ (env ^. mobs) !! idx)
+  modify $ set (mobs . ix idx . _2) newMob
+  filterDead
+  return result
 
-unitIdByCoord :: (Int, Int) -> Environment -> Maybe UnitId
-unitIdByCoord coord env = UnitId <$> findIndex ((== coord) . _position . Unit.asUnitData) (_units env)
+unitByCoord :: (Int, Int) -> GameEnv (Maybe UnitId)
+unitByCoord coord = do
+  units <- getActiveUnits
+  filtered <- filterM (\u -> (== coord) <$> affectUnit u Modifier.getPosition) units
+  return $ listToMaybe filtered
 
-unitByCoord :: (Int, Int) -> Environment -> Maybe Unit.AnyUnit
-unitByCoord coord env = find ((== coord) . _position . Unit.asUnitData) $ _units env
-
-envAttack :: UnitId -> UnitId -> Environment -> Environment
-envAttack attackerId attackedId env = filterDead $ applyAttack env
+moveUnit :: UnitId -> (Int, Int) -> GameEnv Bool
+moveUnit u pos = do
+  lvl <- getCurrentLevel
+  let maybeCell = maybeGetCellAt pos lvl
+  maybeStats <- affectUnit u Modifier.getStats
+  isFree <- isNothing <$> unitByCoord pos
+  if isJust $ checkAll maybeCell maybeStats isFree
+    then affectUnit u $ Modifier.setCoord pos >> return True
+    else return False
   where
-    attacker = unitById attackerId env
-    attacked = unitById attackedId env
-    (attackerNew, attackedNew) = attack (_modifierFactory env) attacker attacked
-    applyAttack = (unitLensById attackerId .~ attackerNew) . (unitLensById attackedId .~ attackedNew)
+    checkAll maybeCell maybeStats isFree = do
+      cell <- maybeCell
+      stats <- maybeStats
+      guard isFree
+      return ()
 
-newtype GameEnv a = GameEnv (State Environment a) deriving (Functor, Applicative, Monad, MonadState Environment)
+{- unitByCoord :: (Int, Int) -> Environment -> Maybe Unit.AnyUnit
+unitByCoord coord env = find ((== coord) . _position . Unit.asUnitData) $ _units env -}
+
+-- | TODO: implement it normally
+envAttack :: UnitId -> UnitId -> GameEnv ()
+envAttack attackerId attackedId = case (attackerId, attackedId) of
+  (PlayerUnitId, PlayerUnitId) -> error "Player attack player"
+  (PlayerUnitId, (MobUnitId idx)) -> do
+    env <- get
+    let fact = env ^. modifierFactory
+    let (a, b) = attack fact (env ^. player) (snd $ (env ^. mobs) !! idx)
+    setPlayer a >> setMob b idx
+  ((MobUnitId idx), PlayerUnitId) -> do
+    env <- get
+    let fact = env ^. modifierFactory
+    let (a, b) = attack fact (snd $ (env ^. mobs) !! idx) (env ^. player)
+    setMob a idx >> setPlayer b
+  (MobUnitId idx1, MobUnitId idx2) -> do
+    env <- get
+    let fact = env ^. modifierFactory
+    let (a, b) = attack fact (snd $ (env ^. mobs) !! idx1) (snd $ (env ^. mobs) !! idx2)
+    setMob a idx1 >> setMob b idx2
+  where
+    setPlayer :: Player -> GameEnv ()
+    setPlayer p = modify $ set player p
+    setMob :: Mob GameEnv -> Int -> GameEnv ()
+    setMob m idx = modify $ set (mobs . ix idx . _2) m
 
 class (Monad m) => GameEnvironmentReader m where
-  getCurrentGameLevel :: m GameLevel.GameLevel
+  getCurrentGameLevel :: m GameLevel
 
 instance GameEnvironmentReader GameEnv where
   getCurrentGameLevel = do
@@ -120,31 +158,17 @@ instance GameEnvironmentReader GameEnv where
     let cur = _currentLevel env
     return $ _levels env !! cur
 
-getCurrentLevel :: Environment -> GameLevel.GameLevel
-getCurrentLevel env = _levels env !! _currentLevel env
+getCurrentLevel :: GameEnv GameLevel
+getCurrentLevel = do
+  env <- get
+  return $ (env ^. levels) !! (env ^. currentLevel)
 
 playerId :: Environment -> UnitId
-playerId _ = UnitId 0
-
-performScenario :: Scenario.Scenario UnitId a -> Environment -> (Environment, a)
-performScenario (Pure value) env = (env, value)
-performScenario (Free (Scenario.ApplyEffect effect unit next)) env = performScenario next $ over unitLens (Unit.applyEffect effect) env
-  where
-    unitLens = unitLensById
-performScenario (Free (Scenario.MoveUnitTo uid coord next)) env = performScenario next $ over unitLens (Unit.applyEffect effect) env
-  where
-    unitLens = unitLensById unit
-    effect = Effect.setPosition coord
-performScenario (Free (Scenario.AOEEffect radius effectByDistance next)) env = undefined
-performScenario (Free (Scenario.GetUnitByPosition position nextF)) env = performScenario (nextF unit) env
-  where
-    unit = unitIdByCoord position
-
-renderEnvironment :: Environment -> [String]
-renderEnvironment env =
-  [ [maybe (renderCell $ getCell (x, y) mp) (_portrait . asUnitData) $ find (\u -> (asUnitData u ^. position) == (x, y)) $ _units env | x <- [xFrom .. xTo]]
-    | y <- [yFrom .. yTo]
-  ]
-  where
-    mp = getCurrentLevel env ^. lvlMap
-    ((xFrom, yFrom), (xTo, yTo)) = getMapSize mp
+playerId _ = PlayerUnitId
+{- renderEnvironment :: GameEnv [String]
+renderEnvironment = do
+  lvl <- getCurrentLevel
+  let mp = lvl ^. lvlMap
+  let ((xFrom, yFrom), (xTo, yTo)) = getMapSize mp
+  return [ [maybe (renderCell $ getCell (x, y) mp) (_portrait . asUnitData) $ find (\u -> (asUnitData u ^. position) == (x, y)) $ _units env | x <- [xFrom .. xTo]] | y <- [yFrom .. yTo]]
+ -}

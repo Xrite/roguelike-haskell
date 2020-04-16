@@ -19,36 +19,38 @@ import Game.Unit.Unit
 
 -- | Describes everything regarding level-up system of a 'Player'
 data LevellingStats
-  = LevellingStats {_experienceLens :: Int, _skillPointsLens :: Int}
+  = LevellingStats {_experience :: Int, _skillPoints :: Int}
 
 makeLenses ''LevellingStats
 
-experience = _experienceLens
+getExperience = _experience
 
-skillPoints = _skillPointsLens
+getSkillPoints = _skillPoints
 
 -- | A unit that can get experience points and level-ups. Controlled from the outside world.
-data Player = Player {_playerUnitLens :: Unit.UnitData, _levellingLens :: LevellingStats}
+data Player = Player {_playerUnit :: UnitData, _levelling :: LevellingStats}
 
 makeLenses ''Player
 
-playerUnit = _playerUnitLens
+getPlayerUnit = _playerUnit
 
-levelling = _levellingLens
+getLevelling = _levelling
 
-makePlayer :: Unit.UnitData -> Player
+makePlayer :: UnitData -> Player
 makePlayer unitData = Player unitData (LevellingStats 0 0)
 
 instance Unit Player where
   asUnitData = _playerUnit
 
-  applyModifier (Pure _) m = m
+  applyModifier (Pure res) m = (m, res)
   applyModifier (Free (GetStats nextF)) m =
     applyModifier (nextF (Just $ m ^. playerUnit . stats)) m
-  applyModifier (Free (SetStats newStats next)) u =
-    applyModifier next (u & playerUnit . stats .~ newStats)
   applyModifier (Free (ModifyStats f next)) u =
     applyModifier next (u & playerUnit . stats %~ f)
+  applyModifier (Free (GetPosition nextF)) m =
+    applyModifier (nextF (m ^. playerUnit . position)) m
+  applyModifier (Free (ModifyPosition f next)) u =
+    applyModifier next (u & playerUnit . position %~ f)
   applyModifier (Free (SetTimedModifier time modifier next)) u =
     applyModifier next $
       over (playerUnit . timedModifiers) (addModifier time modifier) u

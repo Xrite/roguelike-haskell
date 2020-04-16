@@ -13,24 +13,23 @@ module Game.Unit.Unit
     inventory,
     baseWeapon,
     Unit (..),
-    AnyUnit (..),
-    packUnit,
     Action (..),
     Direction (..),
+    AnyUnit,
+    packUnit,
     createUnitData,
-    position,
     getPosition,
+    isAlive,
+    getAttackModifier,
+    applyModifier_,
   )
 where
 
 import Control.Lens
 import Data.Maybe (fromMaybe)
-import Game.GameLevels.GameLevel
-import Game.IO.GameIO
 import Game.Item
 import Game.Modifiers.EffectDesc (EffectDesc)
 import Game.Modifiers.Modifier
-import Game.Modifiers.ModifierFactory
 import Game.Unit.Action
 import Game.Unit.Inventory
 import Game.Unit.Stats
@@ -53,8 +52,7 @@ data UnitData
         _baseWeapon :: WeaponItem,
         -- | How to display this unit
         -- | Defines behavior of a unit. Arguments are level and all the other units on it. TODO remove if not used
-        _portrait :: Char,
-        _control :: GameLevel -> [AnyUnit] -> GameIO Action
+        _portrait :: Char
       }
 
 -- | Constructs a new 'UnitData'.
@@ -73,11 +71,11 @@ createUnitData ::
   WeaponItem ->
   -- | How to display this unit
   Char ->
-  -- | Defines behavior of a unit. Arguments are level and all the other units on it.
-  (GameLevel -> [AnyUnit] -> GameIO Action) ->
   -- | Constructed 'Unit'
   UnitData
 createUnitData = UnitData
+
+makeLenses ''UnitData
 
 -- | Returns an active weapon unit data implies.
 -- That is, returns equipped weapon or base weapon if none equipped
@@ -92,52 +90,24 @@ getAttackModifier unitData = getWeapon unitData ^. weaponAttackModifier
 -- A typeclass for every active participant of a game. If it moves and participates in combat system, it is a unit.
 class Unit u where
   -- | Returns 'UnitData' of a unit.
-  asUnitData :: a -> UnitData
+  asUnitData :: u -> UnitData
 
   -- | How unit is affected by 'Modifier's.
   -- It is the main thing that differs a 'Unit' from 'UnitData'.
-  applyModifier :: Modifier () -> a -> a
+  applyModifier :: Modifier a -> u -> (u, a)
 
-  -- | Modifier for this unit's attacks
-  attackModifier :: ModifierFactory -> a -> Modifier ()
-  attackModifier factory p = buildModifier factory $ getAttackModifier . asUnitData $ applyModifier (buildModifier factory wearableEff) p
-    where
-      inv = _inventory $ asUnitData p
-      wearableEff = getAllWearableModifiers inv
+applyModifier_ :: Unit u => Modifier a -> u -> u
+applyModifier_ modifier u = fst $ applyModifier modifier u
 
--- | An existential type wrapper for any type implementing 'Unit'.
--- Existential classes is an antipattern, but what other choice do we have?
-data AnyUnit = forall a. (Unit a) => AnyUnit a
+isAlive :: Unit u => u -> Bool
+isAlive u = asUnitData u ^. stats . health > 0
 
-makeLenses ''UnitData
+data AnyUnit = forall a. Unit a => AnyUnit a
 
-position :: UnitData -> (Int, Int)
-position = _positionLens
-
-depth :: UnitData -> Int
-depth = _depthLens
-
-stats :: UnitData -> Stats.Stats
-stats = _statsLens
-
-timedEffects :: UnitData -> TimedEffects.TimedEffects
-timedEffects = _timedEffectsLens
-
-inventory :: UnitData -> Inventory.Inventory
-inventory = _inventoryLens
-
-baseWeapon :: UnitData -> Item.WeaponItem
-baseWeapon = _baseWeaponLens
-
--- | Instance of 'Unit' for the wrapper 'AnyUnit" that simply transfers every call to the wrapped object.
-instance Unit AnyUnit where
-  asUnitData (AnyUnit u) = asUnitData u
-  applyModifier e (AnyUnit u) = AnyUnit $ applyModifier e u
-  attackModifier fact (AnyUnit u) = attackModifier fact u
-
--- | Packs any unit into 'AnyUnit' box.
-packUnit :: Unit a => a -> AnyUnit
+packUnit :: (Unit u) => u -> AnyUnit
 packUnit = AnyUnit
 
-getPosition :: Unit a => a -> (Int, Int)
-getPosition u = asUnitData u ^. positionLens
+instance Unit AnyUnit where
+  asUnitData (AnyUnit u) = asUnitData u
+  applyModifier modifier (AnyUnit u) = over _1 AnyUnit $ applyModifier modifier u
+

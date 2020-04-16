@@ -1,36 +1,56 @@
-{-# LANGUAGE TemplateHaskell, Rank2Types #-}
+{-# LANGUAGE Rank2Types #-}
+{-# LANGUAGE TemplateHaskell #-}
 
 -- | Module responsible for working with the level's map
-
 module Game.GameLevels.GameLevel
-  ( getCell
-  , getMapSize
-  , inBounds
-  , makeGameLevel
-  , lvlMap
-  , makeMap
-  , GameLevel (..)
-  , Map (..)
-  ) where
+  ( getCell,
+    getMapSize,
+    inBounds,
+    makeGameLevel,
+    lvlMap,
+    makeMap,
+    maybeGetCellAt,
+    isEntranceAt,
+    isExitAt,
+    GameLevel (..),
+    Map (..),
+  )
+where
 
-import Game.GameLevels.MapCell
-import Control.Lens (makeLenses, (^.))
+import Control.Lens ((^.), makeLenses)
 import Data.Array.IArray
+import Game.GameLevels.MapCell
 
-data Map = Map
-  { _entrance :: (Int, Int)
-  , _exit :: (Int, Int)
-  , _cells :: Array (Int, Int) MapCell
-  }
+data Map
+  = Map
+      { _entrance :: (Int, Int),
+        _exit :: (Int, Int),
+        _cells :: Array (Int, Int) MapCell
+      }
+
 makeLenses ''Map
 
-data GameLevel = GameLevel
-  { _lvlMap :: Map
-  }
+data GameLevel
+  = GameLevel
+      { _lvlMap :: Map
+      }
+
 makeLenses ''GameLevel
 
 getCell :: (Int, Int) -> Map -> MapCell
 getCell i mp = (mp ^. cells) ! i
+
+-- | Return cell at position or nothing if position is out of bounds
+maybeGetCellAt :: (Int, Int) -> GameLevel -> Maybe MapCell
+maybeGetCellAt i g = if inBounds m i then Just (getCell i m) else Nothing
+  where
+    m = g ^. lvlMap
+
+isEntranceAt :: (Int, Int) -> GameLevel -> Bool
+isEntranceAt i g = g ^. lvlMap . entrance == i
+
+isExitAt :: (Int, Int) -> GameLevel -> Bool
+isExitAt i g = g ^. lvlMap . exit == i
 
 getMapSize :: Map -> ((Int, Int), (Int, Int))
 getMapSize mp = bounds (mp ^. cells)

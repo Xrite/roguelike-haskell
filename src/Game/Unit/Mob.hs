@@ -7,6 +7,7 @@ import Control.Lens
 import Control.Monad.Free
 import Game.Modifiers.EffectAtom
 import Game.Modifiers.Modifier
+import Game.Unit.Action
 import Game.Unit.Inventory (getAllWearableModifiers)
 import Game.Unit.Stats (health)
 import Game.Unit.TimedModifiers
@@ -20,22 +21,28 @@ import Game.Unit.Unit
   )
 
 -- | A mob is a simple computer-controlled 'Unit'.
-data Mob = Mob {_unitLens :: Unit.UnitData}
+data Mob ctx
+  = Mob
+      { -- | UnitData of that mob
+        _unit :: UnitData,
+        -- | Mob behaviour
+        _strategy :: ctx Action
+      }
 
 makeLenses ''Mob
 
-unit = _unitLens
-
-instance Unit.Unit Mob where
+instance Unit (Mob ctx) where
   asUnitData = _unit
 
-  applyModifier (Pure _) m = m
+  applyModifier (Pure res) m = (m, res)
   applyModifier (Free (GetStats nextF)) m =
     applyModifier (nextF (Just $ m ^. unit . stats)) m
-  applyModifier (Free (SetStats newStats next)) u =
-    applyModifier next (u & unit . stats .~ newStats)
   applyModifier (Free (ModifyStats f next)) u =
     applyModifier next (u & unit . stats %~ f)
+  applyModifier (Free (GetPosition nextF)) m =
+    applyModifier (nextF (m ^. unit . position)) m
+  applyModifier (Free (ModifyPosition f next)) u =
+    applyModifier next (u & unit . position %~ f)
   applyModifier (Free (SetTimedModifier time modifier next)) u =
     applyModifier next $ over (unit . timedModifiers) (addModifier time modifier) u
   applyModifier (Free (MoveTo coordTo next)) u =

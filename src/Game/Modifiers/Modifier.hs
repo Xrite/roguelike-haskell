@@ -1,39 +1,54 @@
 {-# LANGUAGE DeriveFunctor #-}
 
 module Game.Modifiers.Modifier
-  ( Modifier
-  , ModifierDSL(..)
-  , getStats
-  , setStats
-  , modifyStats
-  , setTimedModifier
-  , setCoord
-  , setEffect
+  ( Modifier,
+    ModifierDSL (..),
+    getStats,
+    setStats,
+    modifyStats,
+    getPosition,
+    setPosition,
+    modifyPosition,
+    setTimedModifier,
+    setCoord,
+    setEffect,
   )
 where
 
-import           Game.Unit.Stats
-import           Control.Monad.Free
-import           Game.Modifiers.EffectAtom
+import Control.Monad.Free
+import Game.Modifiers.EffectAtom
+import Game.Unit.Stats
 
-data ModifierDSL a = GetStats (Maybe Stats -> a)
-                                 | SetStats Stats a
-                                 | ModifyStats (Stats -> Stats) a
-                                 | SetTimedModifier Int (Int -> Modifier ()) a
-                                 | MoveTo (Int, Int) a
-                                 | ApplyEffect EffectAtom a
-                  deriving (Functor)
+-- | Low level actions to perform with game entities (e.g. units, doors, objects)
+data ModifierDSL a
+  = GetStats (Maybe Stats -> a)
+  | ModifyStats (Stats -> Stats) a
+  | GetPosition ((Int, Int) -> a)
+  | ModifyPosition ((Int, Int) -> (Int, Int)) a
+  | SetTimedModifier Int (Int -> Modifier ()) a
+  | MoveTo (Int, Int) a
+  | ApplyEffect EffectAtom a
+  deriving (Functor)
 
-type Modifier a = Free ModifierDSL a 
+type Modifier a = Free ModifierDSL a
 
 getStats :: Modifier (Maybe Stats)
 getStats = liftF $ GetStats id
 
 setStats :: Stats -> Modifier ()
-setStats stats = Free $ SetStats stats (Pure ())
+setStats stats = modifyStats $ const stats
 
 modifyStats :: (Stats -> Stats) -> Modifier ()
 modifyStats f = Free $ ModifyStats f (Pure ())
+
+getPosition :: Modifier (Int, Int)
+getPosition = liftF $ GetPosition id
+
+setPosition :: (Int, Int) -> Modifier ()
+setPosition pos = modifyPosition $ const pos
+
+modifyPosition :: ((Int, Int) -> (Int, Int)) -> Modifier ()
+modifyPosition f = liftF $ ModifyPosition f ()
 
 setTimedModifier :: Int -> (Int -> Modifier ()) -> Modifier ()
 setTimedModifier time modifier = Free $ SetTimedModifier time modifier (Pure ())

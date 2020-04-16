@@ -46,13 +46,6 @@ data Item
   | Junk JunkItem
 
 data WeaponItem
-  = WeaponItem
-      { _weaponName :: String,
-        _weaponAttackEffect :: forall a. (Unit a) => a -> (Int, Int) -> Scenario.Scenario UnitId (),
-        _weaponRender :: Char
-      }
-
-data WeaponItem
   = WeaponItem {_weaponName :: String, _weaponAttackModifier :: EffectDesc, _weaponRender :: Char}
 
 data WearableItem

@@ -10,15 +10,7 @@ import Control.Monad.State
 import qualified Data.Map as Map (empty)
 import Data.Maybe
 import Data.Maybe (isJust, isNothing)
-import Game.Controller.Moves
 import Game.Environment
-import Game.Environment
-  ( Environment,
-    UnitId,
-    makeEnvironment,
-    makeUnitId,
-    unitById,
-  )
 import Game.GameLevels.GameLevel
 import Game.GameLevels.GenerateLevel (randomBSPGeneratedLevel, testGameLevel)
 import Game.GameLevels.Generation.BSPGen (GeneratorParameters (..))
@@ -54,9 +46,9 @@ data GameState
 makeLenses ''GameState
 
 instance HasUI GameState where
-  currentUI (Game env) = gameUI env
-  currentUI (MainMenu ui) = ui
-  currentUI EndState = terminalUI
+  getUI (Game env) = gameUI env
+  getUI (MainMenu ui) = ui
+  getUI EndState = terminalUI
 
 gameUI :: Environment -> GameUI
 gameUI gameEnv = makeGameUI $
