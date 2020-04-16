@@ -33,6 +33,8 @@ import           Game.Unit.Stats
 import           Game.Unit.TimedModifiers
 import           Game.Unit.Action
 import Data.Maybe (fromMaybe)
+import Game.Modifiers.EffectDesc (EffectDesc)
+import Game.Modifiers.ModifierFactory
 
 -- | Common data of all units.
 data UnitData
@@ -67,7 +69,7 @@ getWeapon :: UnitData -> WeaponItem
 getWeapon unitData = fromMaybe (_baseWeapon unitData) (getEquippedWeapon $ _inventory unitData)
 
 -- | Returns attack modifier this unit data implies
-getAttackModifier :: UnitData -> Modifier ()
+getAttackModifier :: UnitData -> EffectDesc
 getAttackModifier unitData = getWeapon unitData ^. weaponAttackModifier
 
 -- | Something that can hit and run.
@@ -79,8 +81,8 @@ class Unit a where
   -- It is the main thing that differs a 'Unit' from 'UnitData'.
   applyModifier :: Modifier () -> a -> a
   -- | Modifier for this unit's attacks
-  attackModifier :: a -> Modifier ()
-  attackModifier p = getAttackModifier . asUnitData $ applyModifier wearableEff p
+  attackModifier :: ModifierFactory -> a -> Modifier ()
+  attackModifier factory p = buildModifier factory $ getAttackModifier . asUnitData $ applyModifier (buildModifier factory wearableEff) p
       where
         inv = _inventory $ asUnitData p
         wearableEff = getAllWearableModifiers inv
@@ -95,7 +97,7 @@ makeLenses ''UnitData
 instance Unit AnyUnit where
   asUnitData (AnyUnit u) = asUnitData u
   applyModifier e (AnyUnit u) = AnyUnit $ applyModifier e u
-  attackModifier (AnyUnit u) = attackModifier u
+  attackModifier fact (AnyUnit u) = attackModifier fact u
 
 -- | Packs any unit into 'AnyUnit' box.
 packUnit :: Unit a => a -> AnyUnit

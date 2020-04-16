@@ -31,6 +31,7 @@ import Game.Modifiers.Modifier (Modifier)
 import Game.Unit.DamageCalculation (attack)
 import Game.Unit.Stats
 import Game.GameLevels.MapCell (renderCell)
+import Game.Modifiers.ModifierFactory (ModifierFactory)
 
 -- | All manipulations with units in environment should use this type
 newtype UnitId = UnitId Int
@@ -43,14 +44,21 @@ makeUnitId = UnitId
 -- TODO maybe extract units to a different module?
 -- TODO comment
 data Environment =
-   Environment { _player :: Player, _units :: [AnyUnit], _levels :: [GameLevel], _currentLevel :: Int, _currentUnitTurn :: Int }
+   Environment
+    { _player :: Player
+    , _units :: [AnyUnit]
+    , _levels :: [GameLevel]
+    , _currentLevel :: Int
+    , _currentUnitTurn :: Int
+    , _modifierFactory :: ModifierFactory
+    }
 makeLenses ''Environment
 
 instance Show Environment where
   show _ = "Environment"
 
 -- | Constructs a new 'Environment'.
-makeEnvironment :: Player -> [AnyUnit] -> [GameLevel] -> Environment
+makeEnvironment :: Player -> [AnyUnit] -> [GameLevel] -> ModifierFactory -> Environment
 makeEnvironment player units levels = Environment player units levels 0 0
 
 -- | This function should remove dead units from environment.
@@ -97,7 +105,7 @@ envAttack attackerId attackedId env = filterDead $ applyAttack env
   where
     attacker = unitById attackerId env
     attacked = unitById attackedId env
-    (attackerNew, attackedNew) = attack attacker attacked
+    (attackerNew, attackedNew) = attack (_modifierFactory env) attacker attacked
     applyAttack = (unitLensById attackerId .~ attackerNew) . (unitLensById attackedId .~ attackedNew)
 
 newtype GameEnv a = GameEnv (State Environment a) deriving (Functor, Applicative, Monad, MonadState Environment)

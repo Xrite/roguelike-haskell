@@ -22,7 +22,7 @@ module Game.Unit.Inventory
 where
 
 import           Control.Lens
-import           Game.Modifiers.Modifier
+import           Game.Modifiers.EffectDesc
 import           Game.Item
 import           Prelude                 hiding ( head )
 
@@ -51,12 +51,12 @@ makeLenses ''WearableSlots
 makeLenses ''WeaponSlots
 
 -- | Get modifier from wearable item
-getWearableModifier :: Maybe WearableItem -> Modifier ()
+getWearableModifier :: Maybe WearableItem -> EffectDesc
 getWearableModifier (Just item) = wearableDefenceModifier item
-getWearableModifier Nothing     = return ()
+getWearableModifier Nothing     = pure ()
 
 -- | Get composite modifier from all equipped wearable items in an inventory
-getAllWearableModifiers :: Inventory -> Modifier ()
+getAllWearableModifiers :: Inventory -> EffectDesc
 getAllWearableModifiers inv = do
   let slots = inv ^. wearableSlots
   getWearableModifier $ slots ^. headSlot

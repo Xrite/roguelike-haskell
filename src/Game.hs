@@ -34,7 +34,10 @@ import           Game.Unit.Action ()
 import           System.Random (mkStdGen)
 import           Game.GameLevels.Generation.BSPGen (GeneratorParameters(..))
 import           Game.Modifiers.Modifier (modifyStats)
-
+import Game.Modifiers.ModifierFactory (makeModifierFactory)
+import qualified Data.Map as Map (empty)
+import Game.Modifiers.EffectDesc (effectAtom)
+import Game.Modifiers.EffectAtom
 
 
 
@@ -90,6 +93,7 @@ randomEnvironment seed =
     ourPlayer
     [ packUnit ourPlayer ]
     [lvl]
+    (makeModifierFactory Map.empty)
    where
     lvl = fst $ randomBSPGeneratedLevel (GU.Space (GU.Coord 0 0) (GU.Coord 50 50)) (GeneratorParameters 10 1.7 5) $ mkStdGen seed
     startCoord = _entrance $ _lvlMap lvl
@@ -105,6 +109,7 @@ testEnvironment =
     , packUnit $ Mob $ makeUnitData (5, 6) 'U'
     ]
     [testGameLevel]
+    (makeModifierFactory Map.empty)
   where
     ourPlayer = makeSomePlayer $ makeUnitData (7, 9) 'λ'
 
@@ -116,7 +121,7 @@ makeUnitData position render =
     (Stats.Stats 10 10 10 1)
     empty
     emptyInventory
-    (createWeapon "weapon" (modifyStats (health %~ subtract 5)) 'A')
+    (createWeapon "weapon" (effectAtom $ Damage 5) 'A')
     render
     undefined
 

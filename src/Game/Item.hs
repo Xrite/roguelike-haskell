@@ -30,7 +30,7 @@ module Game.Item
   
 where
 
-import           Game.Modifiers.Modifier
+import           Game.Modifiers.EffectDesc
 import           Control.Lens
 
 data WearableType = Head
@@ -43,17 +43,17 @@ data Item = Consumable ConsumableItem
           | Junk JunkItem
 
 data WeaponItem =
-  WeaponItem { _weaponName :: String, _weaponAttackModifier :: Modifier () , _weaponRender :: Char}
+  WeaponItem { _weaponName :: String, _weaponAttackModifier :: EffectDesc , _weaponRender :: Char}
 
 data WearableItem = WearableItem { _wearableName :: String
                                  , wearableType :: WearableType
-                                 , wearableDefenceModifier :: Modifier ()
-                                 , wearableRepulseModifier :: Modifier ()
+                                 , wearableDefenceModifier :: EffectDesc
+                                 , wearableRepulseModifier :: EffectDesc
                                  , _wearableRender :: Char
                                  }
 
 data ConsumableItem =
-  ConsumableItem { _consumableName :: String, _consumableModifier :: Modifier () , _consumableRender :: Char}
+  ConsumableItem { _consumableName :: String, _consumableModifier :: EffectDesc , _consumableRender :: Char}
 
 data JunkItem = JunkItem { _junkName :: String, _junkRender :: Char}
 
@@ -62,14 +62,14 @@ makeLenses ''WearableItem
 makeLenses ''ConsumableItem
 makeLenses ''JunkItem
 
-createWeapon :: String -> Modifier () -> Char -> WeaponItem
+createWeapon :: String -> EffectDesc -> Char -> WeaponItem
 createWeapon = WeaponItem
 
 createWearable
-  :: String -> WearableType -> Modifier () -> Modifier () -> Char -> WearableItem
+  :: String -> WearableType -> EffectDesc -> EffectDesc -> Char -> WearableItem
 createWearable = WearableItem
 
-createConsumable :: String -> Modifier () -> Char -> ConsumableItem
+createConsumable :: String -> EffectDesc -> Char -> ConsumableItem
 createConsumable = ConsumableItem
 
 weaponToItem :: WeaponItem -> Item
