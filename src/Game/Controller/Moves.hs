@@ -12,6 +12,7 @@ import Game.GameLevels.MapCell
 import Game.GameLevels.MapCellType
 import Game.Unit.Action
 import Game.Unit.Unit
+import qualified Game.Scenario as Scenario
   ( AnyUnit
   , _position
   , applyEffect
@@ -28,6 +29,9 @@ maybeMakeAction unitId (Move xDir yDir) env = maybeMakeMoveUnbound unitId newCoo
   where
     currentCoord = asUnitData (unitById unitId env) ^. position
     newCoord = changeCoord xDir yDir currentCoord
+
+makeAction :: UnitId -> Action -> Scenario.Scenario UnitId Bool
+makeAction unit (Move xDri yDir) = undefined
 
 -- | Allows unit to make a move considering distance.
 maybeMakeMove :: UnitId -> (Int, Int) -> Environment -> Maybe Environment

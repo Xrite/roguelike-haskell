@@ -4,21 +4,23 @@ module Game.Scenario where
 
 import           Control.Monad.Free
 import           Game.Effect (Effect)
-import           Game.Environment
 
-
-data ScenarioDSL a = Attack UnitId UnitId a
-                   | MoveUnitTo UnitId (Int, Int) a
-                   | AOEEffect Int (Int -> Effect ()) a
+data ScenarioDSL unitAccessor a = ApplyEffect (Effect ()) unitAccessor a
+                                | MoveUnitTo unitAccessor (Int, Int) a
+                                | AOEEffect Int (Int -> Effect ()) a
+                                | GetUnitByCoord (Int, Int) (Maybe unitAccessor -> a)
   deriving (Functor)
 
-type Scenario a = Free ScenarioDSL a
+type Scenario unitAccessor a = Free (ScenarioDSL unitAccessor) a
 
-attack :: UnitId -> UnitId -> Scenario ()
-attack attacker attacked = liftF $ Attack attacker attacked ()
+applyEffect :: Effect () -> unitAccessor -> Scenario unitAccessor ()
+applyEffect effect unit = liftF $ ApplyEffect effect unit ()
 
-setAOEEffect :: Int -> (Int -> Effect ()) -> Scenario ()
+setAOEEffect :: Int -> (Int -> Effect ()) -> Scenario unitAccessor ()
 setAOEEffect range effect = liftF $ AOEEffect range effect ()
 
-setCoord :: UnitId -> (Int, Int) -> Scenario ()
-setCoord uid coord = liftF $ MoveUnitTo uid coord ()
+setCoord :: unitAccessor -> (Int, Int) -> Scenario unitAccessor ()
+setCoord unit coord = liftF $ MoveUnitTo unit coord ()
+
+getUnitByCoord :: (Int, Int) -> Scenario unitAccessor (Maybe unitAccessor)
+getUnitByCoord position = liftF $ GetUnitByCoord position id

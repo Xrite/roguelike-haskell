@@ -17,18 +17,21 @@ module Game.Environment
   )
 where
 
-import           Game.Unit.Player               ( Player )
-import           Game.Unit.Mob                  ( Mob )
-import           Game.Unit.Unit                 ( AnyUnit, asUnitData, _position, applyEffect, stats, _stats )
-import           Game.GameLevels.GameLevel
+import qualified Game.Unit.Player as Player
+import qualified Game.Unit.Mob as Mob
+import qualified Game.Unit.Unit as Unit
+import qualified Game.GameLevels.GameLevel as GameLevel
 import           Control.Monad.State
 import           Control.Lens
-import           PreludeUtil                    ( listLens )
-import           Data.Foldable                  ( find )
-import           Data.List                      ( findIndex )
-import Game.Effect (Effect)
-import Game.Unit.DamageCalculation (attack)
-import Game.Unit.Stats
+import           PreludeUtil (listLens)
+import           Data.Foldable (find)
+import           Data.List (findIndex)
+import qualified Game.Effect as Effect
+import           Game.Unit.DamageCalculation (attack)
+import           Game.Unit.Stats
+import qualified Game.Scenario as Scenario
+import           Control.Monad.Free
+
 
 -- | All manipulations with units in environment should use this type
 newtype UnitId = UnitId Int
@@ -41,14 +44,14 @@ makeUnitId = UnitId
 -- TODO maybe extract units to a different module?
 -- TODO comment
 data Environment =
-   Environment { _player :: Player, _units :: [AnyUnit], _levels :: [GameLevel], _currentLevel :: Int, _currentUnitTurn :: Int }
+   Environment { _player :: Player.Player, _units :: [Unit.AnyUnit], _levels :: [GameLevel.GameLevel], _currentLevel :: Int, _currentUnitTurn :: Int }
 makeLenses ''Environment
 
 instance Show Environment where
   show _ = "Environment"
 
 -- | Constructs a new 'Environment'.
-makeEnvironment :: Player -> [AnyUnit] -> [GameLevel] -> Environment
+makeEnvironment :: Player.Player -> [Unit.AnyUnit] -> [GameLevel.GameLevel] -> Environment
 makeEnvironment player units levels = Environment player units levels 0 0
 
 -- | This function should remove dead units from environment.
@@ -59,7 +62,7 @@ filterDead env = cycleCurrentUnit . (currentUnitTurn %~ flip (-) startUnitsDied)
   where
     startUnits = take (_currentUnitTurn env) $ _units env
     endUnits = drop (_currentUnitTurn env) $ _units env
-    filterAlive = filter ((> 0) . _health . _stats . asUnitData)
+    filterAlive = filter ((> 0) . _health . _stats . Unit.asUnitData)
     newStartUnits = filterAlive startUnits
     newEndUnits = filterAlive endUnits
     startUnitsDied = length startUnits - length newStartUnits
@@ -72,23 +75,23 @@ cycleCurrentUnit env =
     else env
 
 
-unitLensById :: UnitId -> Lens' Environment AnyUnit
+unitLensById :: UnitId -> Lens' Environment Unit.AnyUnit
 unitLensById (UnitId idxInt) = units . listLens idxInt
 
-unitById :: UnitId -> Environment -> AnyUnit
+unitById :: UnitId -> Environment -> Unit.AnyUnit
 unitById idx env = env ^. unitLensById idx
 
-setUnitById :: UnitId -> AnyUnit -> Environment -> Environment
+setUnitById :: UnitId -> Unit.AnyUnit -> Environment -> Environment
 setUnitById idx unit = filterDead . set (unitLensById idx) unit
 
-affectUnitById :: UnitId -> Effect () -> Environment -> Environment
-affectUnitById idx effect = filterDead . (unitLensById idx %~ applyEffect effect)
+affectUnitById :: UnitId -> Effect.Effect () -> Environment -> Environment
+affectUnitById idx effect = filterDead . (unitLensById idx %~ Unit.applyEffect effect)
 
 unitIdByCoord :: (Int, Int) -> Environment -> Maybe UnitId
-unitIdByCoord coord env = UnitId <$> findIndex ((== coord) . _position . asUnitData) (_units env)
+unitIdByCoord coord env = UnitId <$> findIndex ((== coord) . _position . Unit.asUnitData) (_units env)
 
-unitByCoord :: (Int, Int) -> Environment -> Maybe AnyUnit
-unitByCoord coord env = find ((== coord) . _position . asUnitData) $ _units env
+unitByCoord :: (Int, Int) -> Environment -> Maybe Unit.AnyUnit
+unitByCoord coord env = find ((== coord) . _position . Unit.asUnitData) $ _units env
 
 envAttack :: UnitId -> UnitId -> Environment -> Environment
 envAttack attackerId attackedId env = filterDead $ applyAttack env
@@ -101,7 +104,7 @@ envAttack attackerId attackedId env = filterDead $ applyAttack env
 newtype GameEnv a = GameEnv (State Environment a) deriving (Functor, Applicative, Monad, MonadState Environment)
 
 class (Monad m) => GameEnvironmentReader m where
-    getCurrentGameLevel :: m GameLevel
+    getCurrentGameLevel :: m GameLevel.GameLevel
 
 instance GameEnvironmentReader GameEnv where
   getCurrentGameLevel = do
@@ -109,8 +112,26 @@ instance GameEnvironmentReader GameEnv where
     let cur = _currentLevel env
     return $ _levels env !! cur
 
-getCurrentLevel :: Environment -> GameLevel
+getCurrentLevel :: Environment -> GameLevel.GameLevel
 getCurrentLevel env = _levels env !! _currentLevel env
 
 playerId :: Environment -> UnitId
 playerId _ = UnitId 0
+
+performScenario :: Scenario.Scenario UnitId a -> Environment -> (Environment, a)
+performScenario (Pure value) env = (env, value)
+
+performScenario (Free (Scenario.ApplyEffect effect unit next)) env = performScenario next $ over unitLens (Unit.applyEffect effect) env
+  where
+    unitLens = unitLensById
+
+performScenario (Free (Scenario.MoveUnitTo uid coord next)) env =  performScenario next $ over unitLens (Unit.applyEffect effect) env
+  where
+    unitLens = unitLensById unit
+    effect = Effect.setPosition coord
+
+performScenario (Free (Scenario.AOEEffect radius effectByDistance next)) env =  undefined 
+
+performScenario (Free (Scenario.GetUnitByPosition position nextF)) env =  performScenario (nextF unit) env
+  where
+    unit = unitIdByCoord position

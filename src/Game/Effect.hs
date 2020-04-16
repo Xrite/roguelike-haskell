@@ -6,9 +6,12 @@ module Game.Effect
   , getStats
   , setStats
   , modifyStats
-  , setAOEEffect
   , setTimedEffect
-  , setCoord
+  , getPosition
+  , setPosition
+  , setLevelDepth
+  , modifyLevelDepth
+  , getLevelDepth
   )
 where
 
@@ -19,15 +22,12 @@ import           Control.Monad.Free
 -- also "burn down then receiving fire dmg"
 
 data EffectDSL a = GetStats (Maybe Stats -> a)
-                 | SetStats Stats a
                  | ModifyStats (Stats -> Stats) a
                  | SetTimedEffect Int (Int -> Effect ()) a
-                 | MoveTo (Int, Int) a
-                 {-|
-                   Sets effect on everyone in certain range.
-                   Strength may depend on distance.
-                 -}
-                  | AOEEffect Int (Int -> Effect ()) a
+                 | GetPosition ((Int, Int) -> a)
+                 | ModifyPosition ((Int, Int) -> (Int, Int)) a
+                 | GetLevelDepth (Int -> a)
+                 | ModifyLevelDepth (Int -> Int) a
   deriving (Functor)
 
 type Effect a = Free EffectDSL a
@@ -36,7 +36,7 @@ getStats :: Effect (Maybe Stats)
 getStats = liftF $ GetStats id
 
 setStats :: Stats -> Effect ()
-setStats stats = Free $ SetStats stats (Pure ())
+setStats stats = Free $ ModifyStats (const stats) (Pure ())
 
 modifyStats :: (Stats -> Stats) -> Effect ()
 modifyStats f = Free $ ModifyStats f (Pure ())
@@ -44,8 +44,17 @@ modifyStats f = Free $ ModifyStats f (Pure ())
 setTimedEffect :: Int -> (Int -> Effect ()) -> Effect ()
 setTimedEffect time effect = Free $ SetTimedEffect time effect (Pure ())
 
-setAOEEffect :: Int -> (Int -> Effect ()) -> Effect ()
-setAOEEffect range effect = Free $ AOEEffect range effect (Pure ())
+getPosition :: Effect (Int, Int)
+getPosition = liftF $ GetPosition id
 
-setCoord :: (Int, Int) -> Effect ()
-setCoord coord = Free $ MoveTo coord $ Pure ()
+setPosition :: (Int, Int) -> Effect ()
+setPosition coord = Free $ ModifyPosition (const coord) $ Pure ()
+
+setLevelDepth :: Int -> Effect ()
+setLevelDepth depth = liftF $ ModifyLevelDepth (const depth) ()
+
+modifyLevelDepth :: (Int -> Int) -> Effect ()
+modifyLevelDepth f = liftF $ ModifyLevelDepth f ()
+
+getLevelDepth :: Effect Int
+getLevelDepth = liftF $ GetLevelDepth id

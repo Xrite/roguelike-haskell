@@ -1,4 +1,5 @@
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE RankNTypes #-}
 
 module Game.Item
   ( WearableType(..)
@@ -30,30 +31,36 @@ module Game.Item
   
 where
 
-import           Game.Effect
+import qualified Game.Effect as Effect
+import qualified Game.Scenario as Scenario
 import           Control.Lens
+import {-# SOURCE #-} Game.Unit.Unit (Unit)
+import {-# SOURCE #-} Game.Environment (UnitId)
 
 data WearableType = Head
                   | Chest
                   | Legs
 
 data Item = Consumable ConsumableItem
-          | Wearable WearableItem
-          | Weapon WeaponItem
-          | Junk JunkItem
+              | Wearable WearableItem
+              | Weapon WeaponItem
+              | Junk JunkItem
 
-data WeaponItem =
-  WeaponItem { _weaponName :: String, _weaponAttackEffect :: Effect () , _weaponRender :: Char}
+data WeaponItem = WeaponItem { _weaponName :: String
+                                 , _weaponAttackEffect :: forall a . (Unit a) => a -> (Int, Int) -> Scenario.Scenario UnitId ()
+                                 , _weaponRender :: Char
+                                 }
+
 
 data WearableItem = WearableItem { _wearableName :: String
                                  , wearableType :: WearableType
-                                 , wearableDefenceEffect :: Effect ()
-                                 , wearableRepulseEffect :: Effect ()
+                                 , wearableDefenceEffect :: Effect.Effect ()
+                                 , wearableRepulseEffect :: Effect.Effect ()
                                  , _wearableRender :: Char
                                  }
 
 data ConsumableItem =
-  ConsumableItem { _consumableName :: String, _consumableEffect :: Effect () , _consumableRender :: Char}
+  ConsumableItem { _consumableName :: String, _consumableEffect :: Effect.Effect () , _consumableRender :: Char}
 
 data JunkItem = JunkItem { _junkName :: String, _junkRender :: Char}
 
@@ -62,14 +69,14 @@ makeLenses ''WearableItem
 makeLenses ''ConsumableItem
 makeLenses ''JunkItem
 
-createWeapon :: String -> Effect () -> Char -> WeaponItem
+createWeapon :: String -> (forall a . (Unit a) => a -> (Int, Int) -> Scenario.Scenario UnitId ()) -> Char -> WeaponItem
 createWeapon = WeaponItem
 
 createWearable
-  :: String -> WearableType -> Effect () -> Effect () -> Char -> WearableItem
+  :: String -> WearableType -> Effect.Effect () -> Effect.Effect () -> Char -> WearableItem
 createWearable = WearableItem
 
-createConsumable :: String -> Effect () -> Char -> ConsumableItem
+createConsumable :: String -> Effect.Effect () -> Char -> ConsumableItem
 createConsumable = ConsumableItem
 
 weaponToItem :: WeaponItem -> Item
@@ -109,7 +116,6 @@ name (Wearable   item) = _wearableName item
 name (Weapon     item) = _weaponName item
 name (Junk       item) = _junkName item
 
--- anton make this plz
 itemRender :: Item -> Char
 itemRender (Consumable item) = _consumableRender item
 itemRender (Wearable   item) = _wearableRender item

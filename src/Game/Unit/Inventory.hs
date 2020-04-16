@@ -1,4 +1,5 @@
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE RankNTypes #-}
 
 module Game.Unit.Inventory
   ( Inventory
@@ -25,6 +26,9 @@ import           Control.Lens
 import           Game.Effect
 import           Game.Item
 import           Prelude                 hiding ( head )
+import qualified Game.Scenario as Scenario
+import {-# SOURCE #-} Game.Unit.Unit (Unit)
+import {-# SOURCE #-} Game.Environment (UnitId)
 
 data Inventory
   = Inventory
@@ -40,7 +44,7 @@ data WearableSlots
         _legsSlot :: Maybe WearableItem
       }
 
-data WeaponSlots = WeaponSlots {_hand :: Maybe WeaponItem}
+data WeaponSlots = WeaponSlots {_hand :: Maybe WeaponItem }
 
 data InventoryError = Occupied | WrongItemType | WrongWearableType
 
@@ -64,10 +68,10 @@ getAllWearableEffects inv = do
   getWearableEffect $ slots ^. legsSlot
 
 -- | Get an effect from an equipped weapon
-getWeaponEffect :: Inventory -> Effect ()
+getWeaponEffect :: Inventory -> (forall a . (Unit a) => a -> (Int, Int) -> Scenario.Scenario UnitId ())
 getWeaponEffect inv = case inv ^. weaponSlots . hand of
   (Just item) -> item ^. weaponAttackEffect
-  Nothing     -> return ()
+  Nothing     -> \_ _ -> return ()
 
 -- | Empty inventory
 emptyInventory :: Inventory
