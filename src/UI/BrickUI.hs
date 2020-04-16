@@ -1,54 +1,63 @@
+{-# LANGUAGE ExistentialQuantification #-}
+
 module UI.BrickUI where
 
-import           UI.UI as UI
+import Brick
+import qualified Brick.Widgets.Border as B
+import qualified Brick.Widgets.Border.Style as BS
+import qualified Brick.Widgets.Center as C
+import Control.Lens
+import Data.Maybe
+import qualified Graphics.Vty as V
 import qualified UI.Descriptions.GameUIDesc as GameUI
 import qualified UI.Descriptions.ListMenuDesc as ListMenu
-import           Brick
-import qualified Brick.Widgets.Border as B
-import qualified Brick.Widgets.Center as C
-import qualified Brick.Widgets.Border.Style as BS
 import qualified UI.Keys as Keys
-import qualified Graphics.Vty as V
-import           Control.Lens
-import           Data.Maybe
+import UI.UI as UI
 
 type Name = ()
 
 data Tick = Tick
 
-type UIState state = (state, (UI state))
+data UIState = forall s. HasUI s => UIState s (UI s)
 
-app :: (HasUI a) => App (UIState a) Tick Name
-app = App { appDraw = drawUI
-          , appChooseCursor = neverShowCursor
-          , appHandleEvent = handleEvent
-          , appStartEvent = return
-          , appAttrMap = const theMap
-          }
+packUIState :: HasUI s => s -> UI s -> UIState
+packUIState = UIState
 
-drawUI :: (HasUI a) => UIState a -> [Widget Name]
-drawUI (state, ui) = case UI.baseLayout ui of
+app :: App UIState Tick Name
+app =
+  App
+    { appDraw = drawUI,
+      appChooseCursor = neverShowCursor,
+      appHandleEvent = handleEvent,
+      appStartEvent = return,
+      appAttrMap = const theMap
+    }
+
+drawUI :: UIState -> [Widget Name]
+drawUI (UIState s ui) = case UI.baseLayout ui of
   UI.GameUI desc -> drawGameUI desc
   UI.InventoryUI desc -> undefined
-  UI.MenuUI desc -> drawMenu desc
+  UI.ListMenuUI desc -> drawMenu desc
   UI.End -> [C.center $ str "game stopped"]
 
 drawGameUI :: GameUI.UIDesc a b -> [Widget n]
 drawGameUI desc =
   [ (drawMap (GameUI.getMap desc) <=> drawLog (GameUI.getLog desc))
-      <+> (drawStats (GameUI.getStats desc)
-           <=> drawItemMenu (GameUI.getItemMenu desc))]
+      <+> ( drawStats (GameUI.getStats desc)
+              <=> drawItemMenu (GameUI.getItemMenu desc)
+          )
+  ]
 
 drawMap :: GameUI.Map -> Widget n
 drawMap m =
   withBorderStyle BS.unicodeBold $ B.borderWithLabel (str "Snake") $ vBox rows
   where
-    rows = map str (GameUI.mapField m)
+    rows = map str (m ^. GameUI.mapField)
 
 drawLog :: GameUI.Log -> Widget n
 drawLog l = vBox rows
   where
-    rows = [str s | (i, s) <- zip [0 ..] (GameUI.logRecords l)]
+    rows = [str s | (i, s) <- zip [0 ..] (l ^. GameUI.logRecords)]
 
 drawStats :: GameUI.Stats -> Widget n
 drawStats _ = fill '#'
@@ -59,49 +68,90 @@ drawItemMenu _ = fill '$'
 drawMenu :: ListMenu.UIDesc a b -> [Widget n]
 drawMenu menu = [vBox rows]
   where
-    rows = [C.center
-             $ str
-             $ if ListMenu.selectedItem menu == Just i
-               then s ++ "+"
-               else s
-           | (i, (ListMenu.ListItem s _)) <- zip [0 ..] (ListMenu.__items menu)]
+    rows =
+      [ C.center
+          $ str
+          $ if menu ^. ListMenu.selectedItem == Just i
+            then s ++ "+"
+            else s
+        | (i, (ListMenu.ListItem s _)) <- zip [0 ..] (menu ^. ListMenu.items)
+      ]
 
-handleEvent :: (HasUI a)
-            => UIState a
-            -> BrickEvent Name Tick
-            -> EventM Name (Next (UIState a))
-handleEvent (state, ui) event = case UI.baseLayout ui of
+handleEvent ::
+  UIState ->
+  BrickEvent Name Tick ->
+  EventM Name (Next UIState)
+handleEvent (UIState s ui) event = case UI.baseLayout ui of
   UI.GameUI desc -> case event of
-    (VtyEvent (V.EvKey V.KUp [])) -> continue $ pressArrow desc Keys.Up
-    (VtyEvent (V.EvKey V.KDown [])) -> continue $ pressArrow desc Keys.Down
-    (VtyEvent (V.EvKey V.KRight [])) -> continue $ pressArrow desc Keys.Right
-    (VtyEvent (V.EvKey V.KLeft [])) -> continue $ pressArrow desc Keys.Left
-    (VtyEvent (V.EvKey (V.KChar 'q') [])) -> continue $ pressKey desc (Keys.Letter 'q')
-    _ -> continue (state, ui)
+    VtyEvent e -> dispatchVtyEventGameUI s ui e desc
+    _ -> continue (UIState s ui)
   UI.InventoryUI desc -> case event of
-    (VtyEvent (V.EvKey V.KUp [])) -> continue $ undefined
-    (VtyEvent (V.EvKey V.KDown [])) -> undefined
-    _ -> continue (state, ui)
-  UI.MenuUI desc -> case event of
-    (VtyEvent (V.EvKey V.KUp []))
-      -> continue (state, simpleListMenuUI $ ListMenu.moveSelectionUp desc)
-    (VtyEvent (V.EvKey V.KDown []))
-      -> continue (state, simpleListMenuUI $ ListMenu.moveSelectionDown desc)
-    (VtyEvent (V.EvKey V.KEnter [])) -> continue . newUIState
-      $ fromMaybe state (ListMenu.clickItem desc <*> pure state)
-    _ -> continue (state, ui)
-  UI.End -> halt (state, ui)
-  where
-    pressArrow desc arr = newUIState
-      $ fromMaybe
-        state
-        (desc ^. GameUI._onArrowsPress <*> pure arr <*> pure state)
-    pressKey desc key = newUIState
-      $ fromMaybe
-        state
-        (desc ^. GameUI._onKeyPress <*> pure key <*> pure state)
+    VtyEvent e -> undefined 
+    _ -> continue (UIState s ui)
+  UI.ListMenuUI desc -> case event of
+    VtyEvent e -> dispatchVtyEventListMenuUI s ui e desc
+    _ -> continue $ UIState s ui
+  UI.End -> halt $ UIState s ui
 
-    newUIState st = (st, currentUI st)
+dispatchVtyEventGameUI ::
+  (HasUI a, HasUI b) =>
+  a ->
+  UI a ->
+  V.Event ->
+  GameUI.UIDesc a b ->
+  EventM n (Next UIState)
+dispatchVtyEventGameUI state ui event desc = case event of
+  V.EvKey V.KUp [] -> continue $ tryArrowPress Keys.Up
+  V.EvKey V.KDown [] -> continue $ tryArrowPress Keys.Down
+  V.EvKey V.KRight [] -> continue $ tryArrowPress Keys.Right
+  V.EvKey V.KLeft [] -> continue $ tryArrowPress Keys.Left
+  V.EvKey (V.KChar 'q') [] -> continue $ tryKeyPress (Keys.Letter 'q')
+  _ -> continue $ packedS
+  where
+    packedS = packUIState state ui
+    onKeyPress = desc ^. GameUI.onKeyPress
+    onArrowPress = desc ^. GameUI.onArrowPress
+    tryArrowPress key = fromMaybe packedS $
+      do
+        f <- onArrowPress
+        let newState = f key state
+        return (packUIState newState (getUI newState))
+    tryKeyPress key = fromMaybe packedS $
+      do
+        f <- onKeyPress
+        let newState = f key state
+        return (packUIState newState (getUI newState))
+
+dispatchVtyEventInventoryUI state ui event desc = undefined
+
+dispatchVtyEventListMenuUI ::
+  (HasUI s, HasUI b) =>
+  s ->
+  UI s ->
+  V.Event ->
+  ListMenu.UIDesc s b ->
+  EventM n (Next UIState)
+dispatchVtyEventListMenuUI state ui event desc = case event of
+  V.EvKey V.KUp [] ->
+    continue $
+      packUIState
+        state
+        (UI.UIDesc . UI.ListMenuUI $ ListMenu.moveSelectionUp desc)
+  V.EvKey V.KDown [] ->
+    continue $
+      packUIState
+        state
+        (UI.UIDesc . UI.ListMenuUI $ ListMenu.moveSelectionDown desc)
+  V.EvKey V.KEnter [] -> continue $ tryClick
+  _ -> continue $ packedS
+  where
+    packedS = packUIState state ui
+    clickItem = ListMenu.clickItem desc
+    tryClick = fromMaybe packedS $
+      do
+        f <- clickItem
+        let newState = f state
+        return (packUIState newState (getUI newState))
 
 theMap :: AttrMap
 theMap = attrMap V.defAttr []
