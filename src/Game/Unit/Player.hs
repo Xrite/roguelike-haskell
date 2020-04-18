@@ -52,6 +52,6 @@ instance Unit Player where
   applyUnitOp (Free (ApplyEffect effect next)) u =
     applyUnitOp next $ applyEffect effect u
     where
-      applyEffect (Damage dmg) = playerUnit . stats . health %~ subtract dmg
-      applyEffect (Heal h) = playerUnit . stats . health %~ (+) h
+      applyEffect (Damage dmg) = playerUnit . stats . health %~ subtract (fromNonNegative dmg)
+      applyEffect (Heal h) = playerUnit . stats . health %~ (+) (fromNonNegative h)
       applyEffect (GiveExp _) = id

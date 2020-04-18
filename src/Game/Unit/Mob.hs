@@ -44,6 +44,6 @@ instance Unit (Mob ctx) where
   applyUnitOp (Free (ApplyEffect effect next)) u =
     applyUnitOp next $ applyEffect effect u
     where
-      applyEffect (Damage dmg) = unit . stats . health %~ subtract dmg
-      applyEffect (Heal h) = unit . stats . health %~ (+) h
+      applyEffect (Damage dmg) = unit . stats . health %~ subtract (fromNonNegative dmg)
+      applyEffect (Heal h) = unit . stats . health %~ (+) (fromNonNegative h)
       applyEffect (GiveExp _) = id

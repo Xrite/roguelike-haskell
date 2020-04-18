@@ -105,7 +105,7 @@ makeUnitData position render =
     (Stats.Stats 10 10 10 1)
     empty
     emptyInventory
-    (createWeapon "weapon" (effectAtom $ Damage 5) 'A')
+    (createWeapon "weapon" (effectAtom $ damage 5) 'A')
     render
 
 makeSomePlayer :: UnitData -> Player
