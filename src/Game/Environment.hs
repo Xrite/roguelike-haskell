@@ -50,7 +50,7 @@ data Environment =
     , _levels :: [GameLevel]
     , _currentLevel :: Int
     , _currentUnitTurn :: Int
-    , _modifierFactory :: UnitOpFactory
+    , _unitOpFactory :: UnitOpFactory
     }
 makeLenses ''Environment
 
@@ -105,7 +105,7 @@ envAttack attackerId attackedId env = filterDead $ applyAttack env
   where
     attacker = unitById attackerId env
     attacked = unitById attackedId env
-    (attackerNew, attackedNew) = attack (_modifierFactory env) attacker attacked
+    (attackerNew, attackedNew) = attack (_unitOpFactory env) attacker attacked
     applyAttack = (unitLensById attackerId .~ attackerNew) . (unitLensById attackedId .~ attackedNew)
 
 newtype GameEnv a = GameEnv (State Environment a) deriving (Functor, Applicative, Monad, MonadState Environment)
