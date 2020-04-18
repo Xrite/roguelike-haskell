@@ -9,7 +9,7 @@ module Game.Unit.Unit
     position,
     _position,
     _portrait,
-    timedModifiers,
+    timedUnitOps,
     inventory,
     baseWeapon,
     Unit (..),
@@ -20,8 +20,8 @@ module Game.Unit.Unit
     createUnitData,
     getPosition,
     isAlive,
-    getAttackModifier,
-    applyModifier_,
+    getAttackUnitOp,
+    applyUnitOp_,
     portrait,
   )
 where
@@ -30,11 +30,11 @@ import Control.Lens
 import Data.Maybe (fromMaybe)
 import Game.Item
 import Game.Modifiers.EffectDesc (EffectDesc)
-import Game.Modifiers.Modifier
+import Game.Modifiers.UnitOp
 import Game.Unit.Action
 import Game.Unit.Inventory
 import Game.Unit.Stats
-import Game.Unit.TimedModifiers
+import Game.Unit.TimedUnitOps
 
 -- | Common data of all units.
 data UnitData
@@ -46,7 +46,7 @@ data UnitData
         -- | Stats of a unit
         _stats :: Stats,
         -- | Timed modifiers that are affecting the unit
-        _timedModifiers :: TimedModifiers,
+        _timedUnitOps :: TimedUnitOps,
         -- | Inventory on a unit
         _inventory :: Inventory,
         -- | A weapon to use when unit is fighting bare-hand TODO use it in calculations
@@ -65,7 +65,7 @@ createUnitData ::
   -- | Stats of a unit
   Stats ->
   -- | Timed modifiers that are affecting the unit
-  TimedModifiers ->
+  TimedUnitOps ->
   -- | Inventory on a unit
   Inventory ->
   -- | A weapon to use when unit is fighting bare-hand TODO use it in calculations
@@ -84,8 +84,8 @@ getWeapon :: UnitData -> WeaponItem
 getWeapon unitData = fromMaybe (_baseWeapon unitData) (getEquippedWeapon $ _inventory unitData)
 
 -- | Returns attack modifier this unit data implies
-getAttackModifier :: UnitData -> EffectDesc
-getAttackModifier unitData = getWeapon unitData ^. weaponAttackModifier
+getAttackUnitOp :: UnitData -> EffectDesc
+getAttackUnitOp unitData = getWeapon unitData ^. weaponAttackUnitOp
 
 -- | Something that can hit and run.
 -- A typeclass for every active participant of a game. If it moves and participates in combat system, it is a unit.
@@ -93,12 +93,12 @@ class Unit u where
   -- | Returns 'UnitData' of a unit.
   asUnitData :: u -> UnitData
 
-  -- | How unit is affected by 'Modifier's.
+  -- | How unit is affected by 'UnitOp's.
   -- It is the main thing that differs a 'Unit' from 'UnitData'.
-  applyModifier :: Modifier a -> u -> (u, a)
+  applyUnitOp :: UnitOp a -> u -> (u, a)
 
-applyModifier_ :: Unit u => Modifier a -> u -> u
-applyModifier_ modifier u = fst $ applyModifier modifier u
+applyUnitOp_ :: Unit u => UnitOp a -> u -> u
+applyUnitOp_ modifier u = fst $ applyUnitOp modifier u
 
 isAlive :: Unit u => u -> Bool
 isAlive u = asUnitData u ^. stats . health > 0
@@ -110,5 +110,4 @@ packUnit = AnyUnit
 
 instance Unit AnyUnit where
   asUnitData (AnyUnit u) = asUnitData u
-  applyModifier modifier (AnyUnit u) = over _1 AnyUnit $ applyModifier modifier u
-
+  applyUnitOp modifier (AnyUnit u) = over _1 AnyUnit $ applyUnitOp modifier u

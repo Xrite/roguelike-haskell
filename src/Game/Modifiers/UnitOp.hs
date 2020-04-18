@@ -1,15 +1,15 @@
 {-# LANGUAGE DeriveFunctor #-}
 
-module Game.Modifiers.Modifier
-  ( Modifier,
-    ModifierDSL (..),
+module Game.Modifiers.UnitOp
+  ( UnitOp,
+    UnitOpDSL (..),
     getStats,
     setStats,
     modifyStats,
     getPosition,
     setPosition,
     modifyPosition,
-    setTimedModifier,
+    setTimedUnitOp,
     setCoord,
     getPortrait,
     setEffect,
@@ -21,45 +21,45 @@ import Game.Modifiers.EffectAtom
 import Game.Unit.Stats
 
 -- | Low level actions to perform with game entities (e.g. units, doors, objects)
-data ModifierDSL a
+data UnitOpDSL a
   = GetStats (Maybe Stats -> a)
   | ModifyStats (Stats -> Stats) a
   | GetPosition ((Int, Int) -> a)
   | ModifyPosition ((Int, Int) -> (Int, Int)) a
-  | SetTimedModifier Int (Int -> Modifier ()) a
+  | SetTimedUnitOp Int (Int -> UnitOp ()) a
   | MoveTo (Int, Int) a
   | GetPortrait (Char -> a)
   | ApplyEffect EffectAtom a
   deriving (Functor)
 
-type Modifier a = Free ModifierDSL a
+type UnitOp a = Free UnitOpDSL a
 
-getStats :: Modifier (Maybe Stats)
+getStats :: UnitOp (Maybe Stats)
 getStats = liftF $ GetStats id
 
-setStats :: Stats -> Modifier ()
+setStats :: Stats -> UnitOp ()
 setStats stats = modifyStats $ const stats
 
-modifyStats :: (Stats -> Stats) -> Modifier ()
+modifyStats :: (Stats -> Stats) -> UnitOp ()
 modifyStats f = Free $ ModifyStats f (Pure ())
 
-getPosition :: Modifier (Int, Int)
+getPosition :: UnitOp (Int, Int)
 getPosition = liftF $ GetPosition id
 
-setPosition :: (Int, Int) -> Modifier ()
+setPosition :: (Int, Int) -> UnitOp ()
 setPosition pos = modifyPosition $ const pos
 
-modifyPosition :: ((Int, Int) -> (Int, Int)) -> Modifier ()
+modifyPosition :: ((Int, Int) -> (Int, Int)) -> UnitOp ()
 modifyPosition f = liftF $ ModifyPosition f ()
 
-setTimedModifier :: Int -> (Int -> Modifier ()) -> Modifier ()
-setTimedModifier time modifier = Free $ SetTimedModifier time modifier (Pure ())
+setTimedUnitOp :: Int -> (Int -> UnitOp ()) -> UnitOp ()
+setTimedUnitOp time modifier = Free $ SetTimedUnitOp time modifier (Pure ())
 
-setCoord :: (Int, Int) -> Modifier ()
+setCoord :: (Int, Int) -> UnitOp ()
 setCoord coord = Free $ MoveTo coord $ Pure ()
 
-getPortrait :: Modifier Char
+getPortrait :: UnitOp Char
 getPortrait = liftF $ GetPortrait id
 
-setEffect :: EffectAtom -> Modifier ()
+setEffect :: EffectAtom -> UnitOp ()
 setEffect atom = Free $ ApplyEffect atom (Pure ())

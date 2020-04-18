@@ -27,8 +27,8 @@ import Data.Maybe (fromMaybe, isJust, isNothing, listToMaybe)
 import Game.ActionEvaluation
 import Game.GameLevels.GameLevel
 import Game.GameLevels.MapCell (renderCell)
-import Game.Modifiers.Modifier as Modifier
-import Game.Modifiers.ModifierFactory (ModifierFactory)
+import Game.Modifiers.UnitOp as UnitOp
+import Game.Modifiers.UnitOpFactory (UnitOpFactory)
 import Game.Unit.DamageCalculation (attack)
 import Game.Unit.Mob (Mob)
 import Game.Unit.Player (Player)
@@ -50,7 +50,7 @@ data Environment
         _levels :: [GameLevel],
         _currentLevel :: Int,
         _currentUnitTurn :: Int,
-        _modifierFactory :: ModifierFactory,
+        _modifierFactory :: UnitOpFactory,
         _playerEvaluator :: Action -> GameEnv (),
         _mobEvaluators :: [Action -> GameEnv ()]
       }
@@ -66,7 +66,7 @@ instance Show Environment where
   show _ = "Environment"
 
 -- | Constructs a new 'Environment'.
-makeEnvironment :: Player -> [Mob GameEnv] -> [GameLevel] -> ModifierFactory -> Environment
+makeEnvironment :: Player -> [Mob GameEnv] -> [GameLevel] -> UnitOpFactory -> Environment
 makeEnvironment player mobs levels factory =
   Environment
     { _player = player,
@@ -106,16 +106,16 @@ unitById idx env = env ^. unitLensById idx -}
 {- setUnitById :: UnitId -> Unit.AnyUnit -> Environment -> Environment
 setUnitById idx unit = filterDead . set (unitLensById idx) unit -}
 
-affectUnit :: UnitId -> Modifier a -> GameEnv a
+affectUnit :: UnitId -> UnitOp a -> GameEnv a
 affectUnit PlayerUnitId modifier = do
   env <- get
-  let (newPlayer, result) = applyModifier modifier (env ^. player)
+  let (newPlayer, result) = applyUnitOp modifier (env ^. player)
   modify $ set player newPlayer
   filterDead
   return result
 affectUnit (MobUnitId idx) modifier = do
   env <- get
-  let (newMob, result) = applyModifier modifier (snd $ (env ^. mobs) !! idx)
+  let (newMob, result) = applyUnitOp modifier (snd $ (env ^. mobs) !! idx)
   modify $ set (mobs . ix idx . _2) newMob
   filterDead
   return result
@@ -123,17 +123,17 @@ affectUnit (MobUnitId idx) modifier = do
 unitByCoord :: (Int, Int) -> GameEnv (Maybe UnitId)
 unitByCoord coord = do
   units <- getActiveUnits
-  filtered <- filterM (\u -> (== coord) <$> affectUnit u Modifier.getPosition) units
+  filtered <- filterM (\u -> (== coord) <$> affectUnit u UnitOp.getPosition) units
   return $ listToMaybe filtered
 
 moveUnit :: UnitId -> (Int, Int) -> GameEnv Bool
 moveUnit u pos = do
   lvl <- getCurrentLevel
   let maybeCell = maybeGetCellAt pos lvl
-  maybeStats <- affectUnit u Modifier.getStats
+  maybeStats <- affectUnit u UnitOp.getStats
   isFree <- isNothing <$> unitByCoord pos
   if isJust $ checkAll maybeCell maybeStats isFree
-    then affectUnit u $ Modifier.setCoord pos >> return True
+    then affectUnit u $ UnitOp.setCoord pos >> return True
     else return False
   where
     checkAll maybeCell maybeStats isFree = do
@@ -193,6 +193,6 @@ renderEnvironment = do
   let ((xFrom, yFrom), (xTo, yTo)) = getMapSize mp
   let terrain = [[renderCell $ getCell (x, y) mp | x <- [xFrom .. xTo]] | y <- [yFrom .. yTo]]
   units <- getActiveUnits
-  positions <- traverse (\u -> affectUnit u Modifier.getPosition) units
-  portraits <- traverse (\u -> affectUnit u Modifier.getPortrait) units
+  positions <- traverse (\u -> affectUnit u UnitOp.getPosition) units
+  portraits <- traverse (\u -> affectUnit u UnitOp.getPortrait) units
   return $ foldl (\m ((x, y), p) -> m & ix y . ix x .~ p) terrain (zip positions portraits)

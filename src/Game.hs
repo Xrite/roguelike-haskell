@@ -15,13 +15,13 @@ import qualified Game.GameLevels.Generation.GenerationUtil as GU
 import Game.Item (createWeapon)
 import Game.Modifiers.EffectAtom
 import Game.Modifiers.EffectDesc (effectAtom)
-import Game.Modifiers.ModifierFactory (makeModifierFactory)
+import Game.Modifiers.UnitOpFactory (makeUnitOpFactory)
 import Game.Unit.Action
 import Game.Unit.Inventory (emptyInventory)
 import Game.Unit.Mob
 import Game.Unit.Player (Player, makePlayer)
 import Game.Unit.Stats as Stats
-import Game.Unit.TimedModifiers (empty)
+import Game.Unit.TimedUnitOps (empty)
 import Game.Unit.Unit (UnitData, createUnitData)
 import System.Random (mkStdGen)
 import UI.Descriptions.GameUIDesc
@@ -78,7 +78,7 @@ randomEnvironment seed =
     ourPlayer
     []
     [lvl]
-    (makeModifierFactory Map.empty)
+    (makeUnitOpFactory Map.empty)
   where
     lvl = fst $ randomBSPGeneratedLevel (GU.Space (GU.Coord 0 0) (GU.Coord 50 50)) (GeneratorParameters 10 1.7 5) $ mkStdGen seed
     startCoord = _entrance $ _lvlMap lvl
@@ -93,7 +93,7 @@ testEnvironment =
       Mob (makeUnitData (5, 6) 'U') undefined
     ]
     [testGameLevel]
-    (makeModifierFactory Map.empty)
+    (makeUnitOpFactory Map.empty)
   where
     ourPlayer = makeSomePlayer $ makeUnitData (7, 9) 'λ'
 

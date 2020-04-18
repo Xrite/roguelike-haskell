@@ -17,8 +17,8 @@ where
 
 import Control.Monad.State
 import Game.GameLevels.GameLevel
-import Game.Modifiers.Modifier as Modifier
-import Game.Modifiers.ModifierFactory
+import Game.Modifiers.UnitOp as UnitOp
+import Game.Modifiers.UnitOpFactory
 import Game.Unit.Mob (Mob)
 import Game.Unit.Player (Player)
 import Game.Unit.Stats
@@ -39,13 +39,13 @@ instance Monad GameEnv
 
 runGameEnv :: GameEnv a -> Environment -> (a, Environment)
 
-makeEnvironment :: Player -> [Mob GameEnv] -> [GameLevel] -> ModifierFactory -> Environment
+makeEnvironment :: Player -> [Mob GameEnv] -> [GameLevel] -> UnitOpFactory -> Environment
 
 filterDead :: GameEnv ()
 
 getActiveUnits :: GameEnv [UnitId]
 
-affectUnit :: UnitId -> Modifier a -> GameEnv a
+affectUnit :: UnitId -> UnitOp a -> GameEnv a
 
 unitByCoord :: (Int, Int) -> GameEnv (Maybe UnitId)
 
