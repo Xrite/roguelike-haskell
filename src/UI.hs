@@ -1,7 +1,5 @@
 module UI
     ( UI.UI
-    , UI.showDialog
-    , UI.makeDialog
     , UI.makeGameUI
     , UI.makeInventoryUI
     , UI.makeListMenuUI) where

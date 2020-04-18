@@ -1,17 +1,21 @@
-{-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE DeriveFunctor #-}
+{-# LANGUAGE TemplateHaskell #-}
 
 module UI.Descriptions.ListMenuDesc where
 
-import           Control.Lens
-import           Control.Monad.State
+import Control.Lens
+import Control.Monad.State
 
-data UIDesc a b = Desc { _title :: Title
-                       , _items :: [ListItem a b]
-                       , _selectedItem :: Maybe Int
-                       }
+data UIDesc a b
+  = Desc
+      { _title :: Title,
+        _items :: [ListItem a b],
+        _selectedItem :: Maybe Int
+      }
+  deriving (Functor)
 
-data ListItem a b = ListItem { _listItemName :: String, _listItemFunction :: (a -> b) }
+data ListItem a b = ListItem {_listItemName :: String, _listItemFunction :: (a -> b)}
+  deriving (Functor)
 
 data Title = Title {_titleText :: String}
 
@@ -42,25 +46,32 @@ selectItem i = do
     else modify $ set selectedItem Nothing
 
 moveSelectionUp :: UIDesc a b -> UIDesc a b
-moveSelectionUp = over
-  selectedItem
-  (fmap
-   $ \i -> if i > 0
-           then i - 1
-           else i)
+moveSelectionUp =
+  over
+    selectedItem
+    ( fmap $
+        \i ->
+          if i > 0
+            then i - 1
+            else i
+    )
 
 moveSelectionDown :: UIDesc a b -> UIDesc a b
-moveSelectionDown desc = over
-  selectedItem
-  (fmap
-   $ \i -> if i < length (_items desc) - 1
-           then i + 1
-           else i)
-  desc
+moveSelectionDown desc =
+  over
+    selectedItem
+    ( fmap $
+        \i ->
+          if i < length (_items desc) - 1
+            then i + 1
+            else i
+    )
+    desc
 
 clickItem :: UIDesc a b -> Maybe (a -> b)
-clickItem desc = _listItemFunction
-  <$> ((!!) <$> pure (desc ^. items) <*> desc ^. selectedItem)
+clickItem desc =
+  _listItemFunction
+    <$> ((!!) <$> pure (desc ^. items) <*> desc ^. selectedItem)
 
 getTitle :: UIDesc a b -> Title
 getTitle = _title

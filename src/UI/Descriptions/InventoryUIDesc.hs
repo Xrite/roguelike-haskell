@@ -1,17 +1,20 @@
-{-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE DeriveFunctor #-}
+{-# LANGUAGE TemplateHaskell #-}
 
 module UI.Descriptions.InventoryUIDesc where
 
-import           Control.Lens
-import           Control.Monad.State
+import Control.Lens
+import Control.Monad.State
 
-data UIDesc a b = Desc { _items :: [String]
-                       , _stats :: [(String, String)]
-                       , _onItemSelected :: Maybe (Int -> a -> b)
-                       , _onClosed :: Maybe (a -> b)
-                       , _selectedItem :: Maybe Int
-                       }
+data UIDesc a b
+  = Desc
+      { _items :: [String],
+        _stats :: [(String, String)],
+        _onItemSelected :: Maybe (Int -> a -> b),
+        _onClosed :: Maybe (a -> b),
+        _selectedItem :: Maybe Int
+      }
+  deriving (Functor)
 
 type Builder a b = State (UIDesc a b)
 

@@ -4,7 +4,7 @@
 
 module Game.Environment
   ( Environment,
-    UnitId (..),
+    UnitId,
     GameEnv,
     makeEnvironment,
     getCurrentLevel,
@@ -13,6 +13,9 @@ module Game.Environment
     playerId,
     affectUnit,
     moveUnit,
+    runGameEnv,
+    renderEnvironment,
+    evalAction,
   )
 where
 
@@ -20,7 +23,7 @@ import Control.Lens hiding (levels)
 import Control.Monad.State
 import Data.Foldable (find)
 import Data.List (findIndex)
-import Data.Maybe (isJust, isNothing, listToMaybe)
+import Data.Maybe (fromMaybe, isJust, isNothing, listToMaybe)
 import Game.GameLevels.GameLevel
 import Game.GameLevels.MapCell (renderCell)
 import Game.Modifiers.Modifier as Modifier
@@ -44,19 +47,34 @@ data Environment
         _levels :: [GameLevel],
         _currentLevel :: Int,
         _currentUnitTurn :: Int,
-        _modifierFactory :: ModifierFactory
+        _modifierFactory :: ModifierFactory,
+        _playerEvaluator :: Action -> GameEnv (),
+        _mobEvaluators :: [Action -> GameEnv ()]
       }
 
-newtype GameEnv a = GameEnv {runGameEnv :: State Environment a} deriving (Functor, Applicative, Monad, MonadState Environment)
+newtype GameEnv a = GameEnv {unGameEnv :: State Environment a} deriving (Functor, Applicative, Monad, MonadState Environment)
 
 makeLenses ''Environment
+
+runGameEnv :: GameEnv a -> Environment -> (a, Environment)
+runGameEnv gameEnv env = runState (unGameEnv gameEnv) env
 
 instance Show Environment where
   show _ = "Environment"
 
 -- | Constructs a new 'Environment'.
 makeEnvironment :: Player -> [Mob GameEnv] -> [GameLevel] -> ModifierFactory -> Environment
-makeEnvironment player mobs levels = Environment player (zip [0 ..] mobs) levels 0 0
+makeEnvironment player mobs levels factory =
+  Environment
+    { _player = player,
+      _mobs = (zip [0 ..] mobs),
+      _levels = levels,
+      _currentLevel = 0,
+      _currentUnitTurn = 0,
+      _modifierFactory = factory,
+      _playerEvaluator = const $ return (),
+      _mobEvaluators = [const $ return ()]
+    }
 
 -- | This function should remove dead units from environment.
 -- It is called after each function that can modify units in the environment. With current implementation of units storage it invalidates 'UnitId'.
@@ -149,14 +167,12 @@ envAttack attackerId attackedId = case (attackerId, attackedId) of
     setMob :: Mob GameEnv -> Int -> GameEnv ()
     setMob m idx = modify $ set (mobs . ix idx . _2) m
 
-class (Monad m) => GameEnvironmentReader m where
-  getCurrentGameLevel :: m GameLevel
-
-instance GameEnvironmentReader GameEnv where
-  getCurrentGameLevel = do
-    env <- get
-    let cur = _currentLevel env
-    return $ _levels env !! cur
+evalAction :: UnitId -> Action -> GameEnv ()
+evalAction u a = do
+  env <- get
+  case u of
+    PlayerUnitId -> (env ^. playerEvaluator) a
+    MobUnitId idx -> fromMaybe (return ()) $ (env ^? mobEvaluators . ix idx) <*> pure a
 
 getCurrentLevel :: GameEnv GameLevel
 getCurrentLevel = do
@@ -165,10 +181,14 @@ getCurrentLevel = do
 
 playerId :: Environment -> UnitId
 playerId _ = PlayerUnitId
-{- renderEnvironment :: GameEnv [String]
+
+renderEnvironment :: GameEnv [String]
 renderEnvironment = do
   lvl <- getCurrentLevel
   let mp = lvl ^. lvlMap
   let ((xFrom, yFrom), (xTo, yTo)) = getMapSize mp
-  return [ [maybe (renderCell $ getCell (x, y) mp) (_portrait . asUnitData) $ find (\u -> (asUnitData u ^. position) == (x, y)) $ _units env | x <- [xFrom .. xTo]] | y <- [yFrom .. yTo]]
- -}
+  let terrain = [[renderCell $ getCell (x, y) mp | x <- [xFrom .. xTo]] | y <- [yFrom .. yTo]]
+  units <- getActiveUnits
+  positions <- traverse (\u -> affectUnit u Modifier.getPosition) units
+  portraits <- traverse (\u -> affectUnit u Modifier.getPortrait) units
+  return $ foldl (\m ((x, y), p) -> m & ix y . ix x .~ p) terrain (zip positions portraits)

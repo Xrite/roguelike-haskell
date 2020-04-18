@@ -36,69 +36,54 @@ import qualified UI.Descriptions.ListMenuDesc as ListMenu
 import UI.Keys as Keys
 import UI.UI
 
-type GameUI = UI GameState
-
 data GameState
-  = Game {__env :: Environment}
-  | MainMenu GameUI
+  = Game Environment
   | EndState
+
+data MainMenuState = MainMenu (UI MainMenuState)
 
 makeLenses ''GameState
 
 instance HasUI GameState where
   getUI (Game env) = gameUI env
-  getUI (MainMenu ui) = ui
   getUI EndState = terminalUI
 
-gameUI :: Environment -> GameUI
-gameUI gameEnv = makeGameUI $
+instance HasUI MainMenuState where
+  getUI (MainMenu ui) = ui
+
+gameUI :: Environment -> UI GameState
+gameUI env = makeGameUI $
   do
-    let level = getCurrentLevel gameEnv
-    setMap $ renderEnvironment gameEnv
+    let (renderedMap, _) = runGameEnv renderEnvironment env
+    setMap renderedMap
     setArrowPress arrowPress
     setKeyPress keyPress
   where
-    arrowPress :: Arrows -> GameState -> GameState
-    arrowPress Keys.Up (Game env) =
-      Game . fromMaybe env $
-        maybeMakeAction (playerId env) moveUp env
-    arrowPress Keys.Down (Game env) =
-      Game . fromMaybe env $
-        maybeMakeAction (playerId env) moveDown env
-    arrowPress Keys.Left (Game env) =
-      Game . fromMaybe env $
-        maybeMakeAction (playerId env) moveLeft env
-    arrowPress Keys.Right (Game env) =
-      Game . fromMaybe env $
-        maybeMakeAction (playerId env) moveRight env
-    keyPress :: Keys.Keys -> GameState -> GameState
-    keyPress (Keys.Letter 'q') (Game env) = MainMenu mainMenuUI
+    arrowPress :: Arrows -> GameState -> AnyHasUI
+    arrowPress Keys.Up (Game e) = packHasUI . Game . snd $ runGameEnv (evalAction (playerId env) moveUp) e
+    arrowPress Keys.Down (Game e) = packHasUI . Game . snd $ runGameEnv (evalAction (playerId env) moveUp) e
+    arrowPress Keys.Left (Game e) = packHasUI . Game . snd $ runGameEnv (evalAction (playerId env) moveUp) e
+    arrowPress Keys.Right (Game e) = packHasUI . Game . snd $ runGameEnv (evalAction (playerId env) moveUp) e
+    arrowPress _ st = packHasUI st
+    keyPress :: Keys.Keys -> GameState -> AnyHasUI
+    keyPress (Keys.Letter 'q') (Game env) = packHasUI $ MainMenu mainMenuUI
+    keyPress _ st = packHasUI st
 
-renderLevel :: GameLevel -> AnyUnit -> [String]
-renderLevel lvl player =
-  [ [if px == x && py == y then 'λ' else renderCell $ getCell (x, y) mp | x <- [xFrom .. xTo]]
-    | y <- [yFrom .. yTo]
-  ]
-  where
-    mp = lvl ^. lvlMap
-    (px, py) = getPosition player
-    ((xFrom, yFrom), (xTo, yTo)) = getMapSize mp
-
-mainMenuUI :: GameUI
-mainMenuUI = makeMenuUI $
+mainMenuUI :: UI MainMenuState
+mainMenuUI = makeListMenuUI $
   do
     ListMenu.setTitle "Main menu"
-    ListMenu.addItem "random" (const (Game $ randomEnvironment 42)) -- TODO use random generator or at least ask user to input a seed
-    ListMenu.addItem "load level" id
-    ListMenu.addItem "test level" (const (Game testEnvironment))
-    ListMenu.addItem "quit" (const EndState)
+    ListMenu.addItem "random" (const (packHasUI $ Game $ randomEnvironment 42)) -- TODO use random generator or at least ask user to input a seed
+    ListMenu.addItem "load level" undefined
+    ListMenu.addItem "test level" (const (packHasUI $ Game testEnvironment))
+    ListMenu.addItem "quit" (const . packHasUI $ EndState)
     ListMenu.selectItem 0
 
 randomEnvironment :: Int -> Environment
 randomEnvironment seed =
   makeEnvironment
     ourPlayer
-    [packUnit ourPlayer]
+    []
     [lvl]
     (makeModifierFactory Map.empty)
   where
@@ -110,10 +95,9 @@ testEnvironment :: Environment
 testEnvironment =
   makeEnvironment
     ourPlayer
-    [ packUnit ourPlayer, --Mob $ makeUnitData (7, 8) 'U'
-      packUnit $ Mob $ makeUnitData (14, 15) 'U',
-      packUnit $ Mob $ makeUnitData (4, 6) 'U',
-      packUnit $ Mob $ makeUnitData (5, 6) 'U'
+    [ Mob (makeUnitData (14, 15) 'U') undefined,
+      Mob (makeUnitData (4, 6) 'U') undefined,
+      Mob (makeUnitData (5, 6) 'U') undefined
     ]
     [testGameLevel]
     (makeModifierFactory Map.empty)
@@ -130,7 +114,6 @@ makeUnitData position render =
     emptyInventory
     (createWeapon "weapon" (effectAtom $ Damage 5) 'A')
     render
-    undefined
 
 makeSomePlayer :: UnitData -> Player
 makeSomePlayer = makePlayer

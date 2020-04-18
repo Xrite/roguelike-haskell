@@ -23,6 +23,9 @@ data UIState = forall s. HasUI s => UIState s (UI s)
 packUIState :: HasUI s => s -> UI s -> UIState
 packUIState = UIState
 
+packAnyHasUIToUIState :: AnyHasUI -> UIState
+packAnyHasUIToUIState (AnyHasUI a) = packUIState a (getUI a)
+
 app :: App UIState Tick Name
 app =
   App
@@ -94,11 +97,11 @@ handleEvent (UIState s ui) event = case UI.baseLayout ui of
   UI.End -> halt $ UIState s ui
 
 dispatchVtyEventGameUI ::
-  (HasUI a, HasUI b) =>
+  (HasUI a) =>
   a ->
   UI a ->
   V.Event ->
-  GameUI.UIDesc a b ->
+  GameUI.UIDesc a AnyHasUI ->
   EventM n (Next UIState)
 dispatchVtyEventGameUI state ui event desc = case event of
   V.EvKey V.KUp [] -> continue $ tryArrowPress Keys.Up
@@ -115,21 +118,21 @@ dispatchVtyEventGameUI state ui event desc = case event of
       do
         f <- onArrowPress
         let newState = f key state
-        return (packUIState newState (getUI newState))
+        return $ packAnyHasUIToUIState newState
     tryKeyPress key = fromMaybe packedS $
       do
         f <- onKeyPress
         let newState = f key state
-        return (packUIState newState (getUI newState))
+        return $ packAnyHasUIToUIState newState
 
 dispatchVtyEventInventoryUI state ui event desc = undefined
 
 dispatchVtyEventListMenuUI ::
-  (HasUI s, HasUI b) =>
+  (HasUI s) =>
   s ->
   UI s ->
   V.Event ->
-  ListMenu.UIDesc s b ->
+  ListMenu.UIDesc s AnyHasUI ->
   EventM n (Next UIState)
 dispatchVtyEventListMenuUI state ui event desc = case event of
   V.EvKey V.KUp [] ->
@@ -151,7 +154,7 @@ dispatchVtyEventListMenuUI state ui event desc = case event of
       do
         f <- clickItem
         let newState = f state
-        return (packUIState newState (getUI newState))
+        return $ packAnyHasUIToUIState newState
 
 theMap :: AttrMap
 theMap = attrMap V.defAttr []

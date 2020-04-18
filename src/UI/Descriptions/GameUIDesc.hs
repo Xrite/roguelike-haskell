@@ -19,6 +19,7 @@ data UIDesc a b =
              , _onArrowPress :: Maybe (Keys.Arrows -> a -> b)
              , _onKeyPress :: Maybe (Keys.Keys -> a -> b)
              }
+             deriving (Functor)
 
 data Map = Map { _mapField :: [[Char]] }
 
@@ -27,6 +28,7 @@ data Log = Log { _logRecords :: [String] }
 data Stats = Stats [String]
 
 data ItemMenu a b = ItemMenu { _menuItems :: [(String, a -> b)] }
+             deriving (Functor)
 
 type Builder a b = State (UIDesc a b)
 

@@ -11,6 +11,7 @@ module Game.Modifiers.Modifier
     modifyPosition,
     setTimedModifier,
     setCoord,
+    getPortrait,
     setEffect,
   )
 where
@@ -27,6 +28,7 @@ data ModifierDSL a
   | ModifyPosition ((Int, Int) -> (Int, Int)) a
   | SetTimedModifier Int (Int -> Modifier ()) a
   | MoveTo (Int, Int) a
+  | GetPortrait (Char -> a)
   | ApplyEffect EffectAtom a
   deriving (Functor)
 
@@ -55,6 +57,9 @@ setTimedModifier time modifier = Free $ SetTimedModifier time modifier (Pure ())
 
 setCoord :: (Int, Int) -> Modifier ()
 setCoord coord = Free $ MoveTo coord $ Pure ()
+
+getPortrait :: Modifier Char
+getPortrait = liftF $ GetPortrait id
 
 setEffect :: EffectAtom -> Modifier ()
 setEffect atom = Free $ ApplyEffect atom (Pure ())

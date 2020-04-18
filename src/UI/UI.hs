@@ -10,41 +10,37 @@ import qualified UI.Descriptions.GameUIDesc as Game
 import qualified UI.Descriptions.InventoryUIDesc as Inventory
 import qualified UI.Descriptions.ListMenuDesc as ListMenu
 
-data UI a where
-  UIDesc :: BaseLayout a -> UI a
+data UI a
+  = UIDesc (BaseLayout a)
 
-data BaseLayout a where
-  GameUI :: (HasUI b) => Game.UIDesc a b -> BaseLayout a
-  InventoryUI :: (HasUI b) => Inventory.UIDesc a b -> BaseLayout a
-  ListMenuUI :: (HasUI b) => ListMenu.UIDesc a b -> BaseLayout a
-  End :: BaseLayout a
-
-data Dialog a
-  = Dialog {_dialogMessage :: String, _dialogOptions :: [(String, a -> a)]}
+data BaseLayout a
+  = GameUI (Game.UIDesc a AnyHasUI)
+  | InventoryUI (Inventory.UIDesc a AnyHasUI)
+  | ListMenuUI (ListMenu.UIDesc a AnyHasUI)
+  | End
 
 class HasUI a where
   getUI :: a -> UI a
+
+data AnyHasUI = forall a. HasUI a => AnyHasUI a
 
 makeLenses ''UI
 
 makeLenses ''BaseLayout
 
+packHasUI :: HasUI a => a -> AnyHasUI
+packHasUI = AnyHasUI
+
 baseLayout :: UI a -> BaseLayout a
 baseLayout (UIDesc l) = l
 
-showDialog :: Dialog a -> UI a -> UI a
-showDialog d = undefined
-
-makeDialog :: String -> [(String, a -> a)] -> Dialog a
-makeDialog = Dialog
-
-makeGameUI :: (HasUI b) => Game.Builder a b c -> UI a
+makeGameUI :: Game.Builder a AnyHasUI c -> UI a
 makeGameUI builder = UIDesc $ GameUI $ Game.makeUI builder
 
-makeInventoryUI :: HasUI b => Inventory.Builder a b c -> UI a
+makeInventoryUI :: Inventory.Builder a AnyHasUI c -> UI a
 makeInventoryUI builder = UIDesc $ InventoryUI $ Inventory.makeUI builder
 
-makeListMenuUI :: HasUI b => ListMenu.Builder a b c -> UI a
+makeListMenuUI :: ListMenu.Builder a AnyHasUI c -> UI a
 makeListMenuUI builder = UIDesc $ ListMenuUI $ ListMenu.makeUI builder
 
 terminalUI :: UI a
