@@ -20,18 +20,18 @@ where
 
 import           Game.Unit.Player               ( Player )
 import           Game.Unit.Mob                  ( Mob )
-import           Game.Unit.Unit                 ( AnyUnit, asUnitData, _position, applyModifier, stats, _stats, position, _portrait )
+import           Game.Unit.Unit                 ( AnyUnit, asUnitData, _position, applyUnitOp, stats, _stats, position, _portrait )
 import           Game.GameLevels.GameLevel
 import           Control.Monad.State
 import           Control.Lens
 import           PreludeUtil                    ( listLens )
 import           Data.Foldable                  ( find )
 import           Data.List                      ( findIndex )
-import Game.Modifiers.Modifier (Modifier)
+import Game.Modifiers.UnitOp (UnitOp)
 import Game.Unit.DamageCalculation (attack)
 import Game.Unit.Stats
 import Game.GameLevels.MapCell (renderCell)
-import Game.Modifiers.ModifierFactory (ModifierFactory)
+import Game.Modifiers.UnitOpFactory (UnitOpFactory)
 
 -- | All manipulations with units in environment should use this type
 newtype UnitId = UnitId Int
@@ -50,7 +50,7 @@ data Environment =
     , _levels :: [GameLevel]
     , _currentLevel :: Int
     , _currentUnitTurn :: Int
-    , _modifierFactory :: ModifierFactory
+    , _modifierFactory :: UnitOpFactory
     }
 makeLenses ''Environment
 
@@ -58,7 +58,7 @@ instance Show Environment where
   show _ = "Environment"
 
 -- | Constructs a new 'Environment'.
-makeEnvironment :: Player -> [AnyUnit] -> [GameLevel] -> ModifierFactory -> Environment
+makeEnvironment :: Player -> [AnyUnit] -> [GameLevel] -> UnitOpFactory -> Environment
 makeEnvironment player units levels = Environment player units levels 0 0
 
 -- | This function should remove dead units from environment.
@@ -91,8 +91,8 @@ unitById idx env = env ^. unitLensById idx
 setUnitById :: UnitId -> AnyUnit -> Environment -> Environment
 setUnitById idx unit = filterDead . set (unitLensById idx) unit
 
-affectUnitById :: UnitId -> Modifier () -> Environment -> Environment
-affectUnitById idx modifier = filterDead . (unitLensById idx %~ applyModifier modifier)
+affectUnitById :: UnitId -> UnitOp () -> Environment -> Environment
+affectUnitById idx modifier = filterDead . (unitLensById idx %~ applyUnitOp modifier)
 
 unitIdByCoord :: (Int, Int) -> Environment -> Maybe UnitId
 unitIdByCoord coord env = UnitId <$> findIndex ((== coord) . _position . asUnitData) (_units env)

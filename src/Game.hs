@@ -26,15 +26,15 @@ import           Game.Unit.Inventory (emptyInventory)
 import           Game.Unit.Mob
 import           Game.Unit.Player (makePlayer, Player)
 import           Game.Unit.Stats as Stats
-import           Game.Unit.TimedModifiers (empty)
+import           Game.Unit.TimedUnitOps (empty)
 import           Game.Unit.Unit (createUnitData, packUnit, UnitData, asUnitData, AnyUnit, getPosition)
 import           Data.Maybe (isNothing, isJust)
 import qualified Game.GameLevels.Generation.GenerationUtil as GU
 import           Game.Unit.Action ()
 import           System.Random (mkStdGen)
 import           Game.GameLevels.Generation.BSPGen (GeneratorParameters(..))
-import           Game.Modifiers.Modifier (modifyStats)
-import Game.Modifiers.ModifierFactory (makeModifierFactory)
+import           Game.Modifiers.UnitOp (modifyStats)
+import Game.Modifiers.UnitOpFactory (makeUnitOpFactory)
 import qualified Data.Map as Map (empty)
 import Game.Modifiers.EffectDesc (effectAtom)
 import Game.Modifiers.EffectAtom
@@ -93,7 +93,7 @@ randomEnvironment seed =
     ourPlayer
     [ packUnit ourPlayer ]
     [lvl]
-    (makeModifierFactory Map.empty)
+    (makeUnitOpFactory Map.empty)
    where
     lvl = fst $ randomBSPGeneratedLevel (GU.Space (GU.Coord 0 0) (GU.Coord 50 50)) (GeneratorParameters 10 1.7 5) $ mkStdGen seed
     startCoord = _entrance $ _lvlMap lvl
@@ -109,7 +109,7 @@ testEnvironment =
     , packUnit $ Mob $ makeUnitData (5, 6) 'U'
     ]
     [testGameLevel]
-    (makeModifierFactory Map.empty)
+    (makeUnitOpFactory Map.empty)
   where
     ourPlayer = makeSomePlayer $ makeUnitData (7, 9) 'λ'
 

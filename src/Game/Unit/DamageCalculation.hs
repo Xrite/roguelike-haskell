@@ -2,9 +2,9 @@ module Game.Unit.DamageCalculation where
 
 import           Prelude                 hiding ( head )
 import           Game.Unit.Unit
-import Game.Modifiers.ModifierFactory (ModifierFactory)
+import Game.Modifiers.UnitOpFactory (UnitOpFactory)
 
-attack :: (Unit a, Unit b) => ModifierFactory -> a -> b -> (a, b)
+attack :: (Unit a, Unit b) => UnitOpFactory -> a -> b -> (a, b)
 attack fact attacker victim =
-    (attacker, applyModifier (attackModifier fact attacker) victim)
+    (attacker, applyUnitOp (attackUnitOp fact attacker) victim)
 

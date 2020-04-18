@@ -12,4 +12,4 @@ performScenario (Free (Attack attacker attacked next)) env =  undefined
 
 performScenario (Free (MoveUnitTo uid coord next)) env =  undefined 
 
-performScenario (Free (AOEModifier radius f next)) env =  undefined 
+performScenario (Free (AOEUnitOp radius f next)) env =  undefined 

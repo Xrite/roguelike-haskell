@@ -18,10 +18,10 @@ module Game.Item
   , consumableToItem
   , junkToItem
   , wearableType
-  , wearableDefenceModifier
-  , wearableRepulseModifier
-  , consumableModifier
-  , weaponAttackModifier
+  , wearableDefenceUnitOp
+  , wearableRepulseUnitOp
+  , consumableUnitOp
+  , weaponAttackUnitOp
   , toWearable
   , toWeapon
   , toConsumable
@@ -43,17 +43,17 @@ data Item = Consumable ConsumableItem
           | Junk JunkItem
 
 data WeaponItem =
-  WeaponItem { _weaponName :: String, _weaponAttackModifier :: EffectDesc , _weaponRender :: Char}
+  WeaponItem { _weaponName :: String, _weaponAttackUnitOp :: EffectDesc , _weaponRender :: Char}
 
 data WearableItem = WearableItem { _wearableName :: String
                                  , wearableType :: WearableType
-                                 , wearableDefenceModifier :: EffectDesc
-                                 , wearableRepulseModifier :: EffectDesc
+                                 , wearableDefenceUnitOp :: EffectDesc
+                                 , wearableRepulseUnitOp :: EffectDesc
                                  , _wearableRender :: Char
                                  }
 
 data ConsumableItem =
-  ConsumableItem { _consumableName :: String, _consumableModifier :: EffectDesc , _consumableRender :: Char}
+  ConsumableItem { _consumableName :: String, _consumableUnitOp :: EffectDesc , _consumableRender :: Char}
 
 data JunkItem = JunkItem { _junkName :: String, _junkRender :: Char}
 

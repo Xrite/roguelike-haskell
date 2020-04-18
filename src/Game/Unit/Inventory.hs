@@ -10,7 +10,7 @@ module Game.Unit.Inventory
   , headSlot
   , chestSlot
   , legsSlot
-  , getAllWearableModifiers
+  , getAllWearableUnitOps
   , emptyInventory
   , addItem
   , fillHeadSlot
@@ -51,17 +51,17 @@ makeLenses ''WearableSlots
 makeLenses ''WeaponSlots
 
 -- | Get modifier from wearable item
-getWearableModifier :: Maybe WearableItem -> EffectDesc
-getWearableModifier (Just item) = wearableDefenceModifier item
-getWearableModifier Nothing     = pure ()
+getWearableUnitOp :: Maybe WearableItem -> EffectDesc
+getWearableUnitOp (Just item) = wearableDefenceUnitOp item
+getWearableUnitOp Nothing     = pure ()
 
 -- | Get composite modifier from all equipped wearable items in an inventory
-getAllWearableModifiers :: Inventory -> EffectDesc
-getAllWearableModifiers inv = do
+getAllWearableUnitOps :: Inventory -> EffectDesc
+getAllWearableUnitOps inv = do
   let slots = inv ^. wearableSlots
-  getWearableModifier $ slots ^. headSlot
-  getWearableModifier $ slots ^. chestSlot
-  getWearableModifier $ slots ^. legsSlot
+  getWearableUnitOp $ slots ^. headSlot
+  getWearableUnitOp $ slots ^. chestSlot
+  getWearableUnitOp $ slots ^. legsSlot
 
 -- | Get an equipped weapon (if there is one)
 getEquippedWeapon :: Inventory -> Maybe WeaponItem

@@ -1,12 +1,12 @@
 {-# LANGUAGE DeriveFunctor #-}
 
-module Game.Modifiers.Modifier
-  ( Modifier
-  , ModifierDSL(..)
+module Game.Modifiers.UnitOp
+  ( UnitOp
+  , UnitOpDSL(..)
   , getStats
   , setStats
   , modifyStats
-  , setTimedModifier
+  , setTimedUnitOp
   , setCoord
   , setEffect
   )
@@ -16,30 +16,30 @@ import           Game.Unit.Stats
 import           Control.Monad.Free
 import           Game.Modifiers.EffectAtom
 
-data ModifierDSL a = GetStats (Maybe Stats -> a)
+data UnitOpDSL a = GetStats (Maybe Stats -> a)
                                  | SetStats Stats a
                                  | ModifyStats (Stats -> Stats) a
-                                 | SetTimedModifier Int (Int -> Modifier ()) a
+                                 | SetTimedUnitOp Int (Int -> UnitOp ()) a
                                  | MoveTo (Int, Int) a
                                  | ApplyEffect EffectAtom a
                   deriving (Functor)
 
-type Modifier a = Free ModifierDSL a 
+type UnitOp a = Free UnitOpDSL a 
 
-getStats :: Modifier (Maybe Stats)
+getStats :: UnitOp (Maybe Stats)
 getStats = liftF $ GetStats id
 
-setStats :: Stats -> Modifier ()
+setStats :: Stats -> UnitOp ()
 setStats stats = Free $ SetStats stats (Pure ())
 
-modifyStats :: (Stats -> Stats) -> Modifier ()
+modifyStats :: (Stats -> Stats) -> UnitOp ()
 modifyStats f = Free $ ModifyStats f (Pure ())
 
-setTimedModifier :: Int -> (Int -> Modifier ()) -> Modifier ()
-setTimedModifier time modifier = Free $ SetTimedModifier time modifier (Pure ())
+setTimedUnitOp :: Int -> (Int -> UnitOp ()) -> UnitOp ()
+setTimedUnitOp time modifier = Free $ SetTimedUnitOp time modifier (Pure ())
 
-setCoord :: (Int, Int) -> Modifier ()
+setCoord :: (Int, Int) -> UnitOp ()
 setCoord coord = Free $ MoveTo coord $ Pure ()
 
-setEffect :: EffectAtom -> Modifier ()
+setEffect :: EffectAtom -> UnitOp ()
 setEffect atom = Free $ ApplyEffect atom (Pure ())
