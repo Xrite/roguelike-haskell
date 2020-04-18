@@ -9,14 +9,16 @@ import Control.Monad.Free (Free (..))
 import Data.Map
 import Game.Modifiers.EffectDesc
 import Game.Modifiers.UnitOp
-import Game.Unit.Unit
 
+-- |Describes default 'UnitOp's that can be used in 'EffectDesc'.
 newtype UnitOpFactory = UnitOpFactory (Map UnitOpKey (UnitOp ()))
 
+-- |Creates a 'UnitOpFactory' from a map.
 makeUnitOpFactory :: Map UnitOpKey (UnitOp ()) -> UnitOpFactory
 makeUnitOpFactory = UnitOpFactory
 
-buildUnitOp :: Unit u => UnitOpFactory -> u -> EffectDesc -> UnitOp ()
-buildUnitOp factory u (Free (Atom atom next)) = setEffect atom >> buildUnitOp factory u next
-buildUnitOp factory@(UnitOpFactory mp) u (Free (TypicalUnitOp key next)) = mp ! key >> buildUnitOp factory u next
-buildUnitOp _ u (Pure ()) = Pure ()
+-- |Builds a 'UnitOp' substituting references to default 'UnitOp's using provided 'UnitOpFactory'.
+buildUnitOp :: UnitOpFactory -> EffectDesc -> UnitOp ()
+buildUnitOp factory (Free (Atom atom next)) = setEffect atom >> buildUnitOp factory next
+buildUnitOp factory@(UnitOpFactory mp) (Free (TypicalUnitOp key next)) = mp ! key >> buildUnitOp factory next
+buildUnitOp _ (Pure ()) = Pure ()

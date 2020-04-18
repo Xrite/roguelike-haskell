@@ -14,8 +14,8 @@ attack fact attacker victim =
     (newVictim, _) = applyUnitOp (attackUnitOp fact attacker) victim
 
 attackUnitOp :: Unit u => UnitOpFactory -> u -> UnitOp ()
-attackUnitOp factory u = buildUnitOp factory u $ getAttackUnitOp . asUnitData $ applyUnitOp_ wearableUnitOp u
+attackUnitOp factory u = buildUnitOp factory $ getAttackUnitOp . asUnitData $ applyUnitOp_ wearableUnitOp u
   where
     inv = asUnitData u ^. inventory
     wearableEffect = getAllWearableUnitOps inv
-    wearableUnitOp = buildUnitOp factory u wearableEffect
+    wearableUnitOp = buildUnitOp factory wearableEffect
