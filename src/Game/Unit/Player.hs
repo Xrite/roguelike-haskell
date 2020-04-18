@@ -12,7 +12,6 @@ import Control.Lens
 import Control.Monad.Free
 import Game.Modifiers.EffectAtom
 import Game.Modifiers.Modifier
-import Game.Unit.Inventory (getAllWearableModifiers)
 import Game.Unit.Stats (health)
 import Game.Unit.TimedModifiers
 import Game.Unit.Unit
@@ -23,18 +22,10 @@ data LevellingStats
 
 makeLenses ''LevellingStats
 
-getExperience = _experience
-
-getSkillPoints = _skillPoints
-
 -- | A unit that can get experience points and level-ups. Controlled from the outside world.
 data Player = Player {_playerUnit :: UnitData, _levelling :: LevellingStats}
 
 makeLenses ''Player
-
-getPlayerUnit = _playerUnit
-
-getLevelling = _levelling
 
 makePlayer :: UnitData -> Player
 makePlayer unitData = Player unitData (LevellingStats 0 0)
@@ -56,6 +47,8 @@ instance Unit Player where
       over (playerUnit . timedModifiers) (addModifier time modifier) u
   applyModifier (Free (MoveTo coordTo next)) u =
     applyModifier next $ playerUnit . position .~ coordTo $ u
+  applyModifier (Free (GetPortrait nextF)) u =
+    applyModifier (nextF (u ^. playerUnit . portrait)) u
   applyModifier (Free (ApplyEffect effect next)) u =
     applyModifier next $ applyEffect effect u
     where

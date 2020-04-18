@@ -24,6 +24,7 @@ import Control.Monad.State
 import Data.Foldable (find)
 import Data.List (findIndex)
 import Data.Maybe (fromMaybe, isJust, isNothing, listToMaybe)
+import Game.ActionEvaluation
 import Game.GameLevels.GameLevel
 import Game.GameLevels.MapCell (renderCell)
 import Game.Modifiers.Modifier as Modifier
@@ -34,6 +35,8 @@ import Game.Unit.Player (Player)
 import Game.Unit.Stats
 import Game.Unit.Unit
 import PreludeUtil (listLens)
+import Game.GameLevels.MapCell
+import Game.GameLevels.MapCellType
 
 -- | All manipulations with units in environment should use this type
 data UnitId = MobUnitId Int | PlayerUnitId
@@ -72,7 +75,7 @@ makeEnvironment player mobs levels factory =
       _currentLevel = 0,
       _currentUnitTurn = 0,
       _modifierFactory = factory,
-      _playerEvaluator = const $ return (),
+      _playerEvaluator = defaultEvaluation PlayerUnitId,
       _mobEvaluators = [const $ return ()]
     }
 
@@ -137,6 +140,7 @@ moveUnit u pos = do
       cell <- maybeCell
       stats <- maybeStats
       guard isFree
+      guard $ (cell ^. cellType . passable) stats
       return ()
 
 {- unitByCoord :: (Int, Int) -> Environment -> Maybe Unit.AnyUnit

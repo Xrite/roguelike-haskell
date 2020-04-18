@@ -1,11 +1,11 @@
 module Game.ActionEvaluation where
 
-import Game.Environment
+import {-# SOURCE #-} Game.Environment
 import Game.Modifiers.Modifier as Modifier
 import Game.Unit.Action as Action
 
-evalAction :: UnitId -> Action -> GameEnv ()
-evalAction u (Move xDir yDir) = do
+defaultEvaluation :: UnitId -> Action -> GameEnv ()
+defaultEvaluation u (Move xDir yDir) = do
     position <- affectUnit u Modifier.getPosition
     let newPosition = Action.changeCoord xDir yDir position
     unitAtPos <- unitByCoord newPosition

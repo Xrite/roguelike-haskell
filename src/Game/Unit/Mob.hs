@@ -8,17 +8,9 @@ import Control.Monad.Free
 import Game.Modifiers.EffectAtom
 import Game.Modifiers.Modifier
 import Game.Unit.Action
-import Game.Unit.Inventory (getAllWearableModifiers)
 import Game.Unit.Stats (health)
 import Game.Unit.TimedModifiers
 import Game.Unit.Unit
-  ( Unit (..),
-    UnitData,
-    inventory,
-    position,
-    stats,
-    timedModifiers,
-  )
 
 -- | A mob is a simple computer-controlled 'Unit'.
 data Mob ctx
@@ -47,6 +39,8 @@ instance Unit (Mob ctx) where
     applyModifier next $ over (unit . timedModifiers) (addModifier time modifier) u
   applyModifier (Free (MoveTo coordTo next)) u =
     applyModifier next $ unit . position .~ coordTo $ u
+  applyModifier (Free (GetPortrait nextF)) u =
+    applyModifier (nextF (u ^. unit . portrait)) u
   applyModifier (Free (ApplyEffect effect next)) u =
     applyModifier next $ applyEffect effect u
     where

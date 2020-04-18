@@ -22,6 +22,7 @@ module Game.Unit.Unit
     isAlive,
     getAttackModifier,
     applyModifier_,
+    portrait,
   )
 where
 

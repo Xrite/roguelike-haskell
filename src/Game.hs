@@ -6,30 +6,23 @@
 module Game where
 
 import Control.Lens
-import Control.Monad.State
 import qualified Data.Map as Map (empty)
-import Data.Maybe
-import Data.Maybe (isJust, isNothing)
 import Game.Environment
 import Game.GameLevels.GameLevel
 import Game.GameLevels.GenerateLevel (randomBSPGeneratedLevel, testGameLevel)
 import Game.GameLevels.Generation.BSPGen (GeneratorParameters (..))
 import qualified Game.GameLevels.Generation.GenerationUtil as GU
-import Game.GameLevels.MapCell
-import Game.IO.GameIO
 import Game.Item (createWeapon)
 import Game.Modifiers.EffectAtom
 import Game.Modifiers.EffectDesc (effectAtom)
-import Game.Modifiers.Modifier (modifyStats)
 import Game.Modifiers.ModifierFactory (makeModifierFactory)
 import Game.Unit.Action
-import Game.Unit.Action ()
 import Game.Unit.Inventory (emptyInventory)
 import Game.Unit.Mob
 import Game.Unit.Player (Player, makePlayer)
 import Game.Unit.Stats as Stats
 import Game.Unit.TimedModifiers (empty)
-import Game.Unit.Unit (AnyUnit, UnitData, asUnitData, createUnitData, getPosition, packUnit)
+import Game.Unit.Unit (UnitData, createUnitData)
 import System.Random (mkStdGen)
 import UI.Descriptions.GameUIDesc
 import qualified UI.Descriptions.ListMenuDesc as ListMenu
@@ -61,12 +54,12 @@ gameUI env = makeGameUI $
   where
     arrowPress :: Arrows -> GameState -> AnyHasUI
     arrowPress Keys.Up (Game e) = packHasUI . Game . snd $ runGameEnv (evalAction (playerId env) moveUp) e
-    arrowPress Keys.Down (Game e) = packHasUI . Game . snd $ runGameEnv (evalAction (playerId env) moveUp) e
-    arrowPress Keys.Left (Game e) = packHasUI . Game . snd $ runGameEnv (evalAction (playerId env) moveUp) e
-    arrowPress Keys.Right (Game e) = packHasUI . Game . snd $ runGameEnv (evalAction (playerId env) moveUp) e
+    arrowPress Keys.Down (Game e) = packHasUI . Game . snd $ runGameEnv (evalAction (playerId env) moveDown) e
+    arrowPress Keys.Left (Game e) = packHasUI . Game . snd $ runGameEnv (evalAction (playerId env) moveLeft) e
+    arrowPress Keys.Right (Game e) = packHasUI . Game . snd $ runGameEnv (evalAction (playerId env) moveRight) e
     arrowPress _ st = packHasUI st
     keyPress :: Keys.Keys -> GameState -> AnyHasUI
-    keyPress (Keys.Letter 'q') (Game env) = packHasUI $ MainMenu mainMenuUI
+    keyPress (Keys.Letter 'q') (Game _) = packHasUI $ MainMenu mainMenuUI
     keyPress _ st = packHasUI st
 
 mainMenuUI :: UI MainMenuState
