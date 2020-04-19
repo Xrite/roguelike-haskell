@@ -33,7 +33,7 @@ data GameState
   = Game Environment
   | EndState
 
-data MainMenuState = MainMenu (UI MainMenuState)
+newtype MainMenuState = MainMenu (UI MainMenuState)
 
 makeLenses ''GameState
 
@@ -67,10 +67,21 @@ mainMenuUI = makeListMenuUI $
   do
     ListMenu.setTitle "Main menu"
     ListMenu.addItem "random" (const (packHasUI $ Game $ randomEnvironment 42)) -- TODO use random generator or at least ask user to input a seed
-    ListMenu.addItem "load level" undefined
+    ListMenu.addItem "load level" (const . packHasUI $ MainMenu loadLvlMenuUI)
     ListMenu.addItem "test level" (const (packHasUI $ Game testEnvironment))
     ListMenu.addItem "quit" (const . packHasUI $ EndState)
     ListMenu.selectItem 0
+
+-- TODO
+loadLvlMenuUI :: UI MainMenuState
+loadLvlMenuUI =
+  makeListMenuUI $ do
+    ListMenu.setTitle "Load level"
+    ListMenu.addItem "level 1" undefined --(const (packHasUI $ Game testEnvironment))
+    ListMenu.addItem "level 2" undefined --(const (packHasUI $ Game testEnvironment))
+    ListMenu.addItem "back" (const . packHasUI $ MainMenu mainMenuUI)
+    ListMenu.selectItem 0
+
 
 randomEnvironment :: Int -> Environment
 randomEnvironment seed =
