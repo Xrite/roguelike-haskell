@@ -12,12 +12,16 @@ import Brick.Main (defaultMain)
 import Game
 import UI.BrickUI (app, packUIState)
 import Game.GameLevels.Generation.GenerationUtil
+import Game.FileIO.FileIO
 
 run :: RIO App ()
 run = do
---  foldMap (logInfo . displayShow) render
---  logInfo $ displayShow $ runState (generateLevel param s) gen
-  liftIO $ void $ defaultMain app (packUIState (MainMenu mainMenuUI) mainMenuUI)
+  res <- liftIO loadResources
+-- trying to load map from disk:
+--  logInfo $ displayShow $ readMap "#...\n##..\n###.\n####"
+--  let level = res ^. savedLevels
+--  logInfo $ displayShow level
+  liftIO $ void $ defaultMain app $ packUIState (MainMenu mainMenuUI res) mainMenuUI
   where
     param = GeneratorParameters 10 1.7 5
     s = Space (Coord 0 0) (Coord 50 50)

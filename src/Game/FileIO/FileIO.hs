@@ -5,6 +5,7 @@
 module Game.FileIO.FileIO
     ( getSavedLevels
     , getLevelByName
+    , readMap -- TODO DELETE
     )
     where
 

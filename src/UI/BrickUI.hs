@@ -6,6 +6,7 @@ import Brick
 import qualified Brick.Widgets.Border as B
 import qualified Brick.Widgets.Border.Style as BS
 import qualified Brick.Widgets.Center as C
+import qualified Brick.Widgets.FileBrowser as FB
 import Control.Lens
 import Data.Maybe
 import qualified Graphics.Vty as V
@@ -13,6 +14,7 @@ import qualified UI.Descriptions.GameUIDesc as GameUI
 import qualified UI.Descriptions.ListMenuDesc as ListMenu
 import qualified UI.Keys as Keys
 import UI.UI as UI
+import Control.Monad (liftM2)
 
 type Name = ()
 

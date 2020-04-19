@@ -28,12 +28,19 @@ data Map
         _cells :: Array (Int, Int) MapCell
       }
 
+instance Show Map where
+  show (Map entrance exit cells) = "Map { _entrance = " ++ show entrance ++ ", _exit = " ++ show exit ++ ", _cells =\n" ++ c ++ "\n}"
+    where
+      ((xFrom, yFrom), (xTo, yTo)) = bounds cells
+      c = foldl1 (\a b -> a ++ "\n" ++ b) [[renderCell (cells ! (i, j)) | i <- [xFrom..xTo]] | j <- [yFrom..yTo]]
+
 makeLenses ''Map
 
 data GameLevel
   = GameLevel
       { _lvlMap :: Map
       }
+  deriving (Show)
 
 makeLenses ''GameLevel
 
