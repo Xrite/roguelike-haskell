@@ -19,15 +19,15 @@ type Name = ()
 
 data Tick = Tick
 
-data UIState = forall s. HasIOUI s => UIState s (UI IO s)
+data UIState m = forall s. HasIOUI m s => UIState s (UI m s)
 
-packUIState :: HasIOUI s => s -> UI IO s -> UIState
+packUIState :: HasIOUI m s => s -> UI m s -> UIState m
 packUIState = UIState
 
-packAnyHasIOUIToUIState :: AnyHasIOUI -> UIState
+packAnyHasIOUIToUIState :: AnyHasIOUI m -> UIState m
 packAnyHasIOUIToUIState (AnyHasIOUI a) = packUIState a (getUI a)
 
-app :: App UIState Tick Name
+app :: App (UIState m) Tick Name
 app =
   App
     { appDraw = drawUI,
@@ -37,7 +37,7 @@ app =
       appAttrMap = const theMap
     }
 
-drawUI :: UIState -> [Widget Name]
+drawUI :: UIState m -> [Widget Name]
 drawUI (UIState s ui) = case UI.baseLayout ui of
   UI.GameUI desc -> drawGameUI desc
   UI.InventoryUI desc -> undefined
@@ -82,9 +82,9 @@ drawMenu menu = [vBox rows]
       ]
 
 handleEvent ::
-  UIState ->
+  UIState m ->
   BrickEvent Name Tick ->
-  EventM Name (Next UIState)
+  EventM Name (Next (UIState m))
 handleEvent (UIState s ui) event = case UI.baseLayout ui of
   UI.GameUI desc -> case event of
     VtyEvent e -> dispatchVtyEventGameUI s ui e desc
@@ -98,12 +98,12 @@ handleEvent (UIState s ui) event = case UI.baseLayout ui of
   UI.End -> halt $ UIState s ui
 
 dispatchVtyEventGameUI ::
-  (HasIOUI a) =>
+  (HasIOUI m a) =>
   a ->
-  UI IO a ->
+  UI m a ->
   V.Event ->
-  GameUI.UIDesc a (IO AnyHasIOUI) ->
-  EventM n (Next UIState)
+  GameUI.UIDesc a (m (AnyHasIOUI m)) ->
+  EventM n (Next (UIState m))
 dispatchVtyEventGameUI state ui event desc = case event of
   V.EvKey V.KUp [] -> liftIO (tryArrowPress Keys.Up) >>= continue
   V.EvKey V.KDown [] -> liftIO (tryArrowPress Keys.Down) >>= continue
@@ -125,12 +125,12 @@ dispatchVtyEventGameUI state ui event desc = case event of
 dispatchVtyEventInventoryUI state ui event desc = undefined
 
 dispatchVtyEventListMenuUI ::
-  (HasIOUI s) =>
+  (HasIOUI m s) =>
   s ->
-  UI IO s ->
+  UI m s ->
   V.Event ->
-  ListMenu.UIDesc s (IO AnyHasIOUI) ->
-  EventM n (Next UIState)
+  ListMenu.UIDesc s (m (AnyHasIOUI m)) ->
+  EventM n (Next (UIState m))
 dispatchVtyEventListMenuUI state ui event desc = case event of
   V.EvKey V.KUp [] ->
     continue $

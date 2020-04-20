@@ -1,8 +1,8 @@
 module UI
     ( UI.UI
-    , UI.makeGameUI
-    , UI.makeInventoryUI
-    , UI.makeListMenuUI) where
+    , UI.makeGameUIPure
+    , UI.makeInventoryUIPure
+    , UI.makeListMenuUIPure) where
 
 import qualified UI.UI as UI
 import qualified UI.Descriptions.GameUIDesc as Game

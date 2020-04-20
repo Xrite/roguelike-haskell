@@ -7,6 +7,7 @@ module Game where
 
 import Control.Lens
 import qualified Data.Map as Map (empty)
+import Data.Functor (($>))
 import Game.Environment
 import Game.GameLevels.GameLevel
 import Game.GameLevels.GenerateLevel (randomBSPGeneratedLevel, testGameLevel)
@@ -37,28 +38,28 @@ data MainMenuState = MainMenu (UI IO MainMenuState)
 
 makeLenses ''GameState
 
-instance HasIOUI GameState where
+instance HasIOUI IO GameState where
   getUI (Game env) = gameUI env
   getUI EndState = terminalUI
 
-instance HasIOUI MainMenuState where
+instance HasIOUI IO MainMenuState where
   getUI (MainMenu ui) = ui
 
-gameUI :: Environment -> UI IO GameState
-gameUI env = makeGameUI $
+gameUI :: (HasIOUI m GameState) => Environment -> UI m GameState
+gameUI env = makeGameUIPure $
   do
     let (renderedMap, _) = runGameEnv renderEnvironment env
     setMap renderedMap
     setArrowPress arrowPress
     setKeyPress keyPress
   where
-    arrowPress :: Arrows -> GameState -> AnyHasIOUI
+    arrowPress :: Arrows -> GameState -> AnyHasIOUI m
     arrowPress Keys.Up (Game e) = packHasIOUI . Game . snd $ runGameEnv (evalAction (playerId env) moveUp) e
     arrowPress Keys.Down (Game e) = packHasIOUI . Game . snd $ runGameEnv (evalAction (playerId env) moveDown) e
     arrowPress Keys.Left (Game e) = packHasIOUI . Game . snd $ runGameEnv (evalAction (playerId env) moveLeft) e
     arrowPress Keys.Right (Game e) = packHasIOUI . Game . snd $ runGameEnv (evalAction (playerId env) moveRight) e
     arrowPress _ st = packHasIOUI st
-    keyPress :: Keys.Keys -> GameState -> AnyHasIOUI
+    keyPress :: Keys.Keys -> GameState -> AnyHasIOUI m
     keyPress (Keys.Letter 'q') (Game _) = packHasIOUI $ MainMenu mainMenuUI
     keyPress _ st = packHasIOUI st
 
@@ -66,10 +67,11 @@ mainMenuUI :: UI IO MainMenuState
 mainMenuUI = makeListMenuUI $
   do
     ListMenu.setTitle "Main menu"
-    ListMenu.addItem "random" (const (packHasIOUI $ Game $ randomEnvironment 42)) -- TODO use random generator or at least ask user to input a seed
-    ListMenu.addItem "load level" undefined
-    ListMenu.addItem "test level" (const (packHasIOUI $ Game testEnvironment))
-    ListMenu.addItem "quit" (const . packHasIOUI $ EndState)
+    ListMenu.addItemPure "random" (const (packHasIOUI $ Game $ randomEnvironment 42)) -- TODO use random generator or at least ask user to input a seed
+    ListMenu.addItemPure "load level" undefined
+    ListMenu.addItemPure "test level" (const (packHasIOUI $ Game testEnvironment))
+    ListMenu.addItem "test level & write to HI.txt" (const (appendFile "HI.txt" "x\n" $> packHasIOUI (Game testEnvironment)))
+    ListMenu.addItemPure "quit" (const . packHasIOUI $ EndState)
     ListMenu.selectItem 0
 
 randomEnvironment :: Int -> Environment
