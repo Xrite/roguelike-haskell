@@ -38,6 +38,9 @@ setTitle str = modify $ set title (Title str)
 addItem :: String -> (a -> b) -> Builder a b ()
 addItem name f = modify $ over items (++ [ListItem name f])
 
+addItemPure :: Applicative m => String -> (a -> b) -> Builder a (m b) ()
+addItemPure name f = modify $ over items (++ [ListItem name $ pure . f])
+
 selectItem :: Int -> Builder a b ()
 selectItem i = do
   len <- gets (length . _items)

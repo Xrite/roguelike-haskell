@@ -28,6 +28,8 @@ import UI.Descriptions.GameUIDesc
 import qualified UI.Descriptions.ListMenuDesc as ListMenu
 import UI.Keys as Keys
 import UI.UI
+import Game.FileIO.FileIO (getLevelByName)
+import Data.Either (fromRight)
 
 data GameState
   = Game Environment
@@ -67,10 +69,26 @@ mainMenuUI = makeListMenuUIPure $
   do
     ListMenu.setTitle "Main menu"
     ListMenu.addItem "random" (const (packHasIOUI $ Game $ randomEnvironment 42)) -- TODO use random generator or at least ask user to input a seed
-    ListMenu.addItem "load level" undefined
+    ListMenu.addItem "load level" (const (packHasIOUI $ MainMenu loadLvlMenuUI))
     ListMenu.addItem "test level" (const (packHasIOUI $ Game testEnvironment))
     ListMenu.addItem "quit" (const . packHasIOUI $ EndState)
     ListMenu.selectItem 0
+
+loadLevel :: IO GameLevel
+loadLevel = do
+  levelEither <- getLevelByName "Level1"
+--  level1 <- fromEither levelEither
+  let level1 = fromRight testGameLevel levelEither
+  return level1
+
+loadLvlMenuUI :: UI IO MainMenuState
+loadLvlMenuUI =
+  makeListMenuUI $ do
+    ListMenu.setTitle "Load level"
+    ListMenu.addItem "level 1" (const $ packHasIOUI . Game . testEnvironmentWithLevel <$> loadLevel)
+    ListMenu.addItemPure "back" (const $ packHasIOUI $ MainMenu mainMenuUI)
+    ListMenu.selectItem 0
+
 
 randomEnvironment :: Int -> Environment
 randomEnvironment seed =
@@ -96,6 +114,17 @@ testEnvironment =
     (makeUnitOpFactory Map.empty)
   where
     ourPlayer = makeSomePlayer $ makeUnitData (7, 9) 'λ'
+
+
+testEnvironmentWithLevel :: GameLevel -> Environment
+testEnvironmentWithLevel level =
+  makeEnvironment
+    ourPlayer
+    [Mob (makeUnitData (1, 1) 'U') undefined]
+    [level]
+    (makeUnitOpFactory Map.empty)
+  where
+    ourPlayer = makeSomePlayer $ makeUnitData (2, 2) 'λ'
 
 makeUnitData :: (Int, Int) -> Char -> UnitData
 makeUnitData position render =
