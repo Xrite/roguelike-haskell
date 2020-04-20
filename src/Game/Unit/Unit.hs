@@ -4,6 +4,7 @@
 -- | Describes common interface for all units in the game.
 module Game.Unit.Unit
   ( UnitData(..),
+    confused,
     position,
     depth,
     stats,
@@ -47,7 +48,9 @@ import Game.Unit.TimedUnitOps
 -- | Common data of all units.
 data UnitData
   = UnitData
-      { -- | Coordinates on a level
+      { -- | If unit is confused
+        _confused :: Bool,
+        -- | Coordinates on a level
         _position :: (Int, Int),
         -- | Level (as in depth) on which the unit is now
         _depth :: Int,
@@ -60,7 +63,6 @@ data UnitData
         -- | A weapon to use when unit is fighting bare-hand TODO use it in calculations
         _baseWeapon :: WeaponItem,
         -- | How to display this unit
-        -- Defines behavior of a unit. Arguments are level and all the other units on it. TODO remove if not used
         _portrait :: Char
       }
 
@@ -108,7 +110,7 @@ createUnitData ::
   Char ->
   -- | Constructed 'Unit'
   UnitData
-createUnitData = UnitData
+createUnitData = UnitData False
 
 -- | Something that can hit and run.
 -- A typeclass for every active participant of a game. If it moves and participates in combat system, it is a unit.
@@ -150,6 +152,8 @@ instance Unit Player where
     applyUnitOp next $ playerUnit . position .~ coordTo $ u
   applyUnitOp (Free (GetPortrait nextF)) u =
     applyUnitOp (nextF (u ^. playerUnit . portrait)) u
+  applyUnitOp (Free (GetConfusion nextF)) u =
+    applyUnitOp (nextF (u ^. playerUnit . confused)) u
   applyUnitOp (Free (ApplyEffect effect next)) u =
     applyUnitOp next $ applyEffect effect u
     where
@@ -175,6 +179,8 @@ instance Unit (Mob ctx) where
     applyUnitOp next $ mobUnit . position .~ coordTo $ u
   applyUnitOp (Free (GetPortrait nextF)) u =
     applyUnitOp (nextF (u ^. mobUnit . portrait)) u
+  applyUnitOp (Free (GetConfusion nextF)) u =
+    applyUnitOp (nextF (u ^. mobUnit . confused)) u
   applyUnitOp (Free (ApplyEffect effect next)) u =
     applyUnitOp next $ applyEffect effect u
     where

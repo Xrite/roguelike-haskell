@@ -30,3 +30,4 @@ tick (TimedUnitOps effs) =
 
 composeUnitOp :: TimedUnitOps -> UnitOp ()
 composeUnitOp = mapM_ (\(i, eff) -> eff i) . _modifiers
+  

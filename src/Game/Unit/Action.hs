@@ -14,8 +14,9 @@ import Data.Bifunctor (bimap)
 data Direction = Positive
                | Negative
                | Zero
+               deriving (Eq)
 
-data Action = Move Direction Direction
+data Action = Move Direction Direction deriving (Eq)
 
 directionToInt :: Direction -> Int
 directionToInt Positive = 1

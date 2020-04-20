@@ -16,6 +16,7 @@ module Game.Environment
     runGameEnv,
     renderEnvironment,
     evalAction,
+    randomRGameEnv
   )
 where
 
@@ -36,6 +37,7 @@ import Game.Unit.Stats
 import Game.Unit.Unit
 import Game.Unit.Action
 import PreludeUtil (listLens)
+import System.Random
 
 -- | All manipulations with units in environment should use this type
 data UnitId = MobUnitId Int | PlayerUnitId
@@ -47,13 +49,13 @@ data UnitId = MobUnitId Int | PlayerUnitId
 data Environment
   = Environment
       { _player :: Player,
-        _mobs :: [(Int, Mob GameEnv)],
+        _mobs :: [(Int, Mob GameEnv, Action -> GameEnv ())],
         _levels :: [GameLevel],
         _currentLevel :: Int,
         _currentUnitTurn :: Int,
         _modifierFactory :: UnitOpFactory,
         _playerEvaluator :: Action -> GameEnv (),
-        _mobEvaluators :: [Action -> GameEnv ()]
+        _randomGenerator :: StdGen
       }
 
 -- | A type for evaluating action on Environment
@@ -63,6 +65,13 @@ makeLenses ''Environment
 
 instance MonadFail GameEnv where
   fail = error
+
+randomRGameEnv :: Random a => (a, a) -> GameEnv a
+randomRGameEnv range = do
+  g <- gets _randomGenerator
+  let (value, g') = randomR range g
+  randomGenerator .= g'
+  return value
 
 runGameEnv :: GameEnv a -> Environment -> (a, Environment)
 runGameEnv gameEnv = runState (unGameEnv gameEnv)
@@ -75,13 +84,13 @@ makeEnvironment :: Player -> [Mob GameEnv] -> [GameLevel] -> UnitOpFactory -> En
 makeEnvironment player mobs levels factory =
   Environment
     { _player = player,
-      _mobs = zip [0 ..] mobs,
+      _mobs = zip3 [0 ..] mobs (const (const (return ())) . MobUnitId <$> [0 ..]),
       _levels = levels,
       _currentLevel = 0,
       _currentUnitTurn = 0,
       _modifierFactory = factory,
       _playerEvaluator = defaultEvaluation PlayerUnitId,
-      _mobEvaluators = [const $ return ()]
+      _randomGenerator = mkStdGen 42
     }
 
 -- | This function should remove dead units from environment.
@@ -92,14 +101,14 @@ filterDead = do
   env <- get
   modify $ set mobs (newMobs env)
   where
-    newMobs env = filter (isAlive . snd) (env ^. mobs)
+    newMobs env = filter (isAlive . (^. _2)) (env ^. mobs)
 
 getActiveUnits :: GameEnv [UnitId]
 getActiveUnits = do
   filterDead
   env <- get
   let players = if isAlive (env ^. player) then [PlayerUnitId] else []
-  let activeMobs = map (MobUnitId . fst) (env ^. mobs)
+  let activeMobs = map (MobUnitId . (^. _1)) (env ^. mobs)
   return $ players ++ activeMobs
 
 {- unitLensById :: UnitId -> Lens' Environment Unit.AnyUnit
@@ -120,7 +129,7 @@ affectUnit PlayerUnitId modifier = do
   return result
 affectUnit (MobUnitId idx) modifier = do
   env <- get
-  let (newMob, result) = applyUnitOp modifier (snd $ (env ^. mobs) !! idx)
+  let (newMob, result) = applyUnitOp modifier ((env ^. mobs) !! idx ^. _2)
   modify $ set (mobs . ix idx . _2) newMob
   filterDead
   return result
@@ -157,7 +166,7 @@ _accessUnit uid = do
   env <- get
   case uid of
     PlayerUnitId -> return $ MkPlayer (env ^. player)
-    MobUnitId i -> return $ MkMob (snd $ (env ^. mobs) !! i)
+    MobUnitId i -> return $ MkMob ((env ^. mobs) !! i ^. _2)
 
 -- | Try to set AnyUnit by Unit id. Return True when success.
 _trySetUnit :: UnitId -> AnyUnit GameEnv -> GameEnv Bool
@@ -188,7 +197,7 @@ evalAction u a = do
   env <- get
   case u of
     PlayerUnitId -> (env ^. playerEvaluator) a
-    MobUnitId idx -> fromMaybe (return ()) $ (env ^? mobEvaluators . ix idx) <*> pure a
+    MobUnitId idx -> fromMaybe (return ()) $ ((^. _3) <$> find (\x -> x ^. _1 == idx) (env ^. mobs)) <*> pure a
 
 getCurrentLevel :: GameEnv GameLevel
 getCurrentLevel = do
