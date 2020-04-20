@@ -7,11 +7,9 @@ import Game.Unit.Inventory
 import Game.Unit.Unit
 import Prelude hiding (head)
 
-attack :: (Unit a, Unit b) => UnitOpFactory -> a -> b -> (a, b)
+attack :: (Unit a, Unit b) => UnitOpFactory -> a -> b -> (UnitOp (), UnitOp ())
 attack fact attacker victim =
-  (attacker, newVictim)
-  where
-    (newVictim, _) = applyUnitOp (attackUnitOp fact attacker) victim
+  (return (), attackUnitOp fact attacker)
 
 attackUnitOp :: Unit u => UnitOpFactory -> u -> UnitOp ()
 attackUnitOp factory u = buildUnitOp factory $ getAttackUnitOp . asUnitData $ applyUnitOp_ wearableUnitOp u

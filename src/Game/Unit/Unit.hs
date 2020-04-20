@@ -35,6 +35,8 @@ import Game.Unit.Action
 import Game.Unit.Inventory
 import Game.Unit.Stats
 import Game.Unit.TimedUnitOps
+import Game.Unit.Player
+import Game.Unit.Mob
 
 -- | Common data of all units.
 data UnitData
@@ -103,11 +105,12 @@ applyUnitOp_ modifier u = fst $ applyUnitOp modifier u
 isAlive :: Unit u => u -> Bool
 isAlive u = asUnitData u ^. stats . health > 0
 
-data AnyUnit = forall a. Unit a => AnyUnit a
-
-packUnit :: (Unit u) => u -> AnyUnit
-packUnit = AnyUnit
+-- | Tagged union of units
+data AnyUnit = MkMob Mob | MkPlayer Player
 
 instance Unit AnyUnit where
-  asUnitData (AnyUnit u) = asUnitData u
-  applyUnitOp modifier (AnyUnit u) = over _1 AnyUnit $ applyUnitOp modifier u
+  asUnitData (MkMob m) = asUnitData m
+  asUnitData (MkPlayer p) = asUnitData p
+  
+  applyUnitOp modifier (MkMob m) = MkMob $ applyUnitOp modifier m
+  applyUnitOp modifier (MkPlayer m) = MkPlayer $ applyUnitOp modifier m

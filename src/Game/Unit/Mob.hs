@@ -10,7 +10,7 @@ import Game.Modifiers.UnitOp
 import Game.Unit.Action
 import Game.Unit.Stats (health)
 import Game.Unit.TimedUnitOps
-import Game.Unit.Unit
+import {-# SOURCE #-} Game.Unit.Unit
 
 -- | A mob is a simple computer-controlled 'Unit'.
 data Mob ctx
