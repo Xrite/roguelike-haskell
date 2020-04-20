@@ -34,14 +34,23 @@ packHasIOUI = AnyHasIOUI
 baseLayout :: UI m a -> BaseLayout m a
 baseLayout (UIDesc l) = l
 
-makeGameUI :: (Applicative m) => Game.Builder a AnyHasIOUI c -> UI m a
-makeGameUI builder = UIDesc . GameUI . fmap pure $ Game.makeUI builder
+makeGameUIPure :: (Applicative m) => Game.Builder a AnyHasIOUI c -> UI m a
+makeGameUIPure builder = UIDesc . GameUI . fmap pure $ Game.makeUI builder
 
-makeInventoryUI :: (Applicative m) => Inventory.Builder a AnyHasIOUI c -> UI m a
-makeInventoryUI builder = UIDesc . InventoryUI . fmap pure $ Inventory.makeUI builder
+makeGameUI :: (Applicative m) => Game.Builder a (m AnyHasIOUI) c -> UI m a
+makeGameUI builder = UIDesc . GameUI $ Game.makeUI builder
 
-makeListMenuUI :: (Applicative m) => ListMenu.Builder a AnyHasIOUI c -> UI m a
-makeListMenuUI builder = UIDesc . ListMenuUI . fmap pure $ ListMenu.makeUI builder
+makeInventoryUIPure :: (Applicative m) => Inventory.Builder a AnyHasIOUI c -> UI m a
+makeInventoryUIPure builder = UIDesc . InventoryUI . fmap pure $ Inventory.makeUI builder
+
+makeInventoryUI :: (Applicative m) => Inventory.Builder a (m AnyHasIOUI) c -> UI m a
+makeInventoryUI builder = UIDesc . InventoryUI $ Inventory.makeUI builder
+
+makeListMenuUIPure :: (Applicative m) => ListMenu.Builder a AnyHasIOUI c -> UI m a
+makeListMenuUIPure builder = UIDesc . ListMenuUI . fmap pure $ ListMenu.makeUI builder
+
+makeListMenuUI :: (Applicative m) => ListMenu.Builder a (m AnyHasIOUI) c -> UI m a
+makeListMenuUI builder = UIDesc . ListMenuUI $ ListMenu.makeUI builder
 
 terminalUI :: UI m a
 terminalUI = UIDesc End

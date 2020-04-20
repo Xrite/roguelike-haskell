@@ -45,7 +45,7 @@ instance HasIOUI MainMenuState where
   getUI (MainMenu ui) = ui
 
 gameUI :: Environment -> UI IO GameState
-gameUI env = makeGameUI $
+gameUI env = makeGameUIPure $
   do
     let (renderedMap, _) = runGameEnv renderEnvironment env
     setMap renderedMap
@@ -63,7 +63,7 @@ gameUI env = makeGameUI $
     keyPress _ st = packHasIOUI st
 
 mainMenuUI :: UI IO MainMenuState
-mainMenuUI = makeListMenuUI $
+mainMenuUI = makeListMenuUIPure $
   do
     ListMenu.setTitle "Main menu"
     ListMenu.addItem "random" (const (packHasIOUI $ Game $ randomEnvironment 42)) -- TODO use random generator or at least ask user to input a seed
