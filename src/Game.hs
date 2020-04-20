@@ -21,7 +21,7 @@ import Game.Modifiers.UnitOpFactory (makeUnitOpFactory)
 import Game.Unit.Action
 import Game.Unit.Inventory (emptyInventory)
 import Game.Unit.Stats as Stats
-import Game.Unit.TimedUnitOps (empty)
+import Game.Unit.TimedUnitOps (empty, addUnitOp)
 import Game.Unit.Unit
 import System.Random (mkStdGen)
 import UI.Descriptions.GameUIDesc
@@ -30,6 +30,7 @@ import UI.Keys as Keys
 import UI.UI
 import Game.FileIO.FileIO (getLevelByName)
 import Data.Either (fromRight)
+import Game.Modifiers.UnitOp (setEffect)
 
 data GameState
   = Game Environment
@@ -131,7 +132,7 @@ makeUnitData position render =
     position
     0
     (Stats.Stats 10 10 10 1)
-    empty
+    (addUnitOp 10 (const $ setEffect $ confuse) empty)
     emptyInventory
     (createWeapon "weapon" (effectAtom $ damage 5) 'A')
     render

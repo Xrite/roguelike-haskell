@@ -30,6 +30,7 @@ module Game.Unit.Unit
     isAlive,
     makePlayer,
     makeMob,
+    unitWithModifiers,
   )
 where
 
@@ -44,6 +45,7 @@ import Game.Unit.Action
 import Game.Unit.Inventory
 import Game.Unit.Stats
 import Game.Unit.TimedUnitOps
+import Game.Modifiers.UnitOpFactory (UnitOpFactory, buildUnitOp)
 
 -- | Common data of all units.
 data UnitData
@@ -104,7 +106,7 @@ createUnitData ::
   TimedUnitOps ->
   -- | Inventory on a unit
   Inventory ->
-  -- | A weapon to use when unit is fighting bare-hand TODO use it in calculations
+  -- | A weapon to use when unit is fighting bare-hand
   WeaponItem ->
   -- | How to display this unit
   Char ->
@@ -208,3 +210,13 @@ makePlayer unitData = Player unitData (LevellingStats 0 0)
 
 makeMob :: UnitData -> Mob ctx
 makeMob unitData = Mob unitData undefined
+
+-- | Applies all modifiers from wearables and timed effects to a unit
+unitWithModifiers :: Unit u => UnitOpFactory -> u -> u
+unitWithModifiers factory u = applyUnitOp_ allUnitOps u
+  where
+    inv = asUnitData u ^. inventory
+    wearableEffect = getAllWearableUnitOps inv
+    wearableUnitOp = buildUnitOp factory wearableEffect
+    timedEffectsOp = composeUnitOp $ _timedUnitOps $ asUnitData u
+    allUnitOps = wearableUnitOp >>= const timedEffectsOp
