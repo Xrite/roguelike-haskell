@@ -2,11 +2,13 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE FlexibleContexts #-}
 
 module Game where
 
 import Control.Lens
 import qualified Data.Map as Map (empty)
+import Data.Functor (($>))
 import Game.Environment
 import Game.GameLevels.GameLevel
 import Game.GameLevels.GenerateLevel (randomBSPGeneratedLevel, testGameLevel)
@@ -39,14 +41,14 @@ data MainMenuState = MainMenu (UI IO MainMenuState)
 
 makeLenses ''GameState
 
-instance HasIOUI GameState where
+instance HasUI IO GameState where
   getUI (Game env) = gameUI env
   getUI EndState = terminalUI
 
-instance HasIOUI MainMenuState where
+instance HasUI IO MainMenuState where
   getUI (MainMenu ui) = ui
 
-gameUI :: Environment -> UI IO GameState
+gameUI :: (Applicative m, HasUI m GameState, HasUI m MainMenuState) => Environment -> UI m GameState
 gameUI env = makeGameUIPure $
   do
     let (renderedMap, _) = runGameEnv renderEnvironment env
@@ -54,24 +56,25 @@ gameUI env = makeGameUIPure $
     setArrowPress arrowPress
     setKeyPress keyPress
   where
-    arrowPress :: Arrows -> GameState -> AnyHasIOUI
+--    arrowPress :: (HasIOUI ma GameState) => Arrows -> GameState -> AnyHasIOUI ma
     arrowPress Keys.Up (Game e) = packHasIOUI . Game . snd $ runGameEnv (evalAction (playerId env) moveUp) e
     arrowPress Keys.Down (Game e) = packHasIOUI . Game . snd $ runGameEnv (evalAction (playerId env) moveDown) e
     arrowPress Keys.Left (Game e) = packHasIOUI . Game . snd $ runGameEnv (evalAction (playerId env) moveLeft) e
     arrowPress Keys.Right (Game e) = packHasIOUI . Game . snd $ runGameEnv (evalAction (playerId env) moveRight) e
     arrowPress _ st = packHasIOUI st
-    keyPress :: Keys.Keys -> GameState -> AnyHasIOUI
+--    keyPress :: Keys.Keys -> GameState -> AnyHasIOUI m
     keyPress (Keys.Letter 'q') (Game _) = packHasIOUI $ MainMenu mainMenuUI
     keyPress _ st = packHasIOUI st
 
 mainMenuUI :: UI IO MainMenuState
-mainMenuUI = makeListMenuUIPure $
+mainMenuUI = makeListMenuUI $
   do
     ListMenu.setTitle "Main menu"
-    ListMenu.addItem "random" (const (packHasIOUI $ Game $ randomEnvironment 42)) -- TODO use random generator or at least ask user to input a seed
-    ListMenu.addItem "load level" (const (packHasIOUI $ MainMenu loadLvlMenuUI))
-    ListMenu.addItem "test level" (const (packHasIOUI $ Game testEnvironment))
-    ListMenu.addItem "quit" (const . packHasIOUI $ EndState)
+    ListMenu.addItemPure "random" (const (packHasIOUI $ Game $ randomEnvironment 42)) -- TODO use random generator or at least ask user to input a seed
+    ListMenu.addItemPure "load level" (const $ packHasIOUI $ MainMenu loadLvlMenuUI)
+    ListMenu.addItemPure "test level" (const (packHasIOUI $ Game testEnvironment))
+    ListMenu.addItem "test level & write to HI.txt" (const (appendFile "HI.txt" "x\n" $> packHasIOUI (Game testEnvironment)))
+    ListMenu.addItemPure "quit" (const . packHasIOUI $ EndState)
     ListMenu.selectItem 0
 
 loadLevel :: IO GameLevel
@@ -89,6 +92,15 @@ loadLvlMenuUI =
     ListMenu.addItemPure "back" (const $ packHasIOUI $ MainMenu mainMenuUI)
     ListMenu.selectItem 0
 
+testEnvironmentWithLevel :: GameLevel -> Environment
+testEnvironmentWithLevel level =
+  makeEnvironment
+    ourPlayer
+    [Mob (makeUnitData (1, 1) 'U') undefined]
+    [level]
+    (makeUnitOpFactory Map.empty)
+  where
+    ourPlayer = makeSomePlayer $ makeUnitData (2, 2) 'λ'
 
 randomEnvironment :: Int -> Environment
 randomEnvironment seed =
@@ -114,17 +126,6 @@ testEnvironment =
     (makeUnitOpFactory Map.empty)
   where
     ourPlayer = makeSomePlayer $ makeUnitData (7, 9) 'λ'
-
-
-testEnvironmentWithLevel :: GameLevel -> Environment
-testEnvironmentWithLevel level =
-  makeEnvironment
-    ourPlayer
-    [Mob (makeUnitData (1, 1) 'U') undefined]
-    [level]
-    (makeUnitOpFactory Map.empty)
-  where
-    ourPlayer = makeSomePlayer $ makeUnitData (2, 2) 'λ'
 
 makeUnitData :: (Int, Int) -> Char -> UnitData
 makeUnitData position render =

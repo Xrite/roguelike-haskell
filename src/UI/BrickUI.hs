@@ -19,15 +19,21 @@ type Name = ()
 
 data Tick = Tick
 
-data UIState = forall s. HasIOUI s => UIState s (UI IO s)
+data UIState m = forall s. HasUI m s => UIState s (UI m s)
 
-packUIState :: HasIOUI s => s -> UI IO s -> UIState
+class Monad m => ToIO m where
+  toIO :: m a -> IO a
+
+instance ToIO IO where
+  toIO = id
+
+packUIState :: HasUI m s => s -> UI m s -> UIState m
 packUIState = UIState
 
-packAnyHasIOUIToUIState :: AnyHasIOUI -> UIState
-packAnyHasIOUIToUIState (AnyHasIOUI a) = packUIState a (getUI a)
+packAnyHasIOUIToUIState :: AnyHasUI m -> UIState m
+packAnyHasIOUIToUIState (AnyHasUI a) = packUIState a (getUI a)
 
-app :: App UIState Tick Name
+app :: ToIO m => App (UIState m) Tick Name
 app =
   App
     { appDraw = drawUI,
@@ -37,7 +43,7 @@ app =
       appAttrMap = const theMap
     }
 
-drawUI :: UIState -> [Widget Name]
+drawUI :: UIState m -> [Widget Name]
 drawUI (UIState s ui) = case UI.baseLayout ui of
   UI.GameUI desc -> drawGameUI desc
   UI.InventoryUI desc -> undefined
@@ -82,9 +88,10 @@ drawMenu menu = [vBox rows]
       ]
 
 handleEvent ::
-  UIState ->
+  (ToIO m) =>
+  UIState m ->
   BrickEvent Name Tick ->
-  EventM Name (Next UIState)
+  EventM Name (Next (UIState m))
 handleEvent (UIState s ui) event = case UI.baseLayout ui of
   UI.GameUI desc -> case event of
     VtyEvent e -> dispatchVtyEventGameUI s ui e desc
@@ -98,18 +105,18 @@ handleEvent (UIState s ui) event = case UI.baseLayout ui of
   UI.End -> halt $ UIState s ui
 
 dispatchVtyEventGameUI ::
-  (HasIOUI a) =>
+  (ToIO m, HasUI m a) =>
   a ->
-  UI IO a ->
+  UI m a ->
   V.Event ->
-  GameUI.UIDesc a (IO AnyHasIOUI) ->
-  EventM n (Next UIState)
+  GameUI.UIDesc a (m (AnyHasUI m)) ->
+  EventM n (Next (UIState m))
 dispatchVtyEventGameUI state ui event desc = case event of
-  V.EvKey V.KUp [] -> liftIO (tryArrowPress Keys.Up) >>= continue
-  V.EvKey V.KDown [] -> liftIO (tryArrowPress Keys.Down) >>= continue
-  V.EvKey V.KRight [] -> liftIO (tryArrowPress Keys.Right) >>= continue
-  V.EvKey V.KLeft [] -> liftIO (tryArrowPress Keys.Left) >>= continue
-  V.EvKey (V.KChar 'q') [] -> liftIO (tryKeyPress (Keys.Letter 'q')) >>= continue
+  V.EvKey V.KUp [] -> liftIO (toIO $ tryArrowPress Keys.Up) >>= continue
+  V.EvKey V.KDown [] -> liftIO (toIO $ tryArrowPress Keys.Down) >>= continue
+  V.EvKey V.KRight [] -> liftIO (toIO $ tryArrowPress Keys.Right) >>= continue
+  V.EvKey V.KLeft [] -> liftIO (toIO $ tryArrowPress Keys.Left) >>= continue
+  V.EvKey (V.KChar 'q') [] -> liftIO (toIO $ tryKeyPress (Keys.Letter 'q')) >>= continue
   _ -> continue $ packedS
   where
     packedS = packUIState state ui
@@ -125,12 +132,12 @@ dispatchVtyEventGameUI state ui event desc = case event of
 dispatchVtyEventInventoryUI state ui event desc = undefined
 
 dispatchVtyEventListMenuUI ::
-  (HasIOUI s) =>
+  (ToIO m, HasUI m s) =>
   s ->
-  UI IO s ->
+  UI m s ->
   V.Event ->
-  ListMenu.UIDesc s (IO AnyHasIOUI) ->
-  EventM n (Next UIState)
+  ListMenu.UIDesc s (m (AnyHasUI m)) ->
+  EventM n (Next (UIState m))
 dispatchVtyEventListMenuUI state ui event desc = case event of
   V.EvKey V.KUp [] ->
     continue $
@@ -142,7 +149,7 @@ dispatchVtyEventListMenuUI state ui event desc = case event of
       packUIState
         state
         (UI.UIDesc . UI.ListMenuUI $ ListMenu.moveSelectionDown desc)
-  V.EvKey V.KEnter [] -> liftIO tryClick >>= continue
+  V.EvKey V.KEnter [] -> liftIO (toIO tryClick) >>= continue
   _ -> continue $ packedS
   where
     packedS = packUIState state ui
