@@ -21,6 +21,7 @@ where
 
 import Control.Lens hiding (levels)
 import Control.Monad.State
+import Control.Monad.Fail
 import Data.Foldable (find)
 import Data.List (findIndex)
 import Data.Maybe (fromMaybe, isJust, isNothing, listToMaybe)
@@ -31,10 +32,9 @@ import Game.GameLevels.MapCellType
 import Game.Modifiers.UnitOp as UnitOp
 import Game.Modifiers.UnitOpFactory (UnitOpFactory)
 import Game.Unit.DamageCalculation (attack)
-import Game.Unit.Mob (Mob)
-import Game.Unit.Player (Player)
 import Game.Unit.Stats
 import Game.Unit.Unit
+import Game.Unit.Action
 import PreludeUtil (listLens)
 
 -- | All manipulations with units in environment should use this type
@@ -60,6 +60,9 @@ data Environment
 newtype GameEnv a = GameEnv {unGameEnv :: State Environment a} deriving (Functor, Applicative, Monad, MonadState Environment)
 
 makeLenses ''Environment
+
+instance MonadFail GameEnv where
+  fail = error
 
 runGameEnv :: GameEnv a -> Environment -> (a, Environment)
 runGameEnv gameEnv = runState (unGameEnv gameEnv)
@@ -148,30 +151,37 @@ moveUnit u pos = do
 {- unitByCoord :: (Int, Int) -> Environment -> Maybe Unit.AnyUnit
 unitByCoord coord env = find ((== coord) . _position . Unit.asUnitData) $ _units env -}
 
--- | TODO: implement it properly
-envAttack :: UnitId -> UnitId -> GameEnv ()
-envAttack attackerId attackedId = case (attackerId, attackedId) of
-  (PlayerUnitId, PlayerUnitId) -> error "Player attack player"
-  (PlayerUnitId, MobUnitId idx) -> do
-    env <- get
-    let fact = env ^. modifierFactory
-    let (a, b) = attack fact (env ^. player) (snd $ (env ^. mobs) !! idx)
-    setPlayer a >> setMob b idx
-  (MobUnitId idx, PlayerUnitId) -> do
-    env <- get
-    let fact = env ^. modifierFactory
-    let (a, b) = attack fact (snd $ (env ^. mobs) !! idx) (env ^. player)
-    setMob a idx >> setPlayer b
-  (MobUnitId idx1, MobUnitId idx2) -> do
-    env <- get
-    let fact = env ^. modifierFactory
-    let (a, b) = attack fact (snd $ (env ^. mobs) !! idx1) (snd $ (env ^. mobs) !! idx2)
-    setMob a idx1 >> setMob b idx2
-  where
-    setPlayer :: Player -> GameEnv ()
-    setPlayer p = modify $ set player p
-    setMob :: Mob GameEnv -> Int -> GameEnv ()
-    setMob m idx = modify $ set (mobs . ix idx . _2) m
+-- | Get AnyUnit from UnitId
+_accessUnit :: UnitId -> GameEnv (AnyUnit GameEnv)
+_accessUnit uid = do
+  env <- get
+  case uid of
+    PlayerUnitId -> return $ MkPlayer (env ^. player)
+    MobUnitId i -> return $ MkMob (snd $ (env ^. mobs) !! i)
+
+-- | Try to set AnyUnit by Unit id. Return True when success.
+_trySetUnit :: UnitId -> AnyUnit GameEnv -> GameEnv Bool
+_trySetUnit uid u = case (uid, u) of
+  (PlayerUnitId, MkPlayer p) -> modify (set player p) >> return True
+  (MobUnitId i, MkMob m) -> modify (set (mobs . ix i . _2) m) >> return True
+  _ -> return False
+
+-- | Perform and attack between two units
+envAttack ::
+  -- | Attacker
+  UnitId ->
+  -- | Attacked
+  UnitId ->
+  GameEnv ()
+envAttack attackerId attackedId = do
+  env <- get
+  let fact = env ^. modifierFactory
+  attacker <- _accessUnit attackerId
+  attacked <- _accessUnit attackedId
+  let (attacker', attacked') = attack fact attacker attacked
+  True <- _trySetUnit attackerId attacker'
+  True <- _trySetUnit attackedId attacked'
+  return ()
 
 evalAction :: UnitId -> Action -> GameEnv ()
 evalAction u a = do

@@ -2,7 +2,6 @@ module Game.Environment
   ( Environment,
     UnitId,
     GameEnv,
-    makeEnvironment,
     getCurrentLevel,
     unitByCoord,
     envAttack,
@@ -17,12 +16,10 @@ where
 
 import Control.Monad.State
 import Game.GameLevels.GameLevel
-import Game.Modifiers.UnitOp as UnitOp
+import Game.Modifiers.UnitOp
 import Game.Modifiers.UnitOpFactory
-import Game.Unit.Mob (Mob)
-import Game.Unit.Player (Player)
 import Game.Unit.Stats
-import Game.Unit.Unit
+import Game.Unit.Action
 
 -- | All manipulations with units in environment should use this type
 data UnitId = MobUnitId Int | PlayerUnitId
@@ -39,7 +36,6 @@ instance Monad GameEnv
 
 runGameEnv :: GameEnv a -> Environment -> (a, Environment)
 
-makeEnvironment :: Player -> [Mob GameEnv] -> [GameLevel] -> UnitOpFactory -> Environment
 
 filterDead :: GameEnv ()
 
