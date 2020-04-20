@@ -89,7 +89,7 @@ handleEvent (UIState s ui) event = case UI.baseLayout ui of
     VtyEvent e -> dispatchVtyEventGameUI s ui e desc
     _ -> continue (UIState s ui)
   UI.InventoryUI desc -> case event of
-    VtyEvent e -> undefined 
+    VtyEvent e -> undefined
     _ -> continue (UIState s ui)
   UI.ListMenuUI desc -> case event of
     VtyEvent e -> dispatchVtyEventListMenuUI s ui e desc

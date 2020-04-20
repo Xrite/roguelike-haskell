@@ -27,6 +27,8 @@ import Data.Maybe (fromMaybe, isJust, isNothing, listToMaybe)
 import Game.ActionEvaluation
 import Game.GameLevels.GameLevel
 import Game.GameLevels.MapCell (renderCell)
+import Game.GameLevels.MapCell
+import Game.GameLevels.MapCellType
 import Game.Modifiers.UnitOp as UnitOp
 import Game.Modifiers.UnitOpFactory (UnitOpFactory)
 import Game.Unit.DamageCalculation (attack)
@@ -35,14 +37,14 @@ import Game.Unit.Player (Player)
 import Game.Unit.Stats
 import Game.Unit.Unit
 import PreludeUtil (listLens)
-import Game.GameLevels.MapCell
-import Game.GameLevels.MapCellType
 
 -- | All manipulations with units in environment should use this type
 data UnitId = MobUnitId Int | PlayerUnitId
 
 -- TODO maybe extract units to a different module?
 -- TODO comment
+
+-- | Contains description of current game state (e.g. map, mobs)
 data Environment
   = Environment
       { _player :: Player,
@@ -55,6 +57,7 @@ data Environment
         _mobEvaluators :: [Action -> GameEnv ()]
       }
 
+-- | A type for evaluating action on Environment
 newtype GameEnv a = GameEnv {unGameEnv :: State Environment a} deriving (Functor, Applicative, Monad, MonadState Environment)
 
 makeLenses ''Environment

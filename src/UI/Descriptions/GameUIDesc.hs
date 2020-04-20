@@ -1,34 +1,36 @@
-{-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE DeriveFunctor #-}
+{-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE NoImplicitPrelude #-}
 
 module UI.Descriptions.GameUIDesc where
 
-import           Control.Monad.State
-import           Control.Lens
-import           Prelude                 hiding ( map
-                                                , log
-                                                )
+import Control.Lens
+import Control.Monad.State
 import qualified UI.Keys as Keys
+import Prelude hiding
+  ( log,
+    map,
+  )
 
-data UIDesc a b =
-  GameUIDesc { _map :: Map
-             , _log :: Log
-             , _stats :: Stats
-             , _itemMenu :: ItemMenu a b
-             , _onArrowPress :: Maybe (Keys.Arrows -> a -> b)
-             , _onKeyPress :: Maybe (Keys.Keys -> a -> b)
-             }
-             deriving (Functor)
+data UIDesc a b
+  = GameUIDesc
+      { _map :: Map,
+        _log :: Log,
+        _stats :: Stats,
+        _itemMenu :: ItemMenu a b,
+        _onArrowPress :: Maybe (Keys.Arrows -> a -> b),
+        _onKeyPress :: Maybe (Keys.Keys -> a -> b)
+      }
+  deriving (Functor)
 
-data Map = Map { _mapField :: [[Char]] }
+data Map = Map {_mapField :: [[Char]]}
 
-data Log = Log { _logRecords :: [String] }
+data Log = Log {_logRecords :: [String]}
 
 data Stats = Stats [String]
 
-data ItemMenu a b = ItemMenu { _menuItems :: [(String, a -> b)] }
-             deriving (Functor)
+data ItemMenu a b = ItemMenu {_menuItems :: [(String, a -> b)]}
+  deriving (Functor)
 
 type Builder a b = State (UIDesc a b)
 
@@ -39,7 +41,6 @@ makeLenses ''Map
 makeLenses ''Log
 
 makeLenses ''ItemMenu
-
 
 defaultMap :: Map
 defaultMap = Map [[]]
@@ -76,10 +77,10 @@ setStats :: [String] -> Builder a b ()
 setStats newStats = modify $ set stats (Stats newStats)
 
 addToLog :: String -> Builder a b ()
-addToLog item = modify $ over (log . logRecords) (item:)
+addToLog item = modify $ over (log . logRecords) (item :)
 
 addItem :: String -> (a -> b) -> Builder a b ()
-addItem item f = modify $ over (itemMenu . menuItems) ((item, f):)
+addItem item f = modify $ over (itemMenu . menuItems) ((item, f) :)
 
 getMap :: UIDesc a b -> Map
 getMap = _map

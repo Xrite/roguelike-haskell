@@ -14,9 +14,7 @@ import UI.BrickUI (app, packUIState)
 import Game.GameLevels.Generation.GenerationUtil
 
 run :: RIO App ()
-run = do
---  foldMap (logInfo . displayShow) render
---  logInfo $ displayShow $ runState (generateLevel param s) gen
+run =
   liftIO $ void $ defaultMain app (packUIState (MainMenu mainMenuUI) mainMenuUI)
   where
     param = GeneratorParameters 10 1.7 5
