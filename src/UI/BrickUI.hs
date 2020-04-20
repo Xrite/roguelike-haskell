@@ -7,6 +7,7 @@ import qualified Brick.Widgets.Border as B
 import qualified Brick.Widgets.Border.Style as BS
 import qualified Brick.Widgets.Center as C
 import Control.Lens
+import Control.Monad.IO.Class
 import Data.Maybe
 import qualified Graphics.Vty as V
 import qualified UI.Descriptions.GameUIDesc as GameUI
@@ -18,13 +19,13 @@ type Name = ()
 
 data Tick = Tick
 
-data UIState = forall s. HasUI s => UIState s (UI s)
+data UIState = forall s. HasIOUI s => UIState s (UI IO s)
 
-packUIState :: HasUI s => s -> UI s -> UIState
+packUIState :: HasIOUI s => s -> UI IO s -> UIState
 packUIState = UIState
 
-packAnyHasUIToUIState :: AnyHasUI -> UIState
-packAnyHasUIToUIState (AnyHasUI a) = packUIState a (getUI a)
+packAnyHasIOUIToUIState :: AnyHasIOUI -> UIState
+packAnyHasIOUIToUIState (AnyHasIOUI a) = packUIState a (getUI a)
 
 app :: App UIState Tick Name
 app =
@@ -97,42 +98,38 @@ handleEvent (UIState s ui) event = case UI.baseLayout ui of
   UI.End -> halt $ UIState s ui
 
 dispatchVtyEventGameUI ::
-  (HasUI a) =>
+  (HasIOUI a) =>
   a ->
-  UI a ->
+  UI IO a ->
   V.Event ->
-  GameUI.UIDesc a AnyHasUI ->
+  GameUI.UIDesc a (IO AnyHasIOUI) ->
   EventM n (Next UIState)
 dispatchVtyEventGameUI state ui event desc = case event of
-  V.EvKey V.KUp [] -> continue $ tryArrowPress Keys.Up
-  V.EvKey V.KDown [] -> continue $ tryArrowPress Keys.Down
-  V.EvKey V.KRight [] -> continue $ tryArrowPress Keys.Right
-  V.EvKey V.KLeft [] -> continue $ tryArrowPress Keys.Left
-  V.EvKey (V.KChar 'q') [] -> continue $ tryKeyPress (Keys.Letter 'q')
+  V.EvKey V.KUp [] -> liftIO (tryArrowPress Keys.Up) >>= continue
+  V.EvKey V.KDown [] -> liftIO (tryArrowPress Keys.Down) >>= continue
+  V.EvKey V.KRight [] -> liftIO (tryArrowPress Keys.Right) >>= continue
+  V.EvKey V.KLeft [] -> liftIO (tryArrowPress Keys.Left) >>= continue
+  V.EvKey (V.KChar 'q') [] -> liftIO (tryKeyPress (Keys.Letter 'q')) >>= continue
   _ -> continue $ packedS
   where
     packedS = packUIState state ui
     onKeyPress = desc ^. GameUI.onKeyPress
     onArrowPress = desc ^. GameUI.onArrowPress
-    tryArrowPress key = fromMaybe packedS $
-      do
-        f <- onArrowPress
-        let newState = f key state
-        return $ packAnyHasUIToUIState newState
-    tryKeyPress key = fromMaybe packedS $
-      do
-        f <- onKeyPress
-        let newState = f key state
-        return $ packAnyHasUIToUIState newState
+    tryArrowPress key = case onArrowPress of
+      Nothing -> return packedS
+      Just f -> packAnyHasIOUIToUIState <$> f key state
+    tryKeyPress key = case onKeyPress of
+      Nothing -> return packedS
+      Just f -> packAnyHasIOUIToUIState <$> f key state
 
 dispatchVtyEventInventoryUI state ui event desc = undefined
 
 dispatchVtyEventListMenuUI ::
-  (HasUI s) =>
+  (HasIOUI s) =>
   s ->
-  UI s ->
+  UI IO s ->
   V.Event ->
-  ListMenu.UIDesc s AnyHasUI ->
+  ListMenu.UIDesc s (IO AnyHasIOUI) ->
   EventM n (Next UIState)
 dispatchVtyEventListMenuUI state ui event desc = case event of
   V.EvKey V.KUp [] ->
@@ -145,16 +142,14 @@ dispatchVtyEventListMenuUI state ui event desc = case event of
       packUIState
         state
         (UI.UIDesc . UI.ListMenuUI $ ListMenu.moveSelectionDown desc)
-  V.EvKey V.KEnter [] -> continue $ tryClick
+  V.EvKey V.KEnter [] -> liftIO tryClick >>= continue
   _ -> continue $ packedS
   where
     packedS = packUIState state ui
     clickItem = ListMenu.clickItem desc
-    tryClick = fromMaybe packedS $
-      do
-        f <- clickItem
-        let newState = f state
-        return $ packAnyHasUIToUIState newState
+    tryClick = case clickItem of
+      Nothing -> return packedS
+      Just f -> packAnyHasIOUIToUIState <$> f state
 
 theMap :: AttrMap
 theMap = attrMap V.defAttr []

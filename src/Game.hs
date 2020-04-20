@@ -33,18 +33,18 @@ data GameState
   = Game Environment
   | EndState
 
-data MainMenuState = MainMenu (UI MainMenuState)
+data MainMenuState = MainMenu (UI IO MainMenuState)
 
 makeLenses ''GameState
 
-instance HasUI GameState where
+instance HasIOUI GameState where
   getUI (Game env) = gameUI env
   getUI EndState = terminalUI
 
-instance HasUI MainMenuState where
+instance HasIOUI MainMenuState where
   getUI (MainMenu ui) = ui
 
-gameUI :: Environment -> UI GameState
+gameUI :: Environment -> UI IO GameState
 gameUI env = makeGameUI $
   do
     let (renderedMap, _) = runGameEnv renderEnvironment env
@@ -52,24 +52,24 @@ gameUI env = makeGameUI $
     setArrowPress arrowPress
     setKeyPress keyPress
   where
-    arrowPress :: Arrows -> GameState -> AnyHasUI
-    arrowPress Keys.Up (Game e) = packHasUI . Game . snd $ runGameEnv (evalAction (playerId env) moveUp) e
-    arrowPress Keys.Down (Game e) = packHasUI . Game . snd $ runGameEnv (evalAction (playerId env) moveDown) e
-    arrowPress Keys.Left (Game e) = packHasUI . Game . snd $ runGameEnv (evalAction (playerId env) moveLeft) e
-    arrowPress Keys.Right (Game e) = packHasUI . Game . snd $ runGameEnv (evalAction (playerId env) moveRight) e
-    arrowPress _ st = packHasUI st
-    keyPress :: Keys.Keys -> GameState -> AnyHasUI
-    keyPress (Keys.Letter 'q') (Game _) = packHasUI $ MainMenu mainMenuUI
-    keyPress _ st = packHasUI st
+    arrowPress :: Arrows -> GameState -> AnyHasIOUI
+    arrowPress Keys.Up (Game e) = packHasIOUI . Game . snd $ runGameEnv (evalAction (playerId env) moveUp) e
+    arrowPress Keys.Down (Game e) = packHasIOUI . Game . snd $ runGameEnv (evalAction (playerId env) moveDown) e
+    arrowPress Keys.Left (Game e) = packHasIOUI . Game . snd $ runGameEnv (evalAction (playerId env) moveLeft) e
+    arrowPress Keys.Right (Game e) = packHasIOUI . Game . snd $ runGameEnv (evalAction (playerId env) moveRight) e
+    arrowPress _ st = packHasIOUI st
+    keyPress :: Keys.Keys -> GameState -> AnyHasIOUI
+    keyPress (Keys.Letter 'q') (Game _) = packHasIOUI $ MainMenu mainMenuUI
+    keyPress _ st = packHasIOUI st
 
-mainMenuUI :: UI MainMenuState
+mainMenuUI :: UI IO MainMenuState
 mainMenuUI = makeListMenuUI $
   do
     ListMenu.setTitle "Main menu"
-    ListMenu.addItem "random" (const (packHasUI $ Game $ randomEnvironment 42)) -- TODO use random generator or at least ask user to input a seed
+    ListMenu.addItem "random" (const (packHasIOUI $ Game $ randomEnvironment 42)) -- TODO use random generator or at least ask user to input a seed
     ListMenu.addItem "load level" undefined
-    ListMenu.addItem "test level" (const (packHasUI $ Game testEnvironment))
-    ListMenu.addItem "quit" (const . packHasUI $ EndState)
+    ListMenu.addItem "test level" (const (packHasIOUI $ Game testEnvironment))
+    ListMenu.addItem "quit" (const . packHasIOUI $ EndState)
     ListMenu.selectItem 0
 
 randomEnvironment :: Int -> Environment
