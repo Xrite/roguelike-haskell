@@ -19,7 +19,7 @@ type Name = ()
 
 data Tick = Tick
 
-data UIState m = forall s. HasIOUI m s => UIState s (UI m s)
+data UIState m = forall s. HasUI m s => UIState s (UI m s)
 
 class Monad m => ToIO m where
   toIO :: m a -> IO a
@@ -27,11 +27,11 @@ class Monad m => ToIO m where
 instance ToIO IO where
   toIO = id
 
-packUIState :: HasIOUI m s => s -> UI m s -> UIState m
+packUIState :: HasUI m s => s -> UI m s -> UIState m
 packUIState = UIState
 
-packAnyHasIOUIToUIState :: AnyHasIOUI m -> UIState m
-packAnyHasIOUIToUIState (AnyHasIOUI a) = packUIState a (getUI a)
+packAnyHasIOUIToUIState :: AnyHasUI m -> UIState m
+packAnyHasIOUIToUIState (AnyHasUI a) = packUIState a (getUI a)
 
 app :: ToIO m => App (UIState m) Tick Name
 app =
@@ -105,11 +105,11 @@ handleEvent (UIState s ui) event = case UI.baseLayout ui of
   UI.End -> halt $ UIState s ui
 
 dispatchVtyEventGameUI ::
-  (ToIO m, HasIOUI m a) =>
+  (ToIO m, HasUI m a) =>
   a ->
   UI m a ->
   V.Event ->
-  GameUI.UIDesc a (m (AnyHasIOUI m)) ->
+  GameUI.UIDesc a (m (AnyHasUI m)) ->
   EventM n (Next (UIState m))
 dispatchVtyEventGameUI state ui event desc = case event of
   V.EvKey V.KUp [] -> liftIO (toIO $ tryArrowPress Keys.Up) >>= continue
@@ -132,11 +132,11 @@ dispatchVtyEventGameUI state ui event desc = case event of
 dispatchVtyEventInventoryUI state ui event desc = undefined
 
 dispatchVtyEventListMenuUI ::
-  (ToIO m, HasIOUI m s) =>
+  (ToIO m, HasUI m s) =>
   s ->
   UI m s ->
   V.Event ->
-  ListMenu.UIDesc s (m (AnyHasIOUI m)) ->
+  ListMenu.UIDesc s (m (AnyHasUI m)) ->
   EventM n (Next (UIState m))
 dispatchVtyEventListMenuUI state ui event desc = case event of
   V.EvKey V.KUp [] ->

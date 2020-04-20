@@ -39,14 +39,14 @@ data MainMenuState = MainMenu (UI IO MainMenuState)
 
 makeLenses ''GameState
 
-instance HasIOUI IO GameState where
+instance HasUI IO GameState where
   getUI (Game env) = gameUI env
   getUI EndState = terminalUI
 
-instance HasIOUI IO MainMenuState where
+instance HasUI IO MainMenuState where
   getUI (MainMenu ui) = ui
 
-gameUI :: (Applicative m, HasIOUI m GameState, HasIOUI m MainMenuState) => Environment -> UI m GameState
+gameUI :: (Applicative m, HasUI m GameState, HasUI m MainMenuState) => Environment -> UI m GameState
 gameUI env = makeGameUIPure $
   do
     let (renderedMap, _) = runGameEnv renderEnvironment env
