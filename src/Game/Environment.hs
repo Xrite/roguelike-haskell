@@ -26,7 +26,6 @@ import Data.List (findIndex)
 import Data.Maybe (fromMaybe, isJust, isNothing, listToMaybe)
 import Game.ActionEvaluation
 import Game.GameLevels.GameLevel
-import Game.GameLevels.MapCell (renderCell)
 import Game.GameLevels.MapCell
 import Game.GameLevels.MapCellType
 import Game.Modifiers.UnitOp as UnitOp
@@ -63,7 +62,7 @@ newtype GameEnv a = GameEnv {unGameEnv :: State Environment a} deriving (Functor
 makeLenses ''Environment
 
 runGameEnv :: GameEnv a -> Environment -> (a, Environment)
-runGameEnv gameEnv env = runState (unGameEnv gameEnv) env
+runGameEnv gameEnv = runState (unGameEnv gameEnv)
 
 instance Show Environment where
   show _ = "Environment"
@@ -73,7 +72,7 @@ makeEnvironment :: Player -> [Mob GameEnv] -> [GameLevel] -> UnitOpFactory -> En
 makeEnvironment player mobs levels factory =
   Environment
     { _player = player,
-      _mobs = (zip [0 ..] mobs),
+      _mobs = zip [0 ..] mobs,
       _levels = levels,
       _currentLevel = 0,
       _currentUnitTurn = 0,
@@ -149,16 +148,16 @@ moveUnit u pos = do
 {- unitByCoord :: (Int, Int) -> Environment -> Maybe Unit.AnyUnit
 unitByCoord coord env = find ((== coord) . _position . Unit.asUnitData) $ _units env -}
 
--- | TODO: implement it normally
+-- | TODO: implement it properly
 envAttack :: UnitId -> UnitId -> GameEnv ()
 envAttack attackerId attackedId = case (attackerId, attackedId) of
   (PlayerUnitId, PlayerUnitId) -> error "Player attack player"
-  (PlayerUnitId, (MobUnitId idx)) -> do
+  (PlayerUnitId, MobUnitId idx) -> do
     env <- get
     let fact = env ^. modifierFactory
     let (a, b) = attack fact (env ^. player) (snd $ (env ^. mobs) !! idx)
     setPlayer a >> setMob b idx
-  ((MobUnitId idx), PlayerUnitId) -> do
+  (MobUnitId idx, PlayerUnitId) -> do
     env <- get
     let fact = env ^. modifierFactory
     let (a, b) = attack fact (snd $ (env ^. mobs) !! idx) (env ^. player)
@@ -196,6 +195,6 @@ renderEnvironment = do
   let ((xFrom, yFrom), (xTo, yTo)) = getMapSize mp
   let terrain = [[renderCell $ getCell (x, y) mp | x <- [xFrom .. xTo]] | y <- [yFrom .. yTo]]
   units <- getActiveUnits
-  positions <- traverse (\u -> affectUnit u UnitOp.getPosition) units
-  portraits <- traverse (\u -> affectUnit u UnitOp.getPortrait) units
+  positions <- traverse (`affectUnit` UnitOp.getPosition) units
+  portraits <- traverse (`affectUnit` UnitOp.getPortrait) units
   return $ foldl (\m ((x, y), p) -> m & ix y . ix x .~ p) terrain (zip positions portraits)
