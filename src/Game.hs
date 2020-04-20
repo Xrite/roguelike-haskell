@@ -18,11 +18,9 @@ import Game.Modifiers.EffectDesc (effectAtom)
 import Game.Modifiers.UnitOpFactory (makeUnitOpFactory)
 import Game.Unit.Action
 import Game.Unit.Inventory (emptyInventory)
-import Game.Unit.Mob
-import Game.Unit.Player (Player, makePlayer)
 import Game.Unit.Stats as Stats
 import Game.Unit.TimedUnitOps (empty)
-import Game.Unit.Unit (UnitData, createUnitData)
+import Game.Unit.Unit
 import System.Random (mkStdGen)
 import UI.Descriptions.GameUIDesc
 import qualified UI.Descriptions.ListMenuDesc as ListMenu
@@ -88,9 +86,9 @@ testEnvironment :: Environment
 testEnvironment =
   makeEnvironment
     ourPlayer
-    [ Mob (makeUnitData (14, 15) 'U') undefined,
-      Mob (makeUnitData (4, 6) 'U') undefined,
-      Mob (makeUnitData (5, 6) 'U') undefined
+    [ makeMob (makeUnitData (14, 15) 'U'),
+      makeMob (makeUnitData (4, 6) 'U'),
+      makeMob (makeUnitData (5, 6) 'U')
     ]
     [testGameLevel]
     (makeUnitOpFactory Map.empty)
