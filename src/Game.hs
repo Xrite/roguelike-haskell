@@ -94,7 +94,7 @@ testEnvironmentWithLevel :: GameLevel -> Environment
 testEnvironmentWithLevel level =
   makeEnvironment
     ourPlayer
-    [Mob (makeUnitData (1, 1) 'U') undefined]
+    [makeMob (makeUnitData (1, 1) 'U')]
     [level]
     (makeUnitOpFactory Map.empty)
   where
