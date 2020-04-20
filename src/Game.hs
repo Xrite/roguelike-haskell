@@ -2,6 +2,7 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE FlexibleContexts #-}
 
 module Game where
 
@@ -45,7 +46,7 @@ instance HasIOUI IO GameState where
 instance HasIOUI IO MainMenuState where
   getUI (MainMenu ui) = ui
 
-gameUI :: (HasIOUI m GameState) => Environment -> UI m GameState
+gameUI :: (Applicative m, HasIOUI m GameState, HasIOUI m MainMenuState) => Environment -> UI m GameState
 gameUI env = makeGameUIPure $
   do
     let (renderedMap, _) = runGameEnv renderEnvironment env
@@ -53,13 +54,13 @@ gameUI env = makeGameUIPure $
     setArrowPress arrowPress
     setKeyPress keyPress
   where
-    arrowPress :: Arrows -> GameState -> AnyHasIOUI m
+--    arrowPress :: (HasIOUI ma GameState) => Arrows -> GameState -> AnyHasIOUI ma
     arrowPress Keys.Up (Game e) = packHasIOUI . Game . snd $ runGameEnv (evalAction (playerId env) moveUp) e
     arrowPress Keys.Down (Game e) = packHasIOUI . Game . snd $ runGameEnv (evalAction (playerId env) moveDown) e
     arrowPress Keys.Left (Game e) = packHasIOUI . Game . snd $ runGameEnv (evalAction (playerId env) moveLeft) e
     arrowPress Keys.Right (Game e) = packHasIOUI . Game . snd $ runGameEnv (evalAction (playerId env) moveRight) e
     arrowPress _ st = packHasIOUI st
-    keyPress :: Keys.Keys -> GameState -> AnyHasIOUI m
+--    keyPress :: Keys.Keys -> GameState -> AnyHasIOUI m
     keyPress (Keys.Letter 'q') (Game _) = packHasIOUI $ MainMenu mainMenuUI
     keyPress _ st = packHasIOUI st
 
