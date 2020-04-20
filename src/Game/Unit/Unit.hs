@@ -110,7 +110,7 @@ createUnitData ::
   Char ->
   -- | Constructed 'Unit'
   UnitData
-createUnitData = UnitData False
+createUnitData = UnitData True
 
 -- | Something that can hit and run.
 -- A typeclass for every active participant of a game. If it moves and participates in combat system, it is a unit.
@@ -160,6 +160,7 @@ instance Unit Player where
       applyEffect (Damage dmg) = playerUnit . stats . health %~ subtract (fromNonNegative dmg)
       applyEffect (Heal h) = playerUnit . stats . health %~ (+) (fromNonNegative h)
       applyEffect (GiveExp _) = id
+      applyEffect (SetConfusion c) = playerUnit . confused .~ c
 
 instance Unit (Mob ctx) where
   asUnitData = _mobUnit
@@ -187,6 +188,7 @@ instance Unit (Mob ctx) where
       applyEffect (Damage dmg) = mobUnit . stats . health %~ subtract (fromNonNegative dmg)
       applyEffect (Heal h) = mobUnit . stats . health %~ (+) (fromNonNegative h)
       applyEffect (GiveExp _) = id
+      applyEffect (SetConfusion c) = mobUnit . confused .~ c
 
 -- | Returns an active weapon unit data implies.
 -- That is, returns equipped weapon or base weapon if none equipped

@@ -32,16 +32,14 @@ confuseAwareDecorator eval u dir = do
   eval' u dir
 
 -- |Changes ActionEvaluator so that performed action is changed randomly.
--- Move direction is changed to a adjacent with probability 0.5.
+-- Move direction is changed to an adjacent with probability 0.5.
 confusedDecorator :: ActionEvaluator -> ActionEvaluator
 confusedDecorator eval u dir = do
   rand <- randomRGameEnv (0.0, 1.0)
-  let dir' =
-        if rand > changeDirectionProbability
-          then dir
-          else if rand > (changeDirectionProbability / 2)
-                 then nextDirection dir
-                 else prevDirection dir
+  let dir'
+        | rand > changeDirectionProbability = dir
+        | rand > (changeDirectionProbability / 2) = nextDirection dir
+        | otherwise = prevDirection dir
   eval u dir'
   where
     changeDirectionProbability = 0.5 :: Double
@@ -57,9 +55,7 @@ confusedDecorator eval u dir = do
       , Move Positive Positive
       ]
     nextDirection (Move Zero Zero) = Move Zero Zero
-    nextDirection dir =
-      fromMaybe
-        (Move Zero Zero)
-        (do idx <- fst <$> find ((== dir) . snd) (zip [1 ..] directionsCycle)
-            atMay directionsCycle $ idx + 1)
-    prevDirection = foldl1 (.) $ replicate 8 nextDirection
+    nextDirection d = head $ drops (== d) directionsCycle
+    prevDirection = foldl1 (.) $ replicate 7 nextDirection
+    drops f (x : xs) = if f x then xs else drops f xs
+    drops _ [] = error "element no found"
