@@ -42,7 +42,7 @@ confusedDecorator eval u dir = do
         | otherwise = prevDirection dir
   eval u dir'
   where
-    changeDirectionProbability = 0.5 :: Double
+    changeDirectionProbability = 0.1 :: Double
     directionsCycle =
       [ Move Positive Positive
       , Move Positive Zero

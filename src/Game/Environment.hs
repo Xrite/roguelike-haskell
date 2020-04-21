@@ -25,7 +25,7 @@ import Control.Monad.State
 import Control.Monad.Fail
 import Data.Foldable (find)
 import Data.List (findIndex)
-import Data.Maybe (fromMaybe, isJust, isNothing, listToMaybe)
+import Data.Maybe (fromMaybe, isJust, isNothing, listToMaybe, fromJust)
 import Game.ActionEvaluation
 import Game.GameLevels.GameLevel
 import Game.GameLevels.MapCell
@@ -49,6 +49,7 @@ data UnitId = MobUnitId Int | PlayerUnitId
 data Environment
   = Environment
       { _player :: Player,
+        -- | Mob's id, mob itself and it's action evaluator
         _mobs :: [(Int, Mob GameEnv, Action -> GameEnv ())],
         _levels :: [GameLevel],
         _currentLevel :: Int,
@@ -111,14 +112,17 @@ getActiveUnits = do
   let activeMobs = map (MobUnitId . (^. _1)) (env ^. mobs)
   return $ players ++ activeMobs
 
-{- unitLensById :: UnitId -> Lens' Environment Unit.AnyUnit
-unitLensById (UnitId idxInt) = units . listLens idxInt -}
+mobIndById :: Environment -> Int -> Int
+mobIndById env idx = fromJust $ findIndex ((== idx) . (^. _1)) (env ^. mobs)
 
-{- unitById :: UnitId -> Environment -> Unit.AnyUnit
-unitById idx env = env ^. unitLensById idx -}
+getMobById :: Int -> Environment -> Mob GameEnv
+getMobById idx env = env ^. mobs . listLens (mobIndById env idx) . _2
 
-{- setUnitById :: UnitId -> Unit.AnyUnit -> Environment -> Environment
-setUnitById idx unit = filterDead . set (unitLensById idx) unit -}
+setMobById :: Int -> Mob GameEnv -> Environment -> Environment
+setMobById idx mob env = mobs . listLens (mobIndById env idx) . _2 .~ mob $ env
+
+mobLensById :: Int -> Lens' Environment (Mob GameEnv)
+mobLensById idx = lens (getMobById idx) (flip (setMobById idx))
 
 affectUnit :: UnitId -> UnitOp a -> GameEnv a
 affectUnit PlayerUnitId modifier = do
@@ -129,8 +133,8 @@ affectUnit PlayerUnitId modifier = do
   return result
 affectUnit (MobUnitId idx) modifier = do
   env <- get
-  let (newMob, result) = applyUnitOp modifier ((env ^. mobs) !! idx ^. _2)
-  modify $ set (mobs . ix idx . _2) newMob
+  let (newMob, result) = applyUnitOp modifier $ getMobById idx env
+  modify $ setMobById idx newMob
   filterDead
   return result
 
@@ -166,13 +170,13 @@ _accessUnit uid = do
   env <- get
   case uid of
     PlayerUnitId -> return $ MkPlayer (env ^. player)
-    MobUnitId i -> return $ MkMob ((env ^. mobs) !! i ^. _2)
+    MobUnitId i -> return $ MkMob (getMobById i env)
 
 -- | Try to set AnyUnit by Unit id. Return True when success.
 _trySetUnit :: UnitId -> AnyUnit GameEnv -> GameEnv Bool
 _trySetUnit uid u = case (uid, u) of
   (PlayerUnitId, MkPlayer p) -> modify (set player p) >> return True
-  (MobUnitId i, MkMob m) -> modify (set (mobs . ix i . _2) m) >> return True
+  (MobUnitId i, MkMob m) -> modify (setMobById i m) >> return True
   _ -> return False
 
 -- | Perform and attack between two units
