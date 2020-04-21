@@ -1,6 +1,6 @@
 module Game.ActionEvaluation where
 
-import Control.Monad (void)
+import Control.Monad (void, when)
 import Data.Foldable (find)
 import Data.Maybe (fromMaybe)
 import {-# SOURCE #-} Game.Environment
@@ -17,7 +17,7 @@ basicEvaluation u (Move xDir yDir) = do
   unitAtPos <- unitByCoord newPosition
   case unitAtPos of
     Nothing -> void $ moveUnit u newPosition
-    Just enemy -> envAttack u enemy
+    Just other -> when (other /= u) $ envAttack u other
 
 defaultEvaluation :: ActionEvaluator
 defaultEvaluation = confuseAwareDecorator basicEvaluation
@@ -42,7 +42,7 @@ confusedDecorator eval u dir = do
         | otherwise = prevDirection dir
   eval u dir'
   where
-    changeDirectionProbability = 0.1 :: Double
+    changeDirectionProbability = 0.25 :: Double
     directionsCycle =
       [ Move Positive Positive
       , Move Positive Zero

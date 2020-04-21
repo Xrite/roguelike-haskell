@@ -40,7 +40,7 @@ import PreludeUtil (listLens)
 import System.Random
 
 -- | All manipulations with units in environment should use this type
-data UnitId = MobUnitId Int | PlayerUnitId
+data UnitId = MobUnitId Int | PlayerUnitId deriving (Eq)
 
 -- TODO maybe extract units to a different module?
 -- TODO comment

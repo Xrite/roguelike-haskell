@@ -26,6 +26,8 @@ import System.Random
 -- | All manipulations with units in environment should use this type
 data UnitId = MobUnitId Int | PlayerUnitId
 
+instance Eq UnitId
+
 -- TODO maybe extract units to a different module?
 -- TODO comment
 data Environment
