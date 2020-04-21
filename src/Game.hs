@@ -31,6 +31,8 @@ import UI.UI
 import Game.FileIO.FileIO (getLevelByName)
 import Data.Either (fromRight)
 import Game.Modifiers.UnitOp (setEffect)
+import Control.Monad.Except
+import Game.Unit.Control
 
 data GameState
   = Game Environment
@@ -56,10 +58,10 @@ gameUI env = makeGameUIPure $
     setKeyPress keyPress
   where
 --    arrowPress :: (HasIOUI ma GameState) => Arrows -> GameState -> AnyHasIOUI ma
-    arrowPress Keys.Up (Game e) = packHasIOUI . Game . snd $ runGameEnv (evalAction (playerId env) moveUp) e
-    arrowPress Keys.Down (Game e) = packHasIOUI . Game . snd $ runGameEnv (evalAction (playerId env) moveDown) e
-    arrowPress Keys.Left (Game e) = packHasIOUI . Game . snd $ runGameEnv (evalAction (playerId env) moveLeft) e
-    arrowPress Keys.Right (Game e) = packHasIOUI . Game . snd $ runGameEnv (evalAction (playerId env) moveRight) e
+    arrowPress Keys.Up (Game e) = packHasIOUI . Game . snd $ runGameEnv (makeTurn moveUp) e
+    arrowPress Keys.Down (Game e) = packHasIOUI . Game . snd $ runGameEnv (makeTurn moveDown) e
+    arrowPress Keys.Left (Game e) = packHasIOUI . Game . snd $ runGameEnv (makeTurn moveLeft) e
+    arrowPress Keys.Right (Game e) = packHasIOUI . Game . snd $ runGameEnv (makeTurn moveRight) e
     arrowPress _ st = packHasIOUI st
 --    keyPress :: Keys.Keys -> GameState -> AnyHasIOUI m
     keyPress (Keys.Letter 'q') (Game _) = packHasIOUI $ MainMenu mainMenuUI
@@ -95,7 +97,7 @@ testEnvironmentWithLevel :: GameLevel -> Environment
 testEnvironmentWithLevel level =
   makeEnvironment
     ourPlayer
-    [makeMob (makeUnitData (1, 1) 'U')]
+    [makeMob (makeUnitData (1, 1) 'U') Aggressive ]
     [level]
     (makeUnitOpFactory Map.empty)
   where
@@ -117,9 +119,9 @@ testEnvironment :: Environment
 testEnvironment =
   makeEnvironment
     ourPlayer
-    [ makeMob (makeUnitData (14, 15) 'U'),
-      makeMob (makeUnitData (4, 6) 'U'),
-      makeMob (makeUnitData (5, 6) 'U')
+    [ makeMob (makeUnitData (14, 15) 'U') Aggressive ,
+      makeMob (makeUnitData (4, 6) 'U') Aggressive ,
+      makeMob (makeUnitData (5, 6) 'U') Aggressive 
     ]
     [testGameLevel]
     (makeUnitOpFactory Map.empty)
@@ -139,3 +141,11 @@ makeUnitData position render =
 
 makeSomePlayer :: UnitData -> Player
 makeSomePlayer = makePlayer
+
+makeTurn :: Action -> GameEnv ()
+makeTurn playerAction = do
+  player <- getPlayer
+  runExceptT (evalAction player playerAction)
+  mobs <- getActiveMobs
+  runExceptT $ traverse (\u -> getAction u >>= evalAction u) mobs
+  return ()

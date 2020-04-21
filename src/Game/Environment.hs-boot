@@ -2,6 +2,8 @@ module Game.Environment
   ( Environment,
     UnitId,
     GameEnv,
+    FailableGameEnv,
+    UnitIdError(..),
     getCurrentLevel,
     unitByCoord,
     envAttack,
@@ -11,7 +13,8 @@ module Game.Environment
     runGameEnv,
     renderEnvironment,
     evalAction,
-    randomRGameEnv
+    randomRGameEnv,
+    getAction,
   )
 where
 
@@ -22,9 +25,14 @@ import Game.Modifiers.UnitOpFactory
 import Game.Unit.Stats
 import Game.Unit.Action
 import System.Random
+import Control.Monad.Except
 
 -- | All manipulations with units in environment should use this type
 data UnitId = MobUnitId Int | PlayerUnitId
+
+data UnitIdError
+
+type FailableGameEnv err = ExceptT err GameEnv
 
 instance Eq UnitId
 
@@ -47,15 +55,17 @@ filterDead :: GameEnv ()
 
 getActiveUnits :: GameEnv [UnitId]
 
-affectUnit :: UnitId -> UnitOp a -> GameEnv a
+affectUnit :: UnitId -> UnitOp a -> FailableGameEnv UnitIdError a
 
 unitByCoord :: (Int, Int) -> GameEnv (Maybe UnitId)
 
-moveUnit :: UnitId -> (Int, Int) -> GameEnv Bool
+moveUnit :: UnitId -> (Int, Int) -> FailableGameEnv UnitIdError Bool
 
-envAttack :: UnitId -> UnitId -> GameEnv ()
+envAttack :: UnitId -> UnitId -> FailableGameEnv UnitIdError ()
 
-evalAction :: UnitId -> Action -> GameEnv ()
+evalAction :: UnitId -> Action -> FailableGameEnv UnitIdError Bool
+
+getAction :: UnitId -> FailableGameEnv UnitIdError Action
 
 getCurrentLevel :: GameEnv GameLevel
 

@@ -2,6 +2,8 @@ module Game.Unit.Action
   ( Action (..),
     Direction (..),
     directionToInt,
+    intToDirection,
+    deltaToAction,
     changeCoord,
     moveUp,
     moveDown,
@@ -25,6 +27,15 @@ directionToInt :: Direction -> Int
 directionToInt Positive = 1
 directionToInt Negative = -1
 directionToInt Zero = 0
+
+intToDirection :: Int -> Direction
+intToDirection i
+  | i > 0 = Positive
+  | i == 0 = Zero
+  | i < 0 = Negative
+
+deltaToAction :: (Int, Int) -> Action
+deltaToAction (dx, dy) = Move (intToDirection dx) (intToDirection dy)
 
 changeCoord :: Direction -> Direction -> (Int, Int) -> (Int, Int)
 changeCoord xDir yDir = bimap (+ directionToInt xDir) (+ directionToInt yDir)

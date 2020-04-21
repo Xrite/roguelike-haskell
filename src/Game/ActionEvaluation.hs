@@ -1,6 +1,7 @@
 module Game.ActionEvaluation where
 
 import Control.Monad (void, when)
+import Control.Monad.Except
 import Data.Foldable (find)
 import Data.Maybe (fromMaybe)
 import {-# SOURCE #-} Game.Environment
@@ -8,13 +9,13 @@ import Game.Modifiers.UnitOp as UnitOp
 import Game.Unit.Action as Action
 import Safe (atMay)
 
-type ActionEvaluator = UnitId -> Action -> GameEnv ()
+type ActionEvaluator = UnitId -> Action -> FailableGameEnv UnitIdError ()
 
 basicEvaluation :: ActionEvaluator
 basicEvaluation u (Move xDir yDir) = do
   position <- affectUnit u UnitOp.getPosition
   let newPosition = Action.changeCoord xDir yDir position
-  unitAtPos <- unitByCoord newPosition
+  unitAtPos <- lift $ unitByCoord newPosition
   case unitAtPos of
     Nothing -> void $ moveUnit u newPosition
     Just other -> when (other /= u) $ envAttack u other
@@ -31,11 +32,11 @@ confuseAwareDecorator eval u dir = do
           else eval
   eval' u dir
 
--- |Changes ActionEvaluator so that performed action is changed randomly.
--- Move direction is changed to an adjacent with probability 0.5.
+-- | Changes ActionEvaluator so that performed action is changed randomly.
+--  Move direction is changed to an adjacent with probability 0.5.
 confusedDecorator :: ActionEvaluator -> ActionEvaluator
 confusedDecorator eval u dir = do
-  rand <- randomRGameEnv (0.0, 1.0)
+  rand <- lift $ randomRGameEnv (0.0, 1.0)
   let dir'
         | rand > changeDirectionProbability = dir
         | rand > (changeDirectionProbability / 2) = nextDirection dir
@@ -44,15 +45,15 @@ confusedDecorator eval u dir = do
   where
     changeDirectionProbability = 0.25 :: Double
     directionsCycle =
-      [ Move Positive Positive
-      , Move Positive Zero
-      , Move Positive Negative
-      , Move Zero Negative
-      , Move Negative Negative
-      , Move Negative Zero
-      , Move Negative Positive
-      , Move Zero Positive
-      , Move Positive Positive
+      [ Move Positive Positive,
+        Move Positive Zero,
+        Move Positive Negative,
+        Move Zero Negative,
+        Move Negative Negative,
+        Move Negative Zero,
+        Move Negative Positive,
+        Move Zero Positive,
+        Move Positive Positive
       ]
     nextDirection (Move Zero Zero) = Move Zero Zero
     nextDirection d = head $ drops (== d) directionsCycle

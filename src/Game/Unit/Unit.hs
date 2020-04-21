@@ -22,7 +22,7 @@ module Game.Unit.Unit
     levelling,
     Mob,
     mobUnit,
-    strategy,
+    controlTag,
     Unit (..),
     applyUnitOp_,
     getWeapon,
@@ -84,7 +84,7 @@ data Mob
       { -- | UnitData of that mob
         _mobUnit :: UnitData,
         -- | Mob behaviour using some context
-        _strategy :: TaggedControl
+        _controlTag :: TaggedControl
       }
 
 makeLenses ''LevellingStats
@@ -209,8 +209,8 @@ isAlive u = asUnitData u ^. stats . health > 0
 makePlayer :: UnitData -> Player
 makePlayer unitData = Player unitData (LevellingStats 0 0)
 
-makeMob :: UnitData -> Mob
-makeMob unitData = Mob unitData undefined
+makeMob :: UnitData -> TaggedControl-> Mob
+makeMob unitData tag = Mob unitData tag
 
 -- | Applies all modifiers from wearables and timed effects to a unit
 unitWithModifiers :: Unit u => UnitOpFactory -> u -> u

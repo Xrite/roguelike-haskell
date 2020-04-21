@@ -1,8 +1,8 @@
 module Game.GameLevels.PathFinding where
 
-import Data.Maybe
-import Data.List ((\\))
 import Data.Graph.Inductive hiding (getNode)
+import Data.List ((\\))
+import Data.Maybe
 import Game.GameLevels.GameLevel
 import Game.GameLevels.MapCell
 import Game.GameLevels.MapCellType
@@ -37,7 +37,29 @@ buildGraph passability m = mkGraph allNodes allEdges
 buildEdgesToNeighbours :: Map -> (MapNode -> Bool) -> MapNode -> [MapEdge]
 buildEdgesToNeighbours m isPassable u@(index, (x, y)) = [(fst u, fst v, 1) | v <- neighbours]
   where
-    neighbours = filter isPassable $ mapMaybe (getNode m) ([(x + dx, y + dy) | dx <- [-1, 0, 1], dy <- [-1, 0, 1]] \\ [(x, y)])
+    neighbours =
+      filter isPassable $
+        mapMaybe (getNode m) ([(x + dx, y + dy) | dx <- [-1, 0, 1], dy <- [-1, 0, 1]] \\ [(x, y)])
 
-findPath :: MapNode -> MapNode -> MapGraph -> [MapNode] -> Maybe Path
-findPath s t gr exclude = sp (fst s) (fst t) (delNodes (map fst exclude) gr)
+findPathInGraph :: MapNode -> MapNode -> MapGraph -> [MapNode] -> Maybe Path
+findPathInGraph s t gr exclude = sp (fst s) (fst t) (delNodes (map fst exclude) gr)
+
+findPath ::
+  -- | Passability function
+  (MapCell -> Bool) ->
+  -- | Map to find path in
+  Map ->
+  -- | Start position
+  (Int, Int) ->
+  -- | Destination position
+  (Int, Int) ->
+  -- | Forbidden position
+  [(Int, Int)] ->
+  Maybe [(Int, Int)]
+findPath passability m s t exclude = do
+  sNode <- getNode m s
+  tNode <- getNode m t
+  path <- findPathInGraph sNode tNode gr (mapMaybe (getNode m) exclude)
+  traverse (lab gr) path
+  where
+    gr = buildGraph passability m

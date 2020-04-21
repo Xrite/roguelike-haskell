@@ -1,3 +1,4 @@
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE TemplateHaskell #-}
@@ -6,36 +7,45 @@ module Game.Environment
   ( Environment,
     UnitId,
     GameEnv,
+    FailableGameEnv,
+    UnitIdError(..),
     makeEnvironment,
     getCurrentLevel,
     unitByCoord,
     envAttack,
     playerId,
+    getPlayer,
     affectUnit,
     moveUnit,
     runGameEnv,
     renderEnvironment,
     evalAction,
-    randomRGameEnv
+    randomRGameEnv,
+    getActiveMobs,
+    getAction,
   )
 where
 
 import Control.Lens hiding (levels)
-import Control.Monad.State
+import Control.Monad.Except
 import Control.Monad.Fail
+import Control.Monad.State
 import Data.Foldable (find)
+import qualified Data.IntMap as IntMap
 import Data.List (findIndex)
-import Data.Maybe (fromMaybe, isJust, isNothing, listToMaybe, fromJust)
+import Data.Either (rights)
+import Data.Maybe (fromJust, fromMaybe, isJust, isNothing, listToMaybe)
 import Game.ActionEvaluation
 import Game.GameLevels.GameLevel
 import Game.GameLevels.MapCell
 import Game.GameLevels.MapCellType
 import Game.Modifiers.UnitOp as UnitOp
 import Game.Modifiers.UnitOpFactory (UnitOpFactory)
+import Game.Unit.Action
+import Game.Unit.Control
 import Game.Unit.DamageCalculation (attack)
 import Game.Unit.Stats
 import Game.Unit.Unit
-import Game.Unit.Action
 import PreludeUtil (listLens)
 import System.Random
 
@@ -50,17 +60,22 @@ data Environment
   = Environment
       { _player :: Player,
         -- | Mob's id, mob itself and it's action evaluator
-        _mobs :: [(Int, Mob, Action -> GameEnv ())],
+        _mobs :: IntMap.IntMap (Mob, Action -> FailableGameEnv UnitIdError ()),
         _levels :: [GameLevel],
         _currentLevel :: Int,
         _currentUnitTurn :: Int,
         _modifierFactory :: UnitOpFactory,
-        _playerEvaluator :: Action -> GameEnv (),
-        _randomGenerator :: StdGen
+        _playerEvaluator :: Action -> FailableGameEnv UnitIdError (),
+        _randomGenerator :: StdGen,
+        _strategy :: TaggedControl -> UnitId -> FailableGameEnv UnitIdError Action
       }
 
 -- | A type for evaluating action on Environment
 newtype GameEnv a = GameEnv {unGameEnv :: State Environment a} deriving (Functor, Applicative, Monad, MonadState Environment)
+
+data UnitIdError = InvalidUnitId | NoSuchUnit | UnitCastExcepton deriving (Eq)
+
+type FailableGameEnv err = ExceptT err GameEnv
 
 makeLenses ''Environment
 
@@ -85,13 +100,14 @@ makeEnvironment :: Player -> [Mob] -> [GameLevel] -> UnitOpFactory -> Environmen
 makeEnvironment player mobs levels factory =
   Environment
     { _player = player,
-      _mobs = zip3 [0 ..] mobs (const (const (return ())) . MobUnitId <$> [0 ..]),
+      _mobs = IntMap.fromList $ zip [0 ..] $ zip mobs (const (const (return ())) . MobUnitId <$> [0 ..]),
       _levels = levels,
       _currentLevel = 0,
       _currentUnitTurn = 0,
       _modifierFactory = factory,
       _playerEvaluator = defaultEvaluation PlayerUnitId,
-      _randomGenerator = mkStdGen 42
+      _randomGenerator = mkStdGen 42,
+      _strategy = getControl
     }
 
 -- | This function should remove dead units from environment.
@@ -102,62 +118,75 @@ filterDead = do
   env <- get
   modify $ set mobs (newMobs env)
   where
-    newMobs env = filter (isAlive . (^. _2)) (env ^. mobs)
+    newMobs env = IntMap.filter (isAlive . (^. _1)) (env ^. mobs)
 
 getActiveUnits :: GameEnv [UnitId]
 getActiveUnits = do
   filterDead
   env <- get
   let players = if isAlive (env ^. player) then [PlayerUnitId] else []
-  let activeMobs = map (MobUnitId . (^. _1)) (env ^. mobs)
+  activeMobs <- getActiveMobs
   return $ players ++ activeMobs
 
-mobIndById :: Environment -> Int -> Int
-mobIndById env idx = fromJust $ findIndex ((== idx) . (^. _1)) (env ^. mobs)
+getActiveMobs :: GameEnv [UnitId]
+getActiveMobs = do
+  filterDead
+  env <- get
+  let activeMobs = map MobUnitId $ IntMap.keys (env ^. mobs)
+  return $ activeMobs
 
-getMobById :: Int -> Environment -> Mob
-getMobById idx env = env ^. mobs . listLens (mobIndById env idx) . _2
+mobIndById :: Environment -> Int -> Int
+mobIndById env idx = idx
+
+_getMobById :: Int -> FailableGameEnv UnitIdError Mob
+_getMobById idx = do
+  env <- get
+  case env ^? mobs . ix idx . _1 of
+    Nothing -> throwError InvalidUnitId
+    Just mob -> return mob
 
 setMobById :: Int -> Mob -> Environment -> Environment
-setMobById idx mob env = mobs . listLens (mobIndById env idx) . _2 .~ mob $ env
+setMobById idx mob env = env & mobs . ix idx . _1 .~ mob
 
-mobLensById :: Int -> Lens' Environment (Mob)
-mobLensById idx = lens (getMobById idx) (flip (setMobById idx))
+{- mobLensById :: Int -> Lens' Environment Mob
+mobLensById idx = mobs . ix idx . _1 -}
 
-affectUnit :: UnitId -> UnitOp a -> GameEnv a
+affectUnit :: UnitId -> UnitOp a -> FailableGameEnv UnitIdError a
 affectUnit PlayerUnitId modifier = do
   env <- get
   let (newPlayer, result) = applyUnitOp modifier (env ^. player)
   modify $ set player newPlayer
-  filterDead
+  lift filterDead
   return result
 affectUnit (MobUnitId idx) modifier = do
   env <- get
-  let (newMob, result) = applyUnitOp modifier $ getMobById idx env
+  mob <- _getMobById idx
+  let (newMob, result) = applyUnitOp modifier mob
   modify $ setMobById idx newMob
-  filterDead
+  lift filterDead
   return result
 
+-- | Get unit at position
 unitByCoord :: (Int, Int) -> GameEnv (Maybe UnitId)
 unitByCoord coord = do
   units <- getActiveUnits
-  filtered <- filterM (\u -> (== coord) <$> affectUnit u UnitOp.getPosition) units
+  filtered <- filterM (\u -> (== Right coord) <$> (runExceptT (affectUnit u UnitOp.getPosition))) units
   return $ listToMaybe filtered
 
-moveUnit :: UnitId -> (Int, Int) -> GameEnv Bool
+moveUnit :: UnitId -> (Int, Int) -> FailableGameEnv UnitIdError Bool
 moveUnit u pos = do
   isPassable <- checkPassable u pos
   if isPassable
-    then affectUnit u $ UnitOp.setCoord pos >> return True
+    then affectUnit u (UnitOp.setCoord pos) >> return True
     else return False
 
-checkPassable :: UnitId -> (Int, Int) -> GameEnv Bool
+checkPassable :: UnitId -> (Int, Int) -> FailableGameEnv UnitIdError Bool
 checkPassable uid pos = do
-  lvl <- getCurrentLevel
-  unitPos <- affectUnit uid UnitOp.getPosition 
+  lvl <- lift getCurrentLevel
+  unitPos <- affectUnit uid UnitOp.getPosition
   let maybeCell = maybeGetCellAt pos lvl
   maybeStats <- affectUnit uid UnitOp.getStats
-  isFree <- isNothing <$> unitByCoord pos
+  isFree <- isNothing <$> lift (unitByCoord pos)
   if pos == unitPos || (isJust $ checkAll maybeCell maybeStats isFree)
     then return True
     else return False
@@ -172,20 +201,22 @@ checkPassable uid pos = do
 {- unitByCoord :: (Int, Int) -> Environment -> Maybe Unit.AnyUnit
 unitByCoord coord env = find ((== coord) . _position . Unit.asUnitData) $ _units env -}
 
--- | Get AnyUnit from UnitId
-_accessUnit :: UnitId -> GameEnv AnyUnit
+-- | Get AnyUnit from UnitId. Returns Nothing if UnitId is invalid.
+_accessUnit :: UnitId -> FailableGameEnv UnitIdError AnyUnit
 _accessUnit uid = do
   env <- get
   case uid of
-    PlayerUnitId -> return $ MkPlayer (env ^. player)
-    MobUnitId i -> return $ MkMob (getMobById i env)
+    PlayerUnitId -> return . MkPlayer $ (env ^. player)
+    MobUnitId i -> do
+      mob <- _getMobById i
+      return $ MkMob mob
 
 -- | Try to set AnyUnit by Unit id. Return True when success.
-_trySetUnit :: UnitId -> AnyUnit -> GameEnv Bool
+_trySetUnit :: UnitId -> AnyUnit -> FailableGameEnv UnitIdError ()
 _trySetUnit uid u = case (uid, u) of
-  (PlayerUnitId, MkPlayer p) -> modify (set player p) >> return True
-  (MobUnitId i, MkMob m) -> modify (setMobById i m) >> return True
-  _ -> return False
+  (PlayerUnitId, MkPlayer p) -> modify (set player p) >> return ()
+  (MobUnitId i, MkMob m) -> modify (setMobById i m) >> return ()
+  _ -> throwError UnitCastExcepton
 
 -- | Perform and attack between two units
 envAttack ::
@@ -193,23 +224,25 @@ envAttack ::
   UnitId ->
   -- | Attacked
   UnitId ->
-  GameEnv ()
+  FailableGameEnv UnitIdError ()
 envAttack attackerId attackedId = do
   env <- get
   let fact = env ^. modifierFactory
   attacker <- _accessUnit attackerId
   attacked <- _accessUnit attackedId
   let (attacker', attacked') = attack fact attacker attacked
-  True <- _trySetUnit attackerId attacker' -- should always be true
-  True <- _trySetUnit attackedId attacked'
+  _trySetUnit attackerId attacker' -- should always be true
+  _trySetUnit attackedId attacked'
   return ()
 
-evalAction :: UnitId -> Action -> GameEnv ()
+evalAction :: UnitId -> Action -> FailableGameEnv UnitIdError Bool
 evalAction u a = do
   env <- get
   case u of
-    PlayerUnitId -> (env ^. playerEvaluator) a
-    MobUnitId idx -> fromMaybe (return ()) $ ((^. _3) <$> find (\x -> x ^. _1 == idx) (env ^. mobs)) <*> pure a
+    PlayerUnitId -> (env ^. playerEvaluator) a >> return True
+    MobUnitId idx -> case env ^? mobs . ix idx . _2 of
+      Nothing -> throwError InvalidUnitId
+      Just evaluator -> evaluator a >> return True
 
 getCurrentLevel :: GameEnv GameLevel
 getCurrentLevel = do
@@ -219,6 +252,18 @@ getCurrentLevel = do
 playerId :: Environment -> UnitId
 playerId _ = PlayerUnitId
 
+getPlayer :: GameEnv UnitId
+getPlayer = return PlayerUnitId
+
+getAction :: UnitId -> FailableGameEnv UnitIdError Action
+getAction PlayerUnitId = return $ stayAtPosition
+getAction uid@(MobUnitId idx) = do
+  env <- get
+  tag <- case (env ^? mobs . ix idx . _1 . controlTag) of 
+    Nothing -> throwError InvalidUnitId
+    Just t -> return t
+  (env ^. strategy) tag uid
+
 renderEnvironment :: GameEnv [String]
 renderEnvironment = do
   lvl <- getCurrentLevel
@@ -226,6 +271,6 @@ renderEnvironment = do
   let ((xFrom, yFrom), (xTo, yTo)) = getMapSize mp
   let terrain = [[renderCell $ getCell (x, y) mp | x <- [xFrom .. xTo]] | y <- [yFrom .. yTo]]
   units <- getActiveUnits
-  positions <- traverse (`affectUnit` UnitOp.getPosition) units
-  portraits <- traverse (`affectUnit` UnitOp.getPortrait) units
+  positions <- rights <$> traverse (runExceptT . (`affectUnit` UnitOp.getPosition)) units
+  portraits <- rights <$> traverse (runExceptT . (`affectUnit` UnitOp.getPortrait)) units
   return $ foldl (\m ((x, y), p) -> m & ix y . ix x .~ p) terrain (zip positions portraits)
