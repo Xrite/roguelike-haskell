@@ -33,6 +33,7 @@ dependencies:
 - directory
 - comonad
 - containers
+- fgl
 
 ghc-options:
 - -Wall
