@@ -56,7 +56,7 @@ readMap str = do
 readArray :: String -> Maybe (Array (Int, Int) MapCell)
 readArray str =
   let lists = map (map readMapCell) (lines str)
-   in fmap (listArray ((0, 0), (length lists, length (head lists)))) (sequence $ concat lists)
+   in fmap (listArray ((0, 0), (length lists - 1, length (head lists) - 1))) (sequence $ concat lists)
 
 readMapCell :: Char -> Maybe MapCell
 readMapCell str = do 
