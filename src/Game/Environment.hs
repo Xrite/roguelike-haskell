@@ -31,9 +31,7 @@ import Control.Lens hiding (levels)
 import Control.Monad.Except
 import Control.Monad.Fail
 import Control.Monad.State
-import Data.Foldable (find)
 import qualified Data.IntMap as IntMap
-import Data.List (findIndex)
 import Data.Either (rights)
 import Data.Maybe (fromJust, fromMaybe, isJust, isNothing, listToMaybe)
 import Game.ActionEvaluation
@@ -134,10 +132,7 @@ getActiveMobs = do
   filterDead
   env <- get
   let activeMobs = map MobUnitId $ IntMap.keys (env ^. mobs)
-  return $ activeMobs
-
-mobIndById :: Environment -> Int -> Int
-mobIndById env idx = idx
+  return activeMobs
 
 _getMobById :: Int -> FailableGameEnv UnitIdError Mob
 _getMobById idx = do
@@ -160,7 +155,6 @@ affectUnit PlayerUnitId modifier = do
   lift filterDead
   return result
 affectUnit (MobUnitId idx) modifier = do
-  env <- get
   mob <- _getMobById idx
   let (newMob, result) = applyUnitOp modifier mob
   modify $ setMobById idx newMob
@@ -171,7 +165,7 @@ affectUnit (MobUnitId idx) modifier = do
 unitByCoord :: (Int, Int) -> GameEnv (Maybe UnitId)
 unitByCoord coord = do
   units <- getActiveUnits
-  filtered <- filterM (\u -> (== Right coord) <$> (runExceptT (affectUnit u UnitOp.getPosition))) units
+  filtered <- filterM (\u -> (== Right coord) <$> runExceptT (affectUnit u UnitOp.getPosition)) units
   return $ listToMaybe filtered
 
 moveUnit :: UnitId -> (Int, Int) -> FailableGameEnv UnitIdError Bool
@@ -188,7 +182,7 @@ checkPassable uid pos = do
   let maybeCell = maybeGetCellAt pos lvl
   maybeStats <- affectUnit uid UnitOp.getStats
   isFree <- isNothing <$> lift (unitByCoord pos)
-  if pos == unitPos || (isJust $ checkAll maybeCell maybeStats isFree)
+  if pos == unitPos || isJust (checkAll maybeCell maybeStats isFree)
     then return True
     else return False
   where
@@ -214,10 +208,11 @@ _accessUnit uid = do
 
 -- | Try to set AnyUnit by Unit id. Return True when success.
 _trySetUnit :: UnitId -> AnyUnit -> FailableGameEnv UnitIdError ()
-_trySetUnit uid u = case (uid, u) of
-  (PlayerUnitId, MkPlayer p) -> modify (set player p) >> return ()
-  (MobUnitId i, MkMob m) -> modify (setMobById i m) >> return ()
-  _ -> throwError UnitCastExcepton
+_trySetUnit uid u =
+  case (uid, u) of
+    (PlayerUnitId, MkPlayer p) -> void (modify (set player p))
+    (MobUnitId i, MkMob m) -> void (modify (setMobById i m))
+    _ -> throwError UnitCastExcepton
 
 -- | Perform and attack between two units
 envAttack ::
@@ -257,10 +252,10 @@ getPlayer :: GameEnv UnitId
 getPlayer = return PlayerUnitId
 
 getAction :: UnitId -> FailableGameEnv UnitIdError Action
-getAction PlayerUnitId = return $ stayAtPosition
+getAction PlayerUnitId = return stayAtPosition
 getAction uid@(MobUnitId idx) = do
   env <- get
-  tag <- case (env ^? mobs . ix idx . _1 . controlTag) of 
+  tag <- case env ^? mobs . ix idx . _1 . controlTag of 
     Nothing -> throwError InvalidUnitId
     Just t -> return t
   (env ^. strategy) tag uid
