@@ -5,6 +5,7 @@ module Game.Modifiers.EffectAtom
   , damage
   , heal
   , giveExp
+  , confuse
   )
 where
 
@@ -12,6 +13,7 @@ where
 data EffectAtom = Damage NonNegative -- ^ Deal damage to a unit
                 | Heal NonNegative -- ^ Heal a unit
                 | GiveExp NonNegative -- ^ Give experience points to a unit
+                | SetConfusion Bool -- ^ Confuses or unconfuses unit
 
 -- |A non negative Int.
 newtype NonNegative = NonNegative Int
@@ -38,3 +40,6 @@ heal = Heal . nonNegative
 -- |Constructs an experience giving 'EffectAtom'
 giveExp :: Int -> EffectAtom
 giveExp = GiveExp . nonNegative
+
+confuse :: EffectAtom
+confuse = SetConfusion True

@@ -11,6 +11,7 @@ module Game.Environment
     runGameEnv,
     renderEnvironment,
     evalAction,
+    randomRGameEnv
   )
 where
 
@@ -20,9 +21,12 @@ import Game.Modifiers.UnitOp
 import Game.Modifiers.UnitOpFactory
 import Game.Unit.Stats
 import Game.Unit.Action
+import System.Random
 
 -- | All manipulations with units in environment should use this type
 data UnitId = MobUnitId Int | PlayerUnitId
+
+instance Eq UnitId
 
 -- TODO maybe extract units to a different module?
 -- TODO comment
@@ -33,6 +37,8 @@ newtype GameEnv a = GameEnv {unGameEnv :: State Environment a}
 instance Functor GameEnv
 instance Applicative GameEnv
 instance Monad GameEnv
+
+randomRGameEnv :: Random a => (a, a) -> GameEnv a
 
 runGameEnv :: GameEnv a -> Environment -> (a, Environment)
 

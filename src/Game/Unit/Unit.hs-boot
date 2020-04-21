@@ -2,6 +2,8 @@
 module Game.Unit.Unit
   ( UnitData,
     Unit (..),
+    Mob,
+    Player,
     AnyUnit (..),
     isAlive,
     applyUnitOp_,

@@ -4,6 +4,7 @@
 -- | Describes common interface for all units in the game.
 module Game.Unit.Unit
   ( UnitData(..),
+    confused,
     position,
     depth,
     stats,
@@ -29,6 +30,7 @@ module Game.Unit.Unit
     isAlive,
     makePlayer,
     makeMob,
+    unitWithModifiers,
   )
 where
 
@@ -44,11 +46,14 @@ import Game.Unit.Inventory
 import Game.Unit.Control
 import Game.Unit.Stats
 import Game.Unit.TimedUnitOps
+import Game.Modifiers.UnitOpFactory (UnitOpFactory, buildUnitOp)
 
 -- | Common data of all units.
 data UnitData
   = UnitData
-      { -- | Coordinates on a level
+      { -- | If unit is confused
+        _confused :: Bool,
+        -- | Coordinates on a level
         _position :: (Int, Int),
         -- | Level (as in depth) on which the unit is now
         _depth :: Int,
@@ -61,7 +66,6 @@ data UnitData
         -- | A weapon to use when unit is fighting bare-hand TODO use it in calculations
         _baseWeapon :: WeaponItem,
         -- | How to display this unit
-        -- Defines behavior of a unit. Arguments are level and all the other units on it. TODO remove if not used
         _portrait :: Char
       }
 
@@ -103,13 +107,13 @@ createUnitData ::
   TimedUnitOps ->
   -- | Inventory on a unit
   Inventory ->
-  -- | A weapon to use when unit is fighting bare-hand TODO use it in calculations
+  -- | A weapon to use when unit is fighting bare-hand
   WeaponItem ->
   -- | How to display this unit
   Char ->
   -- | Constructed 'Unit'
   UnitData
-createUnitData = UnitData
+createUnitData = UnitData True
 
 -- | Something that can hit and run.
 -- A typeclass for every active participant of a game. If it moves and participates in combat system, it is a unit.
@@ -151,12 +155,15 @@ instance Unit Player where
     applyUnitOp next $ playerUnit . position .~ coordTo $ u
   applyUnitOp (Free (GetPortrait nextF)) u =
     applyUnitOp (nextF (u ^. playerUnit . portrait)) u
+  applyUnitOp (Free (GetConfusion nextF)) u =
+    applyUnitOp (nextF (u ^. playerUnit . confused)) u
   applyUnitOp (Free (ApplyEffect effect next)) u =
     applyUnitOp next $ applyEffect effect u
     where
       applyEffect (Damage dmg) = playerUnit . stats . health %~ subtract (fromNonNegative dmg)
       applyEffect (Heal h) = playerUnit . stats . health %~ (+) (fromNonNegative h)
       applyEffect (GiveExp _) = id
+      applyEffect (SetConfusion c) = playerUnit . confused .~ c
 
 instance Unit Mob where
   asUnitData = _mobUnit
@@ -176,12 +183,15 @@ instance Unit Mob where
     applyUnitOp next $ mobUnit . position .~ coordTo $ u
   applyUnitOp (Free (GetPortrait nextF)) u =
     applyUnitOp (nextF (u ^. mobUnit . portrait)) u
+  applyUnitOp (Free (GetConfusion nextF)) u =
+    applyUnitOp (nextF (u ^. mobUnit . confused)) u
   applyUnitOp (Free (ApplyEffect effect next)) u =
     applyUnitOp next $ applyEffect effect u
     where
       applyEffect (Damage dmg) = mobUnit . stats . health %~ subtract (fromNonNegative dmg)
       applyEffect (Heal h) = mobUnit . stats . health %~ (+) (fromNonNegative h)
       applyEffect (GiveExp _) = id
+      applyEffect (SetConfusion c) = mobUnit . confused .~ c
 
 -- | Returns an active weapon unit data implies.
 -- That is, returns equipped weapon or base weapon if none equipped
@@ -201,3 +211,13 @@ makePlayer unitData = Player unitData (LevellingStats 0 0)
 
 makeMob :: UnitData -> Mob
 makeMob unitData = Mob unitData undefined
+
+-- | Applies all modifiers from wearables and timed effects to a unit
+unitWithModifiers :: Unit u => UnitOpFactory -> u -> u
+unitWithModifiers factory u = applyUnitOp_ allUnitOps u
+  where
+    inv = asUnitData u ^. inventory
+    wearableEffect = getAllWearableUnitOps inv
+    wearableUnitOp = buildUnitOp factory wearableEffect
+    timedEffectsOp = composeUnitOp $ _timedUnitOps $ asUnitData u
+    allUnitOps = wearableUnitOp >>= const timedEffectsOp

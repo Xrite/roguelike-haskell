@@ -37,6 +37,7 @@ data GameLevel
 
 makeLenses ''GameLevel
 
+-- | Unsafe get cell at position
 getCell :: (Int, Int) -> Map -> MapCell
 getCell i mp = (mp ^. cells) ! i
 
@@ -46,12 +47,15 @@ maybeGetCellAt i g = if inBounds m i then Just (getCell i m) else Nothing
   where
     m = g ^. lvlMap
 
+-- | Check whether a cell at position is an entrance to the next level
 isEntranceAt :: (Int, Int) -> GameLevel -> Bool
 isEntranceAt i g = g ^. lvlMap . entrance == i
 
+-- | Check whether a cell at position is an exit to the previous level
 isExitAt :: (Int, Int) -> GameLevel -> Bool
 isExitAt i g = g ^. lvlMap . exit == i
 
+-- | Get map bounds
 getMapSize :: Map -> ((Int, Int), (Int, Int))
 getMapSize mp = bounds (mp ^. cells)
 

@@ -16,6 +16,7 @@ module Game.Environment
     runGameEnv,
     renderEnvironment,
     evalAction,
+    randomRGameEnv
   )
 where
 
@@ -24,7 +25,7 @@ import Control.Monad.State
 import Control.Monad.Fail
 import Data.Foldable (find)
 import Data.List (findIndex)
-import Data.Maybe (fromMaybe, isJust, isNothing, listToMaybe)
+import Data.Maybe (fromMaybe, isJust, isNothing, listToMaybe, fromJust)
 import Game.ActionEvaluation
 import Game.GameLevels.GameLevel
 import Game.GameLevels.MapCell
@@ -36,9 +37,10 @@ import Game.Unit.Stats
 import Game.Unit.Unit
 import Game.Unit.Action
 import PreludeUtil (listLens)
+import System.Random
 
 -- | All manipulations with units in environment should use this type
-data UnitId = MobUnitId Int | PlayerUnitId
+data UnitId = MobUnitId Int | PlayerUnitId deriving (Eq)
 
 -- TODO maybe extract units to a different module?
 -- TODO comment
@@ -47,13 +49,14 @@ data UnitId = MobUnitId Int | PlayerUnitId
 data Environment
   = Environment
       { _player :: Player,
-        _mobs :: [(Int, Mob GameEnv)],
+        -- | Mob's id, mob itself and it's action evaluator
+        _mobs :: [(Int, Mob, Action -> GameEnv ())],
         _levels :: [GameLevel],
         _currentLevel :: Int,
         _currentUnitTurn :: Int,
         _modifierFactory :: UnitOpFactory,
         _playerEvaluator :: Action -> GameEnv (),
-        _mobEvaluators :: [Action -> GameEnv ()]
+        _randomGenerator :: StdGen
       }
 
 -- | A type for evaluating action on Environment
@@ -64,6 +67,13 @@ makeLenses ''Environment
 instance MonadFail GameEnv where
   fail = error
 
+randomRGameEnv :: Random a => (a, a) -> GameEnv a
+randomRGameEnv range = do
+  g <- gets _randomGenerator
+  let (value, g') = randomR range g
+  randomGenerator .= g'
+  return value
+
 runGameEnv :: GameEnv a -> Environment -> (a, Environment)
 runGameEnv gameEnv = runState (unGameEnv gameEnv)
 
@@ -71,17 +81,17 @@ instance Show Environment where
   show _ = "Environment"
 
 -- | Constructs a new 'Environment'.
-makeEnvironment :: Player -> [Mob GameEnv] -> [GameLevel] -> UnitOpFactory -> Environment
+makeEnvironment :: Player -> [Mob] -> [GameLevel] -> UnitOpFactory -> Environment
 makeEnvironment player mobs levels factory =
   Environment
     { _player = player,
-      _mobs = zip [0 ..] mobs,
+      _mobs = zip3 [0 ..] mobs (const (const (return ())) . MobUnitId <$> [0 ..]),
       _levels = levels,
       _currentLevel = 0,
       _currentUnitTurn = 0,
       _modifierFactory = factory,
       _playerEvaluator = defaultEvaluation PlayerUnitId,
-      _mobEvaluators = [const $ return ()]
+      _randomGenerator = mkStdGen 42
     }
 
 -- | This function should remove dead units from environment.
@@ -92,24 +102,27 @@ filterDead = do
   env <- get
   modify $ set mobs (newMobs env)
   where
-    newMobs env = filter (isAlive . snd) (env ^. mobs)
+    newMobs env = filter (isAlive . (^. _2)) (env ^. mobs)
 
 getActiveUnits :: GameEnv [UnitId]
 getActiveUnits = do
   filterDead
   env <- get
   let players = if isAlive (env ^. player) then [PlayerUnitId] else []
-  let activeMobs = map (MobUnitId . fst) (env ^. mobs)
+  let activeMobs = map (MobUnitId . (^. _1)) (env ^. mobs)
   return $ players ++ activeMobs
 
-{- unitLensById :: UnitId -> Lens' Environment Unit.AnyUnit
-unitLensById (UnitId idxInt) = units . listLens idxInt -}
+mobIndById :: Environment -> Int -> Int
+mobIndById env idx = fromJust $ findIndex ((== idx) . (^. _1)) (env ^. mobs)
 
-{- unitById :: UnitId -> Environment -> Unit.AnyUnit
-unitById idx env = env ^. unitLensById idx -}
+getMobById :: Int -> Environment -> Mob
+getMobById idx env = env ^. mobs . listLens (mobIndById env idx) . _2
 
-{- setUnitById :: UnitId -> Unit.AnyUnit -> Environment -> Environment
-setUnitById idx unit = filterDead . set (unitLensById idx) unit -}
+setMobById :: Int -> Mob -> Environment -> Environment
+setMobById idx mob env = mobs . listLens (mobIndById env idx) . _2 .~ mob $ env
+
+mobLensById :: Int -> Lens' Environment (Mob)
+mobLensById idx = lens (getMobById idx) (flip (setMobById idx))
 
 affectUnit :: UnitId -> UnitOp a -> GameEnv a
 affectUnit PlayerUnitId modifier = do
@@ -120,8 +133,8 @@ affectUnit PlayerUnitId modifier = do
   return result
 affectUnit (MobUnitId idx) modifier = do
   env <- get
-  let (newMob, result) = applyUnitOp modifier (snd $ (env ^. mobs) !! idx)
-  modify $ set (mobs . ix idx . _2) newMob
+  let (newMob, result) = applyUnitOp modifier $ getMobById idx env
+  modify $ setMobById idx newMob
   filterDead
   return result
 
@@ -160,18 +173,18 @@ checkPassable uid pos = do
 unitByCoord coord env = find ((== coord) . _position . Unit.asUnitData) $ _units env -}
 
 -- | Get AnyUnit from UnitId
-_accessUnit :: UnitId -> GameEnv (AnyUnit GameEnv)
+_accessUnit :: UnitId -> GameEnv AnyUnit
 _accessUnit uid = do
   env <- get
   case uid of
     PlayerUnitId -> return $ MkPlayer (env ^. player)
-    MobUnitId i -> return $ MkMob (snd $ (env ^. mobs) !! i)
+    MobUnitId i -> return $ MkMob (getMobById i env)
 
 -- | Try to set AnyUnit by Unit id. Return True when success.
-_trySetUnit :: UnitId -> AnyUnit GameEnv -> GameEnv Bool
+_trySetUnit :: UnitId -> AnyUnit -> GameEnv Bool
 _trySetUnit uid u = case (uid, u) of
   (PlayerUnitId, MkPlayer p) -> modify (set player p) >> return True
-  (MobUnitId i, MkMob m) -> modify (set (mobs . ix i . _2) m) >> return True
+  (MobUnitId i, MkMob m) -> modify (setMobById i m) >> return True
   _ -> return False
 
 -- | Perform and attack between two units
@@ -187,7 +200,7 @@ envAttack attackerId attackedId = do
   attacker <- _accessUnit attackerId
   attacked <- _accessUnit attackedId
   let (attacker', attacked') = attack fact attacker attacked
-  True <- _trySetUnit attackerId attacker'
+  True <- _trySetUnit attackerId attacker' -- should always be true
   True <- _trySetUnit attackedId attacked'
   return ()
 
@@ -196,7 +209,7 @@ evalAction u a = do
   env <- get
   case u of
     PlayerUnitId -> (env ^. playerEvaluator) a
-    MobUnitId idx -> fromMaybe (return ()) $ (env ^? mobEvaluators . ix idx) <*> pure a
+    MobUnitId idx -> fromMaybe (return ()) $ ((^. _3) <$> find (\x -> x ^. _1 == idx) (env ^. mobs)) <*> pure a
 
 getCurrentLevel :: GameEnv GameLevel
 getCurrentLevel = do
