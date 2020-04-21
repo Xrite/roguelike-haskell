@@ -41,6 +41,7 @@ import Game.Modifiers.EffectDesc (EffectDesc)
 import Game.Modifiers.UnitOp
 import Game.Unit.Action
 import Game.Unit.Inventory
+import Game.Unit.Control
 import Game.Unit.Stats
 import Game.Unit.TimedUnitOps
 
@@ -65,7 +66,7 @@ data UnitData
       }
 
 -- | Tagged union of units
-data AnyUnit ctx = MkMob (Mob ctx) | MkPlayer Player
+data AnyUnit = MkMob Mob | MkPlayer Player
 
 data LevellingStats
   = LevellingStats {_experience :: Int, _skillPoints :: Int}
@@ -74,12 +75,12 @@ data LevellingStats
 data Player = Player {_playerUnit :: UnitData, _levelling :: LevellingStats}
 
 -- | A mob is a simple computer-controlled 'Unit'.
-data Mob ctx
+data Mob
   = Mob
       { -- | UnitData of that mob
         _mobUnit :: UnitData,
         -- | Mob behaviour using some context
-        _strategy :: ctx Action
+        _strategy :: TaggedControl
       }
 
 makeLenses ''LevellingStats
@@ -124,7 +125,7 @@ class Unit u where
 applyUnitOp_ :: Unit u => UnitOp a -> u -> u
 applyUnitOp_ modifier u = fst $ applyUnitOp modifier u
 
-instance Unit (AnyUnit ctx) where
+instance Unit AnyUnit where
   asUnitData (MkMob m) = asUnitData m
   asUnitData (MkPlayer p) = asUnitData p
 
@@ -157,7 +158,7 @@ instance Unit Player where
       applyEffect (Heal h) = playerUnit . stats . health %~ (+) (fromNonNegative h)
       applyEffect (GiveExp _) = id
 
-instance Unit (Mob ctx) where
+instance Unit Mob where
   asUnitData = _mobUnit
 
   applyUnitOp (Pure res) m = (m, res)
@@ -198,5 +199,5 @@ isAlive u = asUnitData u ^. stats . health > 0
 makePlayer :: UnitData -> Player
 makePlayer unitData = Player unitData (LevellingStats 0 0)
 
-makeMob :: UnitData -> Mob ctx
+makeMob :: UnitData -> Mob
 makeMob unitData = Mob unitData undefined

@@ -133,12 +133,20 @@ unitByCoord coord = do
 
 moveUnit :: UnitId -> (Int, Int) -> GameEnv Bool
 moveUnit u pos = do
-  lvl <- getCurrentLevel
-  let maybeCell = maybeGetCellAt pos lvl
-  maybeStats <- affectUnit u UnitOp.getStats
-  isFree <- isNothing <$> unitByCoord pos
-  if isJust $ checkAll maybeCell maybeStats isFree
+  isPassable <- checkPassable u pos
+  if isPassable
     then affectUnit u $ UnitOp.setCoord pos >> return True
+    else return False
+
+checkPassable :: UnitId -> (Int, Int) -> GameEnv Bool
+checkPassable uid pos = do
+  lvl <- getCurrentLevel
+  unitPos <- affectUnit uid UnitOp.getPosition 
+  let maybeCell = maybeGetCellAt pos lvl
+  maybeStats <- affectUnit uid UnitOp.getStats
+  isFree <- isNothing <$> unitByCoord pos
+  if pos == unitPos || (isJust $ checkAll maybeCell maybeStats isFree)
+    then return True
     else return False
   where
     checkAll maybeCell maybeStats isFree = do

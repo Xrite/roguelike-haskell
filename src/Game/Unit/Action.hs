@@ -1,19 +1,22 @@
 module Game.Unit.Action
-  ( Action(..)
-  , Direction(..)
-  , directionToInt
-  , changeCoord
-  , moveUp
-  , moveDown
-  , moveRight
-  , moveLeft
-  ) where
+  ( Action (..),
+    Direction (..),
+    directionToInt,
+    changeCoord,
+    moveUp,
+    moveDown,
+    moveRight,
+    moveLeft,
+    stayAtPosition,
+  )
+where
 
 import Data.Bifunctor (bimap)
 
-data Direction = Positive
-               | Negative
-               | Zero
+data Direction
+  = Positive
+  | Negative
+  | Zero
 
 data Action = Move Direction Direction
 
@@ -36,3 +39,6 @@ moveRight = Move Positive Zero
 
 moveLeft :: Action
 moveLeft = Move Negative Zero
+
+stayAtPosition :: Action
+stayAtPosition = Move Zero Zero

@@ -19,13 +19,13 @@ import Game.Unit.TimedUnitOps
 
 data UnitData
 
-data AnyUnit (ctx :: * -> *) = MkMob (Mob ctx) | MkPlayer Player
+data AnyUnit = MkMob Mob | MkPlayer Player
 
 data LevellingStats
 
 data Player = Player {_playerUnit :: UnitData, _levelling :: LevellingStats}
 
-data Mob (ctx :: * -> *)
+data Mob
 
 
 -- | Something that can hit and run.
@@ -46,8 +46,8 @@ isAlive :: Unit u => u -> Bool
 
 makePlayer :: UnitData -> Player
 
-instance Unit (AnyUnit ctx)
+instance Unit AnyUnit
 
 instance Unit Player
 
-instance Unit (Mob ctx)
+instance Unit Mob
