@@ -15,6 +15,7 @@ module Game.Environment
     evalAction,
     randomRGameEnv,
     getAction,
+    getActiveUnits,
   )
 where
 

@@ -5,7 +5,6 @@ import Data.List ((\\))
 import Data.Maybe
 import Game.GameLevels.GameLevel
 import Game.GameLevels.MapCell
-import Game.GameLevels.MapCellType
 
 type MapGraph = Gr (Int, Int) Int
 

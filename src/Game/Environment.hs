@@ -23,6 +23,7 @@ module Game.Environment
     randomRGameEnv,
     getActiveMobs,
     getAction,
+    getActiveUnits,
   )
 where
 
@@ -100,7 +101,7 @@ makeEnvironment :: Player -> [Mob] -> [GameLevel] -> UnitOpFactory -> Environmen
 makeEnvironment player mobs levels factory =
   Environment
     { _player = player,
-      _mobs = IntMap.fromList $ zip [0 ..] $ zip mobs (const (const (return ())) . MobUnitId <$> [0 ..]),
+      _mobs = IntMap.fromList $ zip [0 ..] $ zip mobs [defaultEvaluation (MobUnitId i) | i <- [0..]],
       _levels = levels,
       _currentLevel = 0,
       _currentUnitTurn = 0,

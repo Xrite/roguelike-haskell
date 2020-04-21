@@ -1,6 +1,7 @@
 module Game.Unit.Control where
 
 import Control.Lens
+import Control.Monad.Except
 import Data.Graph.Inductive
 import Data.List
 import {-# SOURCE #-} Game.Environment
@@ -8,10 +9,10 @@ import Game.GameLevels.GameLevel
 import Game.GameLevels.MapCell
 import Game.GameLevels.MapCellType
 import Game.GameLevels.PathFinding
+import Game.GameLevels.Visibility
 import qualified Game.Modifiers.UnitOp as UnitOp
 import Game.Unit.Action
 import {-# SOURCE #-} Game.Unit.Unit
-import Control.Monad.Except
 
 data TaggedControl = Aggressive | Passive | Avoiding | DoNothing
 
@@ -27,17 +28,26 @@ aggressiveControl uid = do
   playerPos <- affectUnit (playerId undefined) UnitOp.getPosition
   unitPos <- affectUnit uid UnitOp.getPosition
   maybeStats <- affectUnit uid UnitOp.getStats
-  let f cell = case maybeStats of
+  allUnits <- lift getActiveUnits >>= traverse (`affectUnit` UnitOp.getPosition)
+  let passability cell = case maybeStats of
         Nothing -> False
         Just stats -> (cell ^. cellType . passable) stats
-  let path = findPath f (lvl ^. lvlMap) unitPos playerPos []
-  case path of
-    Nothing -> return stayAtPosition
-    Just (_ : (x, y) : _) -> return $ deltaToAction (x - fst unitPos, y - snd unitPos)
-    Just _ -> return stayAtPosition
+  let visibility cell = case maybeStats of
+        Nothing -> False
+        Just stats -> (cell ^. cellType . transparent) stats
+  let path = findPath passability (lvl ^. lvlMap) unitPos playerPos (allUnits \\ [playerPos, unitPos])
+  if canSee (lvl ^. lvlMap) visibility unitPos playerPos
+    then case path of
+      Nothing -> return stayAtPosition
+      Just (_ : (x, y) : _) -> return $ deltaToAction (x - fst unitPos, y - snd unitPos)
+      Just _ -> return stayAtPosition
+    else return stayAtPosition
 
 passiveControl :: UnitId -> FailableGameEnv UnitIdError Action
-passiveControl mob = return $ moveDown
+passiveControl mob = do
+  dx <- lift $ randomRGameEnv (-1, 1)
+  dy <- lift $ randomRGameEnv (-1, 1)
+  return $ deltaToAction (dx, dy)
 
 avoidingControl :: UnitId -> FailableGameEnv UnitIdError Action
-avoidingControl mob = return $ moveDown
+avoidingControl mob = return $ stayAtPosition 

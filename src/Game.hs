@@ -120,7 +120,7 @@ testEnvironment =
   makeEnvironment
     ourPlayer
     [ makeMob (makeUnitData (14, 15) 'U') Aggressive ,
-      makeMob (makeUnitData (4, 6) 'U') Aggressive ,
+      makeMob (makeUnitData (4, 6) 'U') Passive ,
       makeMob (makeUnitData (5, 6) 'U') Aggressive 
     ]
     [testGameLevel]
