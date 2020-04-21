@@ -101,7 +101,7 @@ testEnvironmentWithLevel level =
     [level]
     (makeUnitOpFactory Map.empty)
   where
-    ourPlayer = makeSomePlayer $ makeUnitData (2, 2) 'λ'
+    ourPlayer = makeSomePlayer $ makeUnitData (level ^. lvlMap . entrance) 'λ'
 
 randomEnvironment :: Int -> Environment
 randomEnvironment seed =

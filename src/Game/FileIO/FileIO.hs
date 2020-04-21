@@ -39,7 +39,7 @@ readLevelFromFile filePath =
   try $ do
     fileHandler <- openFile filePath ReadMode
     content <- hGetContents fileHandler
-    case readGameLevel content of
+    case readGameLevel content of  
       (Just x) -> return x
       Nothing -> throw (userError "wrong format")
 
@@ -50,8 +50,12 @@ readGameLevel str = do
 
 readMap :: String -> Maybe Map
 readMap str = do
-    _array <- readArray str
-    return $ makeMap (0, 0) (0, 0) _array -- !!!! should read coordinates too !!!!
+    let [(x1, s1)] = reads str :: [(Int, String)]
+    let [(y1, s2)] = reads s1 :: [(Int, String)]
+    let [(x2, s3)] = reads s2 :: [(Int, String)]
+    let [(y2, s4)] = reads s3 :: [(Int, String)]
+    _array <- readArray $ tail s4  -- removes '\n'
+    return $ makeMap (x1, y1) (x2, y2) _array
 
 readArray :: String -> Maybe (Array (Int, Int) MapCell)
 readArray str =

@@ -8,6 +8,7 @@ module Game.GameLevels.GameLevel
     inBounds,
     makeGameLevel,
     lvlMap,
+    entrance,
     makeMap,
     maybeGetCellAt,
     isEntranceAt,
