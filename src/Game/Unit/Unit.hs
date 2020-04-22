@@ -113,7 +113,7 @@ createUnitData ::
   Char ->
   -- | Constructed 'Unit'
   UnitData
-createUnitData = UnitData True
+createUnitData = UnitData False
 
 -- | Something that can hit and run.
 -- A typeclass for every active participant of a game. If it moves and participates in combat system, it is a unit.
@@ -157,6 +157,8 @@ instance Unit Player where
     applyUnitOp (nextF (u ^. playerUnit . portrait)) u
   applyUnitOp (Free (GetConfusion nextF)) u =
     applyUnitOp (nextF (u ^. playerUnit . confused)) u
+  applyUnitOp (Free (TickTimedEffects nextF)) u =
+    applyUnitOp nextF $ playerUnit . timedUnitOps %~ tick $ u
   applyUnitOp (Free (ApplyEffect effect next)) u =
     applyUnitOp next $ applyEffect effect u
     where
@@ -185,6 +187,8 @@ instance Unit Mob where
     applyUnitOp (nextF (u ^. mobUnit . portrait)) u
   applyUnitOp (Free (GetConfusion nextF)) u =
     applyUnitOp (nextF (u ^. mobUnit . confused)) u
+  applyUnitOp (Free (TickTimedEffects nextF)) u =
+    applyUnitOp nextF $ mobUnit . timedUnitOps %~ tick $ u
   applyUnitOp (Free (ApplyEffect effect next)) u =
     applyUnitOp next $ applyEffect effect u
     where

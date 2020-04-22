@@ -13,7 +13,8 @@ module Game.Modifiers.UnitOp
     setCoord,
     getPortrait,
     setEffect,
-    getConfusion
+    getConfusion,
+    tickTimedEffects
   )
 where
 
@@ -32,6 +33,7 @@ data UnitOpDSL a
   | GetPortrait (Char -> a)
   | ApplyEffect EffectAtom a
   | GetConfusion (Bool -> a)
+  | TickTimedEffects a
   deriving (Functor)
 
 type UnitOp a = Free UnitOpDSL a
@@ -68,3 +70,6 @@ setEffect atom = Free $ ApplyEffect atom (Pure ())
 
 getConfusion :: UnitOp Bool
 getConfusion = liftF $ GetConfusion id
+
+tickTimedEffects :: UnitOp ()
+tickTimedEffects = Free $ TickTimedEffects (Pure ())

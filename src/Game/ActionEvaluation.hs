@@ -25,7 +25,7 @@ defaultEvaluation = confuseAwareDecorator basicEvaluation
 
 confuseAwareDecorator :: ActionEvaluator -> ActionEvaluator
 confuseAwareDecorator eval u dir = do
-  isConfused <- affectUnit u UnitOp.getConfusion
+  isConfused <- queryUnitWithModifiers u UnitOp.getConfusion
   let eval' =
         if isConfused
           then confusedDecorator eval

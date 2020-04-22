@@ -9,6 +9,7 @@ module Game.Environment
     envAttack,
     playerId,
     affectUnit,
+    queryUnitWithModifiers,
     moveUnit,
     runGameEnv,
     renderEnvironment,
@@ -58,7 +59,11 @@ getActiveUnits :: GameEnv [UnitId]
 
 affectUnit :: UnitId -> UnitOp a -> FailableGameEnv UnitIdError a
 
+queryUnitWithModifiers :: UnitId -> UnitOp a -> FailableGameEnv UnitIdError a
+
 unitByCoord :: (Int, Int) -> GameEnv (Maybe UnitId)
+
+unitByCoord2 :: (Int, Int) -> GameEnv (Maybe UnitId)
 
 moveUnit :: UnitId -> (Int, Int) -> FailableGameEnv UnitIdError Bool
 

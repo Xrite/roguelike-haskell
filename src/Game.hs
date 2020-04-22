@@ -7,7 +7,7 @@
 module Game where
 
 import Control.Lens
-import qualified Data.Map as Map (empty)
+import qualified Data.Map as Map
 import Data.Functor (($>))
 import Game.Environment
 import Game.GameLevels.GameLevel
@@ -16,8 +16,9 @@ import Game.GameLevels.Generation.BSPGen (GeneratorParameters (..))
 import qualified Game.GameLevels.Generation.GenerationUtil as GU
 import Game.Item (createWeapon)
 import Game.Modifiers.EffectAtom
-import Game.Modifiers.EffectDesc (effectAtom)
+import Game.Modifiers.EffectDesc (effectAtom, effectTypical)
 import Game.Modifiers.UnitOpFactory (makeUnitOpFactory)
+import Game.Modifiers.UnitOp
 import Game.Unit.Action
 import Game.Unit.Inventory (emptyInventory)
 import Game.Unit.Stats as Stats
@@ -81,7 +82,6 @@ mainMenuUI = makeListMenuUI $
 loadLevel :: String -> IO GameLevel
 loadLevel name = do
   levelEither <- getLevelByName name
---  level1 <- fromEither levelEither
   let level1 = fromRight testGameLevel levelEither
   return level1
 
@@ -111,7 +111,7 @@ randomEnvironment seed =
     ourPlayer
     []
     [lvl]
-    (makeUnitOpFactory Map.empty)
+    (makeUnitOpFactory $ Map.singleton "confuse" $ setTimedUnitOp 10 (const $ setEffect confuse))
   where
     lvl = fst $ randomBSPGeneratedLevel (GU.Space (GU.Coord 0 0) (GU.Coord 50 50)) (GeneratorParameters 10 1.7 5) $ mkStdGen seed
     startCoord = _entrance $ _lvlMap lvl
@@ -121,12 +121,12 @@ testEnvironment :: Environment
 testEnvironment =
   makeEnvironment
     ourPlayer
-    [ makeMob (makeUnitData (14, 15) 'U') Aggressive ,
-      makeMob (makeUnitData (4, 6) 'U') Passive ,
-      makeMob (makeUnitData (5, 6) 'U') Aggressive 
+    [ makeMob (makeUnitData (14, 15) 'U') Aggressive
+    , makeMob (makeUnitData (4, 6) 'U') Passive
+    , makeMob (makeUnitData (5, 6) 'U') Aggressive
     ]
     [testGameLevel]
-    (makeUnitOpFactory Map.empty)
+    (makeUnitOpFactory $ Map.singleton "confuse" $ setTimedUnitOp 10 (const $ setEffect confuse))
   where
     ourPlayer = makeSomePlayer $ makeUnitData (7, 9) 'λ'
 
@@ -136,9 +136,9 @@ makeUnitData position render =
     position
     0
     (Stats.Stats 10 10 10 1)
-    (addUnitOp 10 (const $ setEffect $ confuse) empty)
+    (Game.Unit.TimedUnitOps.empty)
     emptyInventory
-    (createWeapon "weapon" (effectAtom $ damage 5) 'A')
+    (createWeapon "weapon" (effectAtom (damage 1) >> effectTypical "confuse") 'A')
     render
 
 makeSomePlayer :: UnitData -> Player
@@ -150,4 +150,6 @@ makeTurn playerAction = do
   runExceptT (evalAction player playerAction)
   mobs <- getActiveMobs
   runExceptT $ traverse (\u -> getAction u >>= evalAction u) mobs
+  units <- getActiveUnits
+  runExceptT $ traverse (`affectUnit` tickTimedEffects) units
   return ()

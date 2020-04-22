@@ -16,6 +16,7 @@ module Game.Environment
     playerId,
     getPlayer,
     affectUnit,
+    queryUnitWithModifiers,
     moveUnit,
     runGameEnv,
     renderEnvironment,
@@ -160,6 +161,14 @@ affectUnit (MobUnitId idx) modifier = do
   modify $ setMobById idx newMob
   lift filterDead
   return result
+
+queryUnitWithModifiers :: UnitId -> UnitOp a -> FailableGameEnv UnitIdError a
+queryUnitWithModifiers idx modifier = do
+  unit <- _accessUnit idx
+  fact <- use modifierFactory
+  let modifiedUnit = unitWithModifiers fact unit
+  let (_, res) = applyUnitOp modifier modifiedUnit
+  return res
 
 -- | Get unit at position
 unitByCoord :: (Int, Int) -> GameEnv (Maybe UnitId)
