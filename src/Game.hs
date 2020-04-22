@@ -122,8 +122,8 @@ testEnvironment =
   makeEnvironment
     ourPlayer
     [ makeMob (makeUnitData (14, 15) 'U') Aggressive
-    , makeMob (makeUnitData (4, 6) 'U') Passive
-    , makeMob (makeUnitData (5, 6) 'U') Aggressive
+    , makeMob (makeUnitData (4, 6) 'U') (Passive (4, 6))
+    , makeMob (makeUnitData (5, 6) 'U') Avoiding 
     ]
     [testGameLevel]
     (makeUnitOpFactory $ Map.singleton "confuse" $ setTimedUnitOp 10 (const $ setEffect confuse))

@@ -32,7 +32,6 @@ where
 
 import Control.Lens
 import Game.Modifiers.EffectDesc
-import {-# SOURCE #-} Game.Unit.Unit (Unit)
 
 data WearableType
   = Head

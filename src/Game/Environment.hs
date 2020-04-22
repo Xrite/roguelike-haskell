@@ -8,7 +8,7 @@ module Game.Environment
     UnitId,
     GameEnv,
     FailableGameEnv,
-    UnitIdError(..),
+    UnitIdError (..),
     makeEnvironment,
     getCurrentLevel,
     unitByCoord,
@@ -25,31 +25,33 @@ module Game.Environment
     getActiveMobs,
     getAction,
     getActiveUnits,
+    getActivePlayer,
+    getUnitPosition,
+    setStrategy,
   )
 where
 
 import Control.Lens hiding (levels)
+import Control.Monad (void, when)
 import Control.Monad.Except
 import Control.Monad.Fail
 import Control.Monad.State
-import qualified Data.IntMap as IntMap
 import Data.Either (rights)
+import Data.List
+import qualified Data.IntMap as IntMap
 import Data.Maybe (fromJust, fromMaybe, isJust, isNothing, listToMaybe)
-import Game.ActionEvaluation
 import Game.GameLevels.GameLevel
 import Game.GameLevels.MapCell
 import Game.GameLevels.MapCellType
+import Game.GameLevels.PathFinding
+import Game.GameLevels.Visibility
 import Game.Modifiers.UnitOp as UnitOp
 import Game.Modifiers.UnitOpFactory (UnitOpFactory)
-import Game.Unit.Action
-import Game.Unit.Control
-import Game.Unit.DamageCalculation (attack)
-import Game.Unit.Stats
-import Game.Unit.Unit
-import PreludeUtil (listLens)
+import Game.Unit
+import Game.Unit.Action as Action
 import System.Random
 
--- | All manipulations with units in environment should use this type
+-- | All manipulations with units in environment should use this typegg
 data UnitId = MobUnitId Int | PlayerUnitId deriving (Eq)
 
 -- TODO maybe extract units to a different module?
@@ -82,6 +84,9 @@ makeLenses ''Environment
 instance MonadFail GameEnv where
   fail = error
 
+instance Show Environment where
+  show _ = "Environment"
+
 randomRGameEnv :: Random a => (a, a) -> GameEnv a
 randomRGameEnv range = do
   g <- gets _randomGenerator
@@ -92,15 +97,12 @@ randomRGameEnv range = do
 runGameEnv :: GameEnv a -> Environment -> (a, Environment)
 runGameEnv gameEnv = runState (unGameEnv gameEnv)
 
-instance Show Environment where
-  show _ = "Environment"
-
 -- | Constructs a new 'Environment'.
 makeEnvironment :: Player -> [Mob] -> [GameLevel] -> UnitOpFactory -> Environment
 makeEnvironment player mobs levels factory =
   Environment
     { _player = player,
-      _mobs = IntMap.fromList $ zip [0 ..] $ zip mobs [defaultEvaluation (MobUnitId i) | i <- [0..]],
+      _mobs = IntMap.fromList $ zip [0 ..] $ zip mobs [defaultEvaluation (MobUnitId i) | i <- [0 ..]],
       _levels = levels,
       _currentLevel = 0,
       _currentUnitTurn = 0,
@@ -135,6 +137,18 @@ getActiveMobs = do
   let activeMobs = map MobUnitId $ IntMap.keys (env ^. mobs)
   return activeMobs
 
+getActivePlayer :: FailableGameEnv UnitIdError UnitId
+getActivePlayer = do
+  env <- get
+  if isAlive (env ^. player)
+    then return $ PlayerUnitId
+    else throwError NoSuchUnit
+
+setStrategy :: TaggedControl -> UnitId -> FailableGameEnv UnitIdError ()
+setStrategy tag (MobUnitId i) = do
+  modify $ set (mobs . ix i . _1 . controlTag) tag
+setStrategy _ _ = throwError UnitCastExcepton
+
 _getMobById :: Int -> FailableGameEnv UnitIdError Mob
 _getMobById idx = do
   env <- get
@@ -161,6 +175,9 @@ affectUnit (MobUnitId idx) modifier = do
   modify $ setMobById idx newMob
   lift filterDead
   return result
+
+getUnitPosition :: UnitId -> FailableGameEnv UnitIdError (Int, Int)
+getUnitPosition uid = affectUnit uid UnitOp.getPosition
 
 queryUnitWithModifiers :: UnitId -> UnitOp a -> FailableGameEnv UnitIdError a
 queryUnitWithModifiers idx modifier = do
@@ -264,7 +281,7 @@ getAction :: UnitId -> FailableGameEnv UnitIdError Action
 getAction PlayerUnitId = return stayAtPosition
 getAction uid@(MobUnitId idx) = do
   env <- get
-  tag <- case env ^? mobs . ix idx . _1 . controlTag of 
+  tag <- case env ^? mobs . ix idx . _1 . controlTag of
     Nothing -> throwError InvalidUnitId
     Just t -> return t
   (env ^. strategy) tag uid
@@ -279,3 +296,132 @@ renderEnvironment = do
   positions <- rights <$> traverse (runExceptT . (`affectUnit` UnitOp.getPosition)) units
   portraits <- rights <$> traverse (runExceptT . (`affectUnit` UnitOp.getPortrait)) units
   return $ foldl (\m ((x, y), p) -> m & ix y . ix x .~ p) terrain (zip positions portraits)
+
+--------------------------------------------------------------------
+-- Control
+--------------------------------------------------------------------
+
+getControl :: TaggedControl -> UnitId -> FailableGameEnv UnitIdError Action
+getControl Aggressive = aggressiveControl
+getControl (Passive dest) = passiveControl dest
+getControl Avoiding = avoidingControl
+getControl DoNothing = const $ return stayAtPosition
+
+-- | Tries to reach and attack a player whenever player is visible to this unit
+aggressiveControl :: UnitId -> FailableGameEnv UnitIdError Action
+aggressiveControl uid = do
+  lvl <- lift getCurrentLevel
+  playerPos <- getActivePlayer >>= getUnitPosition
+  unitPos <- getUnitPosition uid
+  maybeStats <- affectUnit uid UnitOp.getStats
+  allUnits <- lift getActiveUnits >>= traverse (`affectUnit` UnitOp.getPosition)
+  let path = findPath (getPassability maybeStats) (lvl ^. lvlMap) unitPos playerPos (allUnits \\ [playerPos, unitPos])
+  if canSee (lvl ^. lvlMap) (getVisibility maybeStats) unitPos playerPos
+    then case path of
+      Nothing -> return stayAtPosition
+      Just (_ : (x, y) : _) -> return $ deltaToAction (x - fst unitPos, y - snd unitPos)
+      Just _ -> return stayAtPosition
+    else return stayAtPosition
+
+passiveControl :: (Int, Int) -> UnitId -> FailableGameEnv UnitIdError Action
+passiveControl dest uid = do
+  unitPos <- getUnitPosition uid
+  if unitPos == dest
+    then generateNewDestination unitPos
+    else do
+      lvl <- lift getCurrentLevel
+      maybeStats <- affectUnit uid UnitOp.getStats
+      allUnits <- lift getActiveUnits >>= traverse (`affectUnit` UnitOp.getPosition)
+      let path = findPath (getPassability maybeStats) (lvl ^. lvlMap) unitPos dest (allUnits \\ [unitPos])
+      case path of
+        Nothing -> generateNewDestination unitPos
+        Just (_ : (x, y) : _) -> return $ deltaToAction (x - fst unitPos, y - snd unitPos)
+        Just _ -> return stayAtPosition
+  where
+    generateNewDestination unitPos = do
+      lvl <- lift getCurrentLevel
+      maybeStats <- affectUnit uid UnitOp.getStats
+      allUnitPositions <- lift getActiveUnits >>= traverse (`affectUnit` UnitOp.getPosition)
+      let allVisible = visiblePositions (lvl ^. lvlMap) (getVisibility maybeStats) unitPos
+      let available = allVisible \\ (allUnitPositions \\ [unitPos])
+      randomIndex <- lift $ randomRGameEnv (0, length available - 1)
+      let newDestination = available !! randomIndex
+      setStrategy (Passive newDestination) uid
+      return stayAtPosition
+
+avoidingControl :: UnitId -> FailableGameEnv UnitIdError Action
+avoidingControl uid = do
+  lvl <- lift getCurrentLevel
+  playerPos <- getActivePlayer >>= getUnitPosition
+  unitPos <- getUnitPosition uid
+  maybeStats <- affectUnit uid UnitOp.getStats
+  allUnitPositions <- lift getActiveUnits >>= traverse (`affectUnit` UnitOp.getPosition)
+  let possible = getFurtherFrom (lvl ^. lvlMap) (getPassability maybeStats) playerPos unitPos allUnitPositions
+  case possible of
+    [] -> return stayAtPosition
+    xs -> do
+      randomIndex <- lift $ randomRGameEnv (0, length xs - 1)
+      let (x, y) = xs !! randomIndex
+      return $ deltaToAction (x - fst unitPos, y - snd unitPos)
+  where
+    distance2 (x1, y1) (x2, y2) = (x1 - x2) ^ 2 + (y1 - y2) ^ 2
+
+getPassability maybeStats cell = case maybeStats of
+  Nothing -> False
+  Just stats -> (cell ^. cellType . passable) stats
+
+getVisibility maybeStats cell = case maybeStats of
+  Nothing -> False
+  Just stats -> (cell ^. cellType . transparent) stats
+
+type ActionEvaluator = UnitId -> Action -> FailableGameEnv UnitIdError ()
+
+basicEvaluation :: ActionEvaluator
+basicEvaluation u (Move xDir yDir) = do
+  position <- affectUnit u UnitOp.getPosition
+  let newPosition = Action.changeCoord xDir yDir position
+  unitAtPos <- lift $ unitByCoord newPosition
+  case unitAtPos of
+    Nothing -> void $ moveUnit u newPosition
+    Just other -> when (other /= u) $ envAttack u other
+
+defaultEvaluation :: ActionEvaluator
+defaultEvaluation = confuseAwareDecorator basicEvaluation
+
+confuseAwareDecorator :: ActionEvaluator -> ActionEvaluator
+confuseAwareDecorator eval u dir = do
+  isConfused <- queryUnitWithModifiers u UnitOp.getConfusion
+  let eval' =
+        if isConfused
+          then confusedDecorator eval
+          else eval
+  eval' u dir
+
+-- | Changes ActionEvaluator so that performed action is changed randomly.
+--  Move direction is changed to an adjacent with probability 0.5.
+confusedDecorator :: ActionEvaluator -> ActionEvaluator
+confusedDecorator eval u dir = do
+  rand <- lift $ randomRGameEnv (0.0, 1.0)
+  let dir'
+        | rand > changeDirectionProbability = dir
+        | rand > (changeDirectionProbability / 2) = nextDirection dir
+        | otherwise = prevDirection dir
+  eval u dir'
+  where
+    changeDirectionProbability = 0.25 :: Double
+    directionsCycle =
+      [ Move Positive Positive,
+        Move Positive Zero,
+        Move Positive Negative,
+        Move Zero Negative,
+        Move Negative Negative,
+        Move Negative Zero,
+        Move Negative Positive,
+        Move Zero Positive,
+        Move Positive Positive
+      ]
+    nextDirection (Move Zero Zero) = Move Zero Zero
+    nextDirection d = head $ drops (== d) directionsCycle
+    prevDirection = foldl1 (.) $ replicate 7 nextDirection
+    drops f (x : xs) = if f x then xs else drops f xs
+    drops _ [] = error "element no found"

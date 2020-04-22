@@ -22,3 +22,10 @@ canSee m visibility (ax, ay) (bx, by) = fromMaybe False $ do
     allNodes = mapMaybe (getNode m) [(x, y) | x <- [xFrom .. xTo], y <- [yFrom .. yTo], isClose (x, y)]
     isVisible (index, (x, y)) = inBounds m (x, y) && visibility (getCell (x, y) m)
     allEdges = concatMap (buildEdgesToNeighbours m isVisible) allNodes
+  
+-- | Return all visible positions from given position.
+visiblePositions :: Map -> (MapCell -> Bool) -> (Int, Int) -> [(Int, Int)]
+visiblePositions m visibility pos = filter (canSee m visibility pos) allPositions
+  where
+    ((xFrom, yFrom), (xTo, yTo)) = getMapSize m
+    allPositions = [(x, y) | x <- [xFrom..xTo], y <- [yFrom..yTo]]

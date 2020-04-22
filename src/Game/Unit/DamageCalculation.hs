@@ -1,9 +1,7 @@
 module Game.Unit.DamageCalculation where
 
-import Control.Lens
 import Game.Modifiers.UnitOp
 import Game.Modifiers.UnitOpFactory (UnitOpFactory, buildUnitOp)
-import Game.Unit.Inventory
 import Game.Unit.Unit
 import Prelude hiding (head)
 

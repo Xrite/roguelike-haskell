@@ -3,7 +3,7 @@
 
 -- | Describes common interface for all units in the game.
 module Game.Unit.Unit
-  ( UnitData(..),
+  ( UnitData (..),
     confused,
     position,
     depth,
@@ -41,12 +41,11 @@ import Game.Item
 import Game.Modifiers.EffectAtom
 import Game.Modifiers.EffectDesc (EffectDesc)
 import Game.Modifiers.UnitOp
-import Game.Unit.Action
+import Game.Modifiers.UnitOpFactory (UnitOpFactory, buildUnitOp)
 import Game.Unit.Inventory
-import Game.Unit.Control
 import Game.Unit.Stats
 import Game.Unit.TimedUnitOps
-import Game.Modifiers.UnitOpFactory (UnitOpFactory, buildUnitOp)
+import Game.Unit.Control
 
 -- | Common data of all units.
 data UnitData
@@ -213,7 +212,7 @@ isAlive u = asUnitData u ^. stats . health > 0
 makePlayer :: UnitData -> Player
 makePlayer unitData = Player unitData (LevellingStats 0 0)
 
-makeMob :: UnitData -> TaggedControl-> Mob
+makeMob :: UnitData -> TaggedControl -> Mob
 makeMob unitData tag = Mob unitData tag
 
 -- | Applies all modifiers from wearables and timed effects to a unit

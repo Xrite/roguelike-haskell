@@ -52,7 +52,7 @@ findPath ::
   (Int, Int) ->
   -- | Destination position
   (Int, Int) ->
-  -- | Forbidden position
+  -- | Forbidden positions
   [(Int, Int)] ->
   Maybe [(Int, Int)]
 findPath passability m s t exclude = do
@@ -62,3 +62,12 @@ findPath passability m s t exclude = do
   traverse (lab gr) path
   where
     gr = buildGraph passability m
+  
+getFurtherFrom :: Map -> (MapCell -> Bool) -> (Int, Int) -> (Int, Int) -> [(Int, Int)] -> [(Int, Int)]
+getFurtherFrom m passability s t exclude = furtherNeighbours \\ exclude
+  where
+    neighbours = let (x, y) = t in [(x + dx, y + dy) | dx <- [-1, 0, 1], dy <- [-1, 0, 1]]
+    currentDistance = distance2 s t
+    furtherNeighbours = filter isPassable $ filter ((> currentDistance) . distance2 s) neighbours
+    isPassable p = inBounds m p && passability (getCell p m)
+    distance2 (x1, y1) (x2, y2) = (x1 - x2) ^ 2 + (y1 - y2) ^ 2
