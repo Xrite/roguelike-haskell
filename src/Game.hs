@@ -1,15 +1,18 @@
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE TemplateHaskell #-}
-{-# LANGUAGE FlexibleContexts #-}
 
 module Game where
 
 import Control.Lens
-import qualified Data.Map as Map
+import Control.Monad.Except
+import Data.Either (fromRight)
 import Data.Functor (($>))
+import qualified Data.Map as Map
 import Game.Environment
+import Game.FileIO.FileIO (getLevelByName, getSavedLevels)
 import Game.GameLevels.GameLevel
 import Game.GameLevels.GenerateLevel (randomBSPGeneratedLevel, testGameLevel)
 import Game.GameLevels.Generation.BSPGen (GeneratorParameters (..))
@@ -17,23 +20,20 @@ import qualified Game.GameLevels.Generation.GenerationUtil as GU
 import Game.Item (createWeapon)
 import Game.Modifiers.EffectAtom
 import Game.Modifiers.EffectDesc (effectAtom, effectTypical)
-import Game.Modifiers.UnitOpFactory (makeUnitOpFactory)
 import Game.Modifiers.UnitOp
+import Game.Modifiers.UnitOp (setEffect)
+import Game.Modifiers.UnitOpFactory (makeUnitOpFactory)
 import Game.Unit.Action
+import Game.Unit.Control
 import Game.Unit.Inventory (emptyInventory)
 import Game.Unit.Stats as Stats
-import Game.Unit.TimedUnitOps (empty, addUnitOp)
+import Game.Unit.TimedUnitOps (addUnitOp, empty)
 import Game.Unit.Unit
 import System.Random (mkStdGen)
 import UI.Descriptions.GameUIDesc
 import qualified UI.Descriptions.ListMenuDesc as ListMenu
 import UI.Keys as Keys
 import UI.UI
-import Game.FileIO.FileIO (getLevelByName, getSavedLevels)
-import Data.Either (fromRight)
-import Game.Modifiers.UnitOp (setEffect)
-import Control.Monad.Except
-import Game.Unit.Control
 
 data GameState
   = Game Environment
@@ -50,23 +50,29 @@ instance HasUI IO GameState where
 instance HasUI IO MainMenuState where
   getUI (MainMenu ui) = ui
 
+
 gameUI :: (Applicative m, HasUI m GameState, HasUI m MainMenuState) => Environment -> UI m GameState
 gameUI env = makeGameUIPure $
   do
-    let (renderedMap, _) = runGameEnv renderEnvironment env
+    let (renderedMap, _) = runGameEnv tryRender env
     setMap renderedMap
     setArrowPress arrowPress
     setKeyPress keyPress
   where
---    arrowPress :: (HasIOUI ma GameState) => Arrows -> GameState -> AnyHasIOUI ma
+    --    arrowPress :: (HasIOUI ma GameState) => Arrows -> GameState -> AnyHasIOUI ma
     arrowPress Keys.Up (Game e) = packHasIOUI . Game . snd $ runGameEnv (makeTurn moveUp) e
     arrowPress Keys.Down (Game e) = packHasIOUI . Game . snd $ runGameEnv (makeTurn moveDown) e
     arrowPress Keys.Left (Game e) = packHasIOUI . Game . snd $ runGameEnv (makeTurn moveLeft) e
     arrowPress Keys.Right (Game e) = packHasIOUI . Game . snd $ runGameEnv (makeTurn moveRight) e
     arrowPress _ st = packHasIOUI st
---    keyPress :: Keys.Keys -> GameState -> AnyHasIOUI m
+    --    keyPress :: Keys.Keys -> GameState -> AnyHasIOUI m
     keyPress (Keys.Letter 'q') (Game _) = packHasIOUI $ MainMenu mainMenuUI
     keyPress _ st = packHasIOUI st
+    tryRender = do
+      e <- runExceptT renderEnvironmentVisibleToPlayer
+      case e of
+        Prelude.Left _ -> renderEnvironment
+        Prelude.Right mp -> return mp
 
 mainMenuUI :: UI IO MainMenuState
 mainMenuUI = makeListMenuUI $
@@ -99,7 +105,7 @@ testEnvironmentWithLevel :: GameLevel -> Environment
 testEnvironmentWithLevel level =
   makeEnvironment
     ourPlayer
-    [makeMob (makeUnitData (3, 3) 'U') Aggressive ]
+    [makeMob (makeUnitData (3, 3) 'U') Aggressive]
     [level]
     (makeUnitOpFactory Map.empty)
   where
@@ -121,9 +127,9 @@ testEnvironment :: Environment
 testEnvironment =
   makeEnvironment
     ourPlayer
-    [ makeMob (makeUnitData (14, 15) 'U') Aggressive
-    , makeMob (makeUnitData (4, 6) 'U') (Passive (4, 6))
-    , makeMob (makeUnitData (5, 6) 'U') Avoiding 
+    [ makeMob (makeUnitData (14, 15) 'U') Aggressive,
+      makeMob (makeUnitData (4, 6) 'U') (Passive (4, 6)),
+      makeMob (makeUnitData (5, 6) 'U') Avoiding
     ]
     [testGameLevel]
     (makeUnitOpFactory $ Map.singleton "confuse" $ setTimedUnitOp 10 (const $ setEffect confuse))

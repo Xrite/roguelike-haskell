@@ -28,6 +28,7 @@ module Game.Environment
     getActivePlayer,
     getUnitPosition,
     setStrategy,
+    renderEnvironmentVisibleToPlayer,
   )
 where
 
@@ -37,8 +38,8 @@ import Control.Monad.Except
 import Control.Monad.Fail
 import Control.Monad.State
 import Data.Either (rights)
-import Data.List
 import qualified Data.IntMap as IntMap
+import Data.List
 import Data.Maybe (fromJust, fromMaybe, isJust, isNothing, listToMaybe)
 import Game.GameLevels.GameLevel
 import Game.GameLevels.MapCell
@@ -296,6 +297,26 @@ renderEnvironment = do
   positions <- rights <$> traverse (runExceptT . (`affectUnit` UnitOp.getPosition)) units
   portraits <- rights <$> traverse (runExceptT . (`affectUnit` UnitOp.getPortrait)) units
   return $ foldl (\m ((x, y), p) -> m & ix y . ix x .~ p) terrain (zip positions portraits)
+
+renderEnvironmentWithPositions :: [(Int, Int)] -> GameEnv [String]
+renderEnvironmentWithPositions positionsToRender = do
+  lvl <- getCurrentLevel
+  let mp = lvl ^. lvlMap
+  let ((xFrom, yFrom), (xTo, yTo)) = getMapSize mp
+  let terrain = [[if (x, y) `elem` positionsToRender then renderCell $ getCell (x, y) mp else ' ' | x <- [xFrom .. xTo]] | y <- [yFrom .. yTo]]
+  units <- getActiveUnits
+  positions <- rights <$> traverse (runExceptT . (`affectUnit` UnitOp.getPosition)) units
+  portraits <- rights <$> traverse (runExceptT . (`affectUnit` UnitOp.getPortrait)) units
+  return $ foldl (\m ((x, y), p) -> if (x, y) `elem` positionsToRender then m & ix y . ix x .~ p else m) terrain (zip positions portraits)
+
+renderEnvironmentVisibleToPlayer :: FailableGameEnv UnitIdError [String]
+renderEnvironmentVisibleToPlayer = do
+  lvl <- lift getCurrentLevel
+  uid <- getActivePlayer
+  playerPos <- getUnitPosition uid
+  maybeStats <- affectUnit uid UnitOp.getStats
+  let positions = visiblePositions (lvl ^. lvlMap) (getVisibility maybeStats) playerPos
+  lift $ renderEnvironmentWithPositions positions
 
 --------------------------------------------------------------------
 -- Control
