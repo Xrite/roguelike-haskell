@@ -28,7 +28,7 @@ import UI.Descriptions.GameUIDesc
 import qualified UI.Descriptions.ListMenuDesc as ListMenu
 import UI.Keys as Keys
 import UI.UI
-import Game.FileIO.FileIO (getLevelByName)
+import Game.FileIO.FileIO (getLevelByName, getSavedLevels)
 import Data.Either (fromRight)
 import Game.Modifiers.UnitOp (setEffect)
 import Control.Monad.Except
@@ -78,9 +78,9 @@ mainMenuUI = makeListMenuUI $
     ListMenu.addItemPure "quit" (const . packHasIOUI $ EndState)
     ListMenu.selectItem 0
 
-loadLevel :: IO GameLevel
-loadLevel = do
-  levelEither <- getLevelByName "Level1"
+loadLevel :: String -> IO GameLevel
+loadLevel name = do
+  levelEither <- getLevelByName name
 --  level1 <- fromEither levelEither
   let level1 = fromRight testGameLevel levelEither
   return level1
@@ -89,7 +89,9 @@ loadLvlMenuUI :: UI IO MainMenuState
 loadLvlMenuUI =
   makeListMenuUI $ do
     ListMenu.setTitle "Load level"
-    ListMenu.addItem "level 1" (const $ packHasIOUI . Game . testEnvironmentWithLevel <$> loadLevel)
+    ListMenu.addItem "level 1" (const $ packHasIOUI . Game . testEnvironmentWithLevel <$> loadLevel "Level_1")
+    ListMenu.addItem "level 2" (const $ packHasIOUI . Game . testEnvironmentWithLevel <$> loadLevel "Level_2")
+    ListMenu.addItem "level 3" (const $ packHasIOUI . Game . testEnvironmentWithLevel <$> loadLevel "Level_3")
     ListMenu.addItemPure "back" (const $ packHasIOUI $ MainMenu mainMenuUI)
     ListMenu.selectItem 0
 
@@ -97,7 +99,7 @@ testEnvironmentWithLevel :: GameLevel -> Environment
 testEnvironmentWithLevel level =
   makeEnvironment
     ourPlayer
-    [makeMob (makeUnitData (1, 1) 'U') Aggressive ]
+    [makeMob (makeUnitData (3, 3) 'U') Aggressive ]
     [level]
     (makeUnitOpFactory Map.empty)
   where
