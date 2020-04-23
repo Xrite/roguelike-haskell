@@ -42,6 +42,7 @@ import Control.Monad.Except
 import Control.Monad.Fail
 import Control.Monad.State
 import Data.Array
+import qualified Data.Set as Set
 import Data.Either (rights)
 import qualified Data.IntMap as IntMap
 import Data.List
@@ -76,7 +77,7 @@ data Environment
         _playerEvaluator :: Action -> FailableGameEnv UnitIdError (),
         _randomGenerator :: StdGen,
         _strategy :: TaggedControl -> UnitId -> FailableGameEnv UnitIdError Action,
-        _seenByPlayer :: [[(Int, Int)]]
+        _seenByPlayer :: [Set.Set (Int, Int)]
       }
 
 -- | A type for evaluating action on Environment
@@ -117,7 +118,7 @@ makeEnvironment player mobs levels factory =
       _playerEvaluator = defaultEvaluation PlayerUnitId,
       _randomGenerator = mkStdGen 42,
       _strategy = getControl,
-      _seenByPlayer = [[] | _ <- [0..]]
+      _seenByPlayer = [Set.empty | _ <- [0..]]
     }
 
 -- | This function should remove dead units from environment.
@@ -318,7 +319,7 @@ getVisibleToPlayer = do
   return $ visiblePositions (lvl ^. lvlMap) visibility playerPos
 
 getSeenByPlayer :: GameEnv [(Int, Int)]
-getSeenByPlayer = do env <- get; return $ (env ^. seenByPlayer) !! (env ^. currentLevel)
+getSeenByPlayer = do env <- get; return . Set.toList $ (env ^. seenByPlayer) !! (env ^. currentLevel)
 
 getCells :: GameEnv (Array (Int, Int) Char)
 getCells = do
@@ -327,9 +328,9 @@ getCells = do
 
 updateSeenByPlayer :: GameEnv ()
 updateSeenByPlayer = do
-  visible <- getVisibleToPlayer
   lvlNum <- gets $ view currentLevel
-  modify $ over (seenByPlayer . ix lvlNum) (union visible)
+  visible <- Set.fromList <$> getVisibleToPlayer
+  modify $ over (seenByPlayer . ix lvlNum) (Set.union visible)
 
 --------------------------------------------------------------------
 -- Control
