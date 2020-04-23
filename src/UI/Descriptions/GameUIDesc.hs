@@ -116,7 +116,14 @@ blankEquippedItems =
 
 blankUIDesc :: UIDesc a b
 blankUIDesc =
-  GameUIDesc blankMap blankLog blankStats blankEquippedItems Nothing Nothing
+  GameUIDesc
+    { _map = blankMap,
+      _log = blankLog,
+      _stats = blankStats,
+      _equippedItems = blankEquippedItems,
+      _onArrowPress = Nothing,
+      _onKeyPress = Nothing
+    }
 
 -- | Get an UIDesc from a builder
 makeUI :: Builder a b c -> UIDesc a b

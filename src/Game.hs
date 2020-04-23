@@ -11,6 +11,7 @@ import Control.Monad.Except
 import Data.Either (fromRight, rights)
 import Data.Functor (($>))
 import qualified Data.Map as Map
+import qualified Data.Set as Set
 import Game.Environment
 import Game.FileIO.FileIO (getLevelByName, getSavedLevels)
 import Game.GameLevels.GameLevel
@@ -68,8 +69,8 @@ gameUI env = makeGameUIPure $
     keyPress (Keys.Letter 'q') (Game _) = packHasIOUI $ MainMenu mainMenuUI
     keyPress _ st = packHasIOUI st
     tryRender = do
-      visible <- getVisibleToPlayer
-      seen <- getSeenByPlayer
+      visible <- Set.fromList <$> getVisibleToPlayer
+      seen <- Set.fromList <$> getSeenByPlayer
       cells <- getCells
       mobs <- getActiveMobs
       ms <- rights <$> traverse (\uid -> runExceptT $ (,) <$> getUnitPosition uid <*> getUnitPortrait uid) mobs
@@ -78,8 +79,8 @@ gameUI env = makeGameUIPure $
       playerPortrait <- runExceptT $ getUnitPortrait playerUid
       return $ do
         GameUIDesc.setMapTerrain cells
-        GameUIDesc.setMapHasBeenSeenByPlayer (`elem` seen)
-        GameUIDesc.setMapIsVisibleToPlayer (`elem` visible)
+        GameUIDesc.setMapHasBeenSeenByPlayer (`Set.member` seen)
+        GameUIDesc.setMapIsVisibleToPlayer (`Set.member` visible)
         GameUIDesc.setMapMobs ms
         fromRight (return ()) $ pure GameUIDesc.setMapPlayer <*> playerPosition <*> playerPortrait
     tryGetStats = do

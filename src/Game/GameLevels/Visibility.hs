@@ -1,9 +1,9 @@
 module Game.GameLevels.Visibility where
 
 import Data.Graph.Inductive hiding (getNode)
+import Data.List
 import Data.Maybe
 import Data.Ratio
-import Data.List
 import Game.GameLevels.GameLevel
 import Game.GameLevels.MapCell
 import Game.GameLevels.PathFinding
@@ -33,12 +33,13 @@ canSeeFully m visibility (x1, y1) (x2, y2) = check
     xPts = if b == 0 then [] else [(x, round $ - fromIntegral (a * x + c) / fromIntegral b) | x <- [(min x1 x2) .. (max x1 x2)]]
     yPts = if a == 0 then [] else [(round $ - fromIntegral (b * y + c) / fromIntegral a, y) | y <- [(min y1 y2) .. (max y1 y2)]]
     isVisible (x, y) = inBounds m (x, y) && visibility (getCell (x, y) m)
-    check = all isVisible $ xPts ++ yPts
+    check = (a ^ 2 + b ^ 2 < 400) && (all isVisible $ xPts ++ yPts)
 
 canSee :: Map -> (MapCell -> Bool) -> (Int, Int) -> (Int, Int) -> Bool
-canSee m visibility s (x, y) = if inBounds m (x, y) && visibility (getCell (x, y) m)
-  then canSeeFully m visibility s (x, y)
-  else nonTransparentCase
+canSee m visibility s (x, y) =
+  if inBounds m (x, y) && visibility (getCell (x, y) m)
+    then canSeeFully m visibility s (x, y)
+    else nonTransparentCase
   where
     nonTransparentCase = any (canSeeFully m visibility s) [(x + dx, y + dy) | (dx, dy) <- [(1, 0), (-1, 0), (0, 1), (0, -1)]]
 
