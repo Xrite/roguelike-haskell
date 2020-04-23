@@ -1,4 +1,5 @@
 {-# LANGUAGE ExistentialQuantification #-}
+{-# LANGUAGE OverloadedStrings #-}
 
 module UI.BrickUI where
 
@@ -8,12 +9,14 @@ import qualified Brick.Widgets.Border.Style as BS
 import qualified Brick.Widgets.Center as C
 import Control.Lens
 import Control.Monad.IO.Class
+import Data.Array
 import Data.Maybe
 import qualified Graphics.Vty as V
 import qualified UI.Descriptions.GameUIDesc as GameUI
 import qualified UI.Descriptions.ListMenuDesc as ListMenu
 import qualified UI.Keys as Keys
 import UI.UI as UI
+import Debug.Trace
 
 type Name = ()
 
@@ -52,17 +55,32 @@ drawUI (UIState s ui) = case UI.baseLayout ui of
 
 drawGameUI :: GameUI.UIDesc a b -> [Widget n]
 drawGameUI desc =
-  [ (drawMap (GameUI.getMap desc) <=> drawLog (GameUI.getLog desc))
-      <+> ( drawStats (GameUI.getStats desc)
-              <=> drawItemMenu (GameUI.getItemMenu desc)
-          )
+  [ C.center $
+      (drawMap (desc ^. GameUI.map) <=> drawLog (desc ^. GameUI.log))
+        <+> ( drawStats (desc ^. GameUI.stats)
+                <=> drawEquippedItems (desc ^. GameUI.equippedItems)
+            )
   ]
 
 drawMap :: GameUI.Map -> Widget n
 drawMap m =
-  withBorderStyle BS.unicodeBold $ B.borderWithLabel (str "Snake") $ vBox rows
+  withBorderStyle BS.unicodeBold
+    $ B.borderWithLabel (str "Map")
+    $ vBox rows
   where
-    rows = map str (m ^. GameUI.mapField)
+    rows = [hBox $ cellsInRow r | r <- reverse [yFrom .. yTo]]
+    cellsInRow y = [drawCoord (x, y) | x <- [xFrom .. xTo]]
+    ((xFrom, yFrom), (xTo, yTo)) = bounds $ m ^. GameUI.mapTerrain
+    drawCoord c
+      | not $ (m ^. GameUI.mapHasBeenSeenByPlayer) c = str " "
+      | not $ (m ^. GameUI.mapIsVisibleToPlayer) c = charWithAttr shadowedAttr $ (m ^. GameUI.mapTerrain) ! c
+      | c == (m ^. GameUI.mapPlayerPosition) = charWithAttr visibleAttr $ m ^. GameUI.mapPlayerPortrait
+      | Just p <- lookup c (m ^. GameUI.mapMobs) = charWithAttr visibleAttr p
+      | Just i <- lookup c (m ^. GameUI.mapEntities) = charWithAttr visibleAttr i
+      | otherwise = charWithAttr visibleAttr $ (m ^. GameUI.mapTerrain) ! c
+
+charWithAttr :: AttrName -> Char -> Widget n
+charWithAttr attr ch = withAttr attr (str [ch])
 
 drawLog :: GameUI.Log -> Widget n
 drawLog l = vBox rows
@@ -70,10 +88,16 @@ drawLog l = vBox rows
     rows = [str s | (i, s) <- zip [0 ..] (l ^. GameUI.logRecords)]
 
 drawStats :: GameUI.Stats -> Widget n
-drawStats _ = fill '#'
+drawStats s =
+  withBorderStyle BS.unicodeBold $ B.borderWithLabel (str "Stats") $ vBox (map drawPair $ s ^. GameUI.statsRecords)
+  where
+    drawPair (key, value) = str (key ++ ": ") <+> str value
 
-drawItemMenu :: GameUI.ItemMenu a b -> Widget n
-drawItemMenu _ = fill '$'
+drawEquippedItems :: GameUI.EquippedItems -> Widget n
+drawEquippedItems equippedItems =
+  withBorderStyle BS.unicodeRounded $ B.borderWithLabel (str "Equipped items") $ vBox (map drawItem $ equippedItems ^. GameUI.equippedItemsSlots)
+  where
+    drawItem (slot, maybeName) = str (slot ++ ": ") <+> fromMaybe (str "free") (str <$> maybeName)
 
 drawMenu :: ListMenu.UIDesc a b -> [Widget n]
 drawMenu menu = [vBox rows]
@@ -159,4 +183,13 @@ dispatchVtyEventListMenuUI state ui event desc = case event of
       Just f -> packAnyHasIOUIToUIState <$> f state
 
 theMap :: AttrMap
-theMap = attrMap V.defAttr []
+theMap =
+  attrMap
+    V.defAttr
+    [ (visibleAttr, V.white `on` V.black),
+      (shadowedAttr, V.white `on` V.brightBlack)
+    ]
+
+visibleAttr, shadowedAttr :: AttrName
+visibleAttr = "visibleAttr"
+shadowedAttr = "shadowedAttr"

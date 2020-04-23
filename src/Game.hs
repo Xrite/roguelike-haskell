@@ -8,7 +8,7 @@ module Game where
 
 import Control.Lens
 import Control.Monad.Except
-import Data.Either (fromRight)
+import Data.Either (fromRight, rights)
 import Data.Functor (($>))
 import qualified Data.Map as Map
 import Game.Environment
@@ -30,8 +30,8 @@ import Game.Unit.Stats as Stats
 import Game.Unit.TimedUnitOps (addUnitOp, empty)
 import Game.Unit.Unit
 import System.Random (mkStdGen)
-import UI.Descriptions.GameUIDesc
-import qualified UI.Descriptions.ListMenuDesc as ListMenu
+import qualified UI.Descriptions.GameUIDesc as GameUIDesc
+import qualified UI.Descriptions.ListMenuDesc as ListMenuDesc
 import UI.Keys as Keys
 import UI.UI
 
@@ -50,14 +50,13 @@ instance HasUI IO GameState where
 instance HasUI IO MainMenuState where
   getUI (MainMenu ui) = ui
 
-
 gameUI :: (Applicative m, HasUI m GameState, HasUI m MainMenuState) => Environment -> UI m GameState
 gameUI env = makeGameUIPure $
   do
-    let (renderedMap, _) = runGameEnv tryRender env
-    setMap renderedMap
-    setArrowPress arrowPress
-    setKeyPress keyPress
+    fst $ runGameEnv tryRender env
+    fst $ runGameEnv tryGetStats env
+    GameUIDesc.setArrowPress arrowPress
+    GameUIDesc.setKeyPress keyPress
   where
     --    arrowPress :: (HasIOUI ma GameState) => Arrows -> GameState -> AnyHasIOUI ma
     arrowPress Keys.Up (Game e) = packHasIOUI . Game . snd $ runGameEnv (makeTurn moveUp) e
@@ -69,21 +68,46 @@ gameUI env = makeGameUIPure $
     keyPress (Keys.Letter 'q') (Game _) = packHasIOUI $ MainMenu mainMenuUI
     keyPress _ st = packHasIOUI st
     tryRender = do
-      e <- runExceptT renderEnvironmentVisibleToPlayer
-      case e of
-        Prelude.Left _ -> renderEnvironment
-        Prelude.Right mp -> return mp
+      visible <- getVisibleToPlayer
+      seen <- getSeenByPlayer
+      cells <- getCells
+      mobs <- getActiveMobs
+      ms <- rights <$> traverse (\uid -> runExceptT $ (,) <$> getUnitPosition uid <*> getUnitPortrait uid) mobs
+      playerUid <- getPlayer
+      playerPosition <- runExceptT $ getUnitPosition playerUid
+      playerPortrait <- runExceptT $ getUnitPortrait playerUid
+      return $ do
+        GameUIDesc.setMapTerrain cells
+        GameUIDesc.setMapHasBeenSeenByPlayer (`elem` seen)
+        GameUIDesc.setMapIsVisibleToPlayer (`elem` visible)
+        GameUIDesc.setMapMobs ms
+        fromRight (return ()) $ pure GameUIDesc.setMapPlayer <*> playerPosition <*> playerPortrait
+    tryGetStats = do
+      uid <- getPlayer
+      eStats <- runExceptT $ getUnitStats uid
+      eLevellingStats <- runExceptT $ getLevellingStats uid
+      return $ fromRight (return ()) $ do
+        stats <- eStats
+        levellingStats <- eLevellingStats
+        return $ GameUIDesc.setStats
+          [ ("Health", show (stats ^. health)),
+            ("Attack power", show (stats ^. attackPower)),
+            ("Shield", show (stats ^. shield)),
+            ("Level", show (stats ^. level)),
+            ("Experience", show (levellingStats ^. experience)),
+            ("Skill points", show (levellingStats ^. skillPoints))
+          ]
 
 mainMenuUI :: UI IO MainMenuState
 mainMenuUI = makeListMenuUI $
   do
-    ListMenu.setTitle "Main menu"
-    ListMenu.addItemPure "random" (const (packHasIOUI $ Game $ randomEnvironment 42)) -- TODO use random generator or at least ask user to input a seed
-    ListMenu.addItemPure "load level" (const $ packHasIOUI $ MainMenu loadLvlMenuUI)
-    ListMenu.addItemPure "test level" (const (packHasIOUI $ Game testEnvironment))
-    ListMenu.addItem "test level & write to HI.txt" (const (appendFile "HI.txt" "x\n" $> packHasIOUI (Game testEnvironment)))
-    ListMenu.addItemPure "quit" (const . packHasIOUI $ EndState)
-    ListMenu.selectItem 0
+    ListMenuDesc.setTitle "Main menu"
+    ListMenuDesc.addItemPure "random" (const (packHasIOUI $ Game $ randomEnvironment 42)) -- TODO use random generator or at least ask user to input a seed
+    ListMenuDesc.addItemPure "load level" (const $ packHasIOUI $ MainMenu loadLvlMenuUI)
+    ListMenuDesc.addItemPure "test level" (const (packHasIOUI $ Game testEnvironment))
+    ListMenuDesc.addItem "test level & write to HI.txt" (const (appendFile "HI.txt" "x\n" $> packHasIOUI (Game testEnvironment)))
+    ListMenuDesc.addItemPure "quit" (const . packHasIOUI $ EndState)
+    ListMenuDesc.selectItem 0
 
 loadLevel :: String -> IO GameLevel
 loadLevel name = do
@@ -94,12 +118,12 @@ loadLevel name = do
 loadLvlMenuUI :: UI IO MainMenuState
 loadLvlMenuUI =
   makeListMenuUI $ do
-    ListMenu.setTitle "Load level"
-    ListMenu.addItem "level 1" (const $ packHasIOUI . Game . testEnvironmentWithLevel <$> loadLevel "Level_1")
-    ListMenu.addItem "level 2" (const $ packHasIOUI . Game . testEnvironmentWithLevel <$> loadLevel "Level_2")
-    ListMenu.addItem "level 3" (const $ packHasIOUI . Game . testEnvironmentWithLevel <$> loadLevel "Level_3")
-    ListMenu.addItemPure "back" (const $ packHasIOUI $ MainMenu mainMenuUI)
-    ListMenu.selectItem 0
+    ListMenuDesc.setTitle "Load level"
+    ListMenuDesc.addItem "level 1" (const $ packHasIOUI . Game . testEnvironmentWithLevel <$> loadLevel "Level_1")
+    ListMenuDesc.addItem "level 2" (const $ packHasIOUI . Game . testEnvironmentWithLevel <$> loadLevel "Level_2")
+    ListMenuDesc.addItem "level 3" (const $ packHasIOUI . Game . testEnvironmentWithLevel <$> loadLevel "Level_3")
+    ListMenuDesc.addItemPure "back" (const $ packHasIOUI $ MainMenu mainMenuUI)
+    ListMenuDesc.selectItem 0
 
 testEnvironmentWithLevel :: GameLevel -> Environment
 testEnvironmentWithLevel level =

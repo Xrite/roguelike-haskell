@@ -6,6 +6,7 @@ module UI.Descriptions.GameUIDesc where
 
 import Control.Lens
 import Control.Monad.State
+import Data.Array
 import qualified UI.Keys as Keys
 import Prelude hiding
   ( log,
@@ -30,14 +31,47 @@ data UIDesc a b
       }
   deriving (Functor)
 
-data Map = Map {_mapField :: [[Char]]}
+-- | Map description
+data Map
+  = Map
+      { -- | Terrain
+        _mapTerrain :: Array (Int, Int) Char,
+        -- | Is position has been seen by the player
+        _mapHasBeenSeenByPlayer :: (Int, Int) -> Bool,
+        -- | Is position visible to the player
+        _mapIsVisibleToPlayer :: (Int, Int) -> Bool,
+        -- | Mobs on the map with portrait
+        _mapMobs :: [((Int, Int), Char)],
+        -- | Position of the player
+        _mapPlayerPosition :: (Int, Int),
+        -- | Portrait of the player
+        _mapPlayerPortrait :: Char,
+        -- | Entities on the map with icons
+        _mapEntities :: [((Int, Int), Char)]
+      }
 
-data Log = Log {_logRecords :: [String]}
+-- | Log description
+data Log
+  = Log
+      { -- | Log records
+        _logRecords :: [String]
+      }
 
-data Stats = Stats {_statsRecords :: [(String, String)]}
+-- | Stats description
+data Stats
+  = Stats
+      { -- | Stats records
+        _statsRecords :: [(String, String)]
+      }
 
-data EquippedItems = EquippedItems {_equippedItemsSlots :: [(String, Maybe String)]}
+-- | Equipped items description
+data EquippedItems
+  = EquippedItems
+      { -- | Equipped items the first field is the name of slot, the second field is the name of equipped item
+        _equippedItemsSlots :: [(String, Maybe String)]
+      }
 
+-- | UIDesc builder
 type Builder a b = State (UIDesc a b)
 
 makeLenses ''UIDesc
@@ -51,16 +85,34 @@ makeLenses ''Stats
 makeLenses ''EquippedItems
 
 blankMap :: Map
-blankMap = Map [[]]
+blankMap =
+  Map
+    { _mapTerrain = undefined,
+      _mapHasBeenSeenByPlayer = const False,
+      _mapIsVisibleToPlayer = const False,
+      _mapMobs = [],
+      _mapPlayerPosition = undefined,
+      _mapPlayerPortrait = undefined,
+      _mapEntities = []
+    }
 
 blankLog :: Log
-blankLog = Log []
+blankLog =
+  Log
+    { _logRecords = []
+    }
 
 blankStats :: Stats
-blankStats = Stats []
+blankStats =
+  Stats
+    { _statsRecords = []
+    }
 
 blankEquippedItems :: EquippedItems
-blankEquippedItems = EquippedItems []
+blankEquippedItems =
+  EquippedItems
+    { _equippedItemsSlots = []
+    }
 
 blankUIDesc :: UIDesc a b
 blankUIDesc =
@@ -70,9 +122,39 @@ blankUIDesc =
 makeUI :: Builder a b c -> UIDesc a b
 makeUI = flip execState blankUIDesc
 
--- | Set a map in game UI
-setMap :: [[Char]] -> Builder a b ()
-setMap m = modify $ set map (Map m)
+-- | Set a map terrain in game UI
+setMapTerrain :: Array (Int, Int) Char -> Builder a b ()
+setMapTerrain t = modify $ set (map . mapTerrain) t
+
+-- | Set positions that have been seen by player
+setMapHasBeenSeenByPlayer :: ((Int, Int) -> Bool) -> Builder a b ()
+setMapHasBeenSeenByPlayer seen = modify $ set (map . mapHasBeenSeenByPlayer) seen
+
+-- | Set positions that are visible to the player
+setMapIsVisibleToPlayer :: ((Int, Int) -> Bool) -> Builder a b ()
+setMapIsVisibleToPlayer visible = modify $ set (map . mapIsVisibleToPlayer) visible
+
+-- | Set mobs on the map
+setMapMobs :: [((Int, Int), Char)] -> Builder a b ()
+setMapMobs mobs = modify $ set (map . mapMobs) mobs
+
+-- | Add a mob to the map
+addMapMob :: (Int, Int) -> Char -> Builder a b ()
+addMapMob position portrait = modify $ over (map . mapMobs) ((position, portrait) :)
+
+-- | Set the player on the map
+setMapPlayer :: (Int, Int) -> Char -> Builder a b ()
+setMapPlayer position portrait = do
+  modify $ set (map . mapPlayerPosition) position
+  modify $ set (map . mapPlayerPortrait) portrait
+
+-- | Set entities on the map
+setMapEntities :: [((Int, Int), Char)] -> Builder a b ()
+setMapEntities entities = modify $ set (map . mapEntities) entities
+
+-- | Add a mob to the map
+addMapEntity :: (Int, Int) -> Char -> Builder a b ()
+addMapEntity position icon = modify $ over (map . mapMobs) ((position, icon) :)
 
 -- | Set log records
 setLog :: [String] -> Builder a b ()

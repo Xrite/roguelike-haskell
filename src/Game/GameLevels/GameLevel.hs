@@ -3,12 +3,13 @@
 
 -- | Module responsible for working with the level's map
 module Game.GameLevels.GameLevel
-  ( getCell,
+  ( cells,
+    entrance,
+    getCell,
     getMapSize,
     inBounds,
     makeGameLevel,
     lvlMap,
-    entrance,
     makeMap,
     maybeGetCellAt,
     isEntranceAt,

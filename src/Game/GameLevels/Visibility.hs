@@ -36,7 +36,11 @@ canSeeFully m visibility (x1, y1) (x2, y2) = check
     check = all isVisible $ xPts ++ yPts
 
 canSee :: Map -> (MapCell -> Bool) -> (Int, Int) -> (Int, Int) -> Bool
-canSee m visibility s (x, y) = any (canSeeFully m visibility s) [(x + dx, y + dy) | dx <- [-1, 0, 1], dy <- [-1, 0, 1]]
+canSee m visibility s (x, y) = if inBounds m (x, y) && visibility (getCell (x, y) m)
+  then canSeeFully m visibility s (x, y)
+  else nonTransparentCase
+  where
+    nonTransparentCase = any (canSeeFully m visibility s) [(x + dx, y + dy) | (dx, dy) <- [(1, 0), (-1, 0), (0, 1), (0, -1)]]
 
 -- | Return all visible positions from given position.
 visiblePositions :: Map -> (MapCell -> Bool) -> (Int, Int) -> [(Int, Int)]

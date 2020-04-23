@@ -19,7 +19,6 @@ module Game.Environment
     queryUnitWithModifiers,
     moveUnit,
     runGameEnv,
-    renderEnvironment,
     evalAction,
     randomRGameEnv,
     getActiveMobs,
@@ -27,8 +26,13 @@ module Game.Environment
     getActiveUnits,
     getActivePlayer,
     getUnitPosition,
+    getUnitPortrait,
     setStrategy,
-    renderEnvironmentVisibleToPlayer,
+    getLevellingStats,
+    getUnitStats,
+    getVisibleToPlayer,
+    getSeenByPlayer,
+    getCells,
   )
 where
 
@@ -37,6 +41,7 @@ import Control.Monad (void, when)
 import Control.Monad.Except
 import Control.Monad.Fail
 import Control.Monad.State
+import Data.Array
 import Data.Either (rights)
 import qualified Data.IntMap as IntMap
 import Data.List
@@ -70,13 +75,14 @@ data Environment
         _modifierFactory :: UnitOpFactory,
         _playerEvaluator :: Action -> FailableGameEnv UnitIdError (),
         _randomGenerator :: StdGen,
-        _strategy :: TaggedControl -> UnitId -> FailableGameEnv UnitIdError Action
+        _strategy :: TaggedControl -> UnitId -> FailableGameEnv UnitIdError Action,
+        _seenByPlayer :: [[(Int, Int)]]
       }
 
 -- | A type for evaluating action on Environment
 newtype GameEnv a = GameEnv {unGameEnv :: State Environment a} deriving (Functor, Applicative, Monad, MonadState Environment)
 
-data UnitIdError = InvalidUnitId | NoSuchUnit | UnitCastExcepton deriving (Eq)
+data UnitIdError = InvalidUnitId | NoSuchUnit | UnitCastException deriving (Eq)
 
 type FailableGameEnv err = ExceptT err GameEnv
 
@@ -110,7 +116,8 @@ makeEnvironment player mobs levels factory =
       _modifierFactory = factory,
       _playerEvaluator = defaultEvaluation PlayerUnitId,
       _randomGenerator = mkStdGen 42,
-      _strategy = getControl
+      _strategy = getControl,
+      _seenByPlayer = [[] | _ <- [0..]]
     }
 
 -- | This function should remove dead units from environment.
@@ -145,10 +152,12 @@ getActivePlayer = do
     then return $ PlayerUnitId
     else throwError NoSuchUnit
 
+getPlayer :: GameEnv UnitId
+getPlayer = return PlayerUnitId
+
 setStrategy :: TaggedControl -> UnitId -> FailableGameEnv UnitIdError ()
-setStrategy tag (MobUnitId i) = do
-  modify $ set (mobs . ix i . _1 . controlTag) tag
-setStrategy _ _ = throwError UnitCastExcepton
+setStrategy tag (MobUnitId i) = modify $ set (mobs . ix i . _1 . controlTag) tag
+setStrategy _ _ = throwError UnitCastException
 
 _getMobById :: Int -> FailableGameEnv UnitIdError Mob
 _getMobById idx = do
@@ -160,15 +169,21 @@ _getMobById idx = do
 setMobById :: Int -> Mob -> Environment -> Environment
 setMobById idx mob env = env & mobs . ix idx . _1 .~ mob
 
+getLevellingStats :: UnitId -> FailableGameEnv UnitIdError LevellingStats
+getLevellingStats PlayerUnitId = gets (view (player . levelling))
+getLevellingStats _ = throwError UnitCastException
+
 {- mobLensById :: Int -> Lens' Environment Mob
 mobLensById idx = mobs . ix idx . _1 -}
 
 affectUnit :: UnitId -> UnitOp a -> FailableGameEnv UnitIdError a
 affectUnit PlayerUnitId modifier = do
+  lift updateSeenByPlayer
   env <- get
   let (newPlayer, result) = applyUnitOp modifier (env ^. player)
   modify $ set player newPlayer
   lift filterDead
+  lift updateSeenByPlayer
   return result
 affectUnit (MobUnitId idx) modifier = do
   mob <- _getMobById idx
@@ -179,6 +194,16 @@ affectUnit (MobUnitId idx) modifier = do
 
 getUnitPosition :: UnitId -> FailableGameEnv UnitIdError (Int, Int)
 getUnitPosition uid = affectUnit uid UnitOp.getPosition
+
+getUnitPortrait :: UnitId -> FailableGameEnv UnitIdError Char
+getUnitPortrait uid = affectUnit uid UnitOp.getPortrait 
+
+getUnitStats :: UnitId -> FailableGameEnv UnitIdError Stats
+getUnitStats uid = do
+  maybeStats <- affectUnit uid UnitOp.getStats
+  case maybeStats of
+    Nothing -> throwError InvalidUnitId
+    Just stats -> return stats
 
 queryUnitWithModifiers :: UnitId -> UnitOp a -> FailableGameEnv UnitIdError a
 queryUnitWithModifiers idx modifier = do
@@ -239,7 +264,7 @@ _trySetUnit uid u =
   case (uid, u) of
     (PlayerUnitId, MkPlayer p) -> void (modify (set player p))
     (MobUnitId i, MkMob m) -> void (modify (setMobById i m))
-    _ -> throwError UnitCastExcepton
+    _ -> throwError UnitCastException
 
 -- | Perform and attack between two units
 envAttack ::
@@ -275,9 +300,6 @@ getCurrentLevel = do
 playerId :: Environment -> UnitId
 playerId _ = PlayerUnitId
 
-getPlayer :: GameEnv UnitId
-getPlayer = return PlayerUnitId
-
 getAction :: UnitId -> FailableGameEnv UnitIdError Action
 getAction PlayerUnitId = return stayAtPosition
 getAction uid@(MobUnitId idx) = do
@@ -287,36 +309,27 @@ getAction uid@(MobUnitId idx) = do
     Just t -> return t
   (env ^. strategy) tag uid
 
-renderEnvironment :: GameEnv [String]
-renderEnvironment = do
+getVisibleToPlayer :: GameEnv [(Int, Int)]
+getVisibleToPlayer = do
+  env <- get
   lvl <- getCurrentLevel
-  let mp = lvl ^. lvlMap
-  let ((xFrom, yFrom), (xTo, yTo)) = getMapSize mp
-  let terrain = [[renderCell $ getCell (x, y) mp | x <- [xFrom .. xTo]] | y <- [yFrom .. yTo]]
-  units <- getActiveUnits
-  positions <- rights <$> traverse (runExceptT . (`affectUnit` UnitOp.getPosition)) units
-  portraits <- rights <$> traverse (runExceptT . (`affectUnit` UnitOp.getPortrait)) units
-  return $ foldl (\m ((x, y), p) -> m & ix y . ix x .~ p) terrain (zip positions portraits)
+  let visibility = getVisibility (Just $ env ^. player . playerUnit . stats)
+  let playerPos = env ^. player . playerUnit . position
+  return $ visiblePositions (lvl ^. lvlMap) visibility playerPos
 
-renderEnvironmentWithPositions :: [(Int, Int)] -> GameEnv [String]
-renderEnvironmentWithPositions positionsToRender = do
+getSeenByPlayer :: GameEnv [(Int, Int)]
+getSeenByPlayer = do env <- get; return $ (env ^. seenByPlayer) !! (env ^. currentLevel)
+
+getCells :: GameEnv (Array (Int, Int) Char)
+getCells = do
   lvl <- getCurrentLevel
-  let mp = lvl ^. lvlMap
-  let ((xFrom, yFrom), (xTo, yTo)) = getMapSize mp
-  let terrain = [[if (x, y) `elem` positionsToRender then renderCell $ getCell (x, y) mp else ' ' | x <- [xFrom .. xTo]] | y <- [yFrom .. yTo]]
-  units <- getActiveUnits
-  positions <- rights <$> traverse (runExceptT . (`affectUnit` UnitOp.getPosition)) units
-  portraits <- rights <$> traverse (runExceptT . (`affectUnit` UnitOp.getPortrait)) units
-  return $ foldl (\m ((x, y), p) -> if (x, y) `elem` positionsToRender then m & ix y . ix x .~ p else m) terrain (zip positions portraits)
+  return $ view (cellType . cellRender) <$> lvl ^. lvlMap . cells
 
-renderEnvironmentVisibleToPlayer :: FailableGameEnv UnitIdError [String]
-renderEnvironmentVisibleToPlayer = do
-  lvl <- lift getCurrentLevel
-  uid <- getActivePlayer
-  playerPos <- getUnitPosition uid
-  maybeStats <- affectUnit uid UnitOp.getStats
-  let positions = visiblePositions (lvl ^. lvlMap) (getVisibility maybeStats) playerPos
-  lift $ renderEnvironmentWithPositions positions
+updateSeenByPlayer :: GameEnv ()
+updateSeenByPlayer = do
+  visible <- getVisibleToPlayer
+  lvlNum <- gets $ view currentLevel
+  modify $ over (seenByPlayer . ix lvlNum) (union visible)
 
 --------------------------------------------------------------------
 -- Control

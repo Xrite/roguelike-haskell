@@ -41,10 +41,10 @@ changeCoord :: Direction -> Direction -> (Int, Int) -> (Int, Int)
 changeCoord xDir yDir = bimap (+ directionToInt xDir) (+ directionToInt yDir)
 
 moveUp :: Action
-moveUp = Move Zero Negative
+moveUp = Move Zero Positive
 
 moveDown :: Action
-moveDown = Move Zero Positive
+moveDown = Move Zero Negative
 
 moveRight :: Action
 moveRight = Move Positive Zero
