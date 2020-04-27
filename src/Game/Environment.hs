@@ -57,6 +57,7 @@ import Game.Modifiers.UnitOpFactory (UnitOpFactory)
 import Game.Unit
 import Game.Unit.Action as Action
 import System.Random
+import Safe (atDef)
 
 -- | All manipulations with units in environment should use this type
 data UnitId = MobUnitId Int | PlayerUnitId deriving (Eq)
@@ -296,7 +297,7 @@ evalAction u a = do
 getCurrentLevel :: GameEnv GameLevel
 getCurrentLevel = do
   env <- get
-  return $ (env ^. levels) !! (env ^. currentLevel)
+  return $ atDef (error "currentLevel index out of bounds") (env ^. levels) (env ^. currentLevel)
 
 playerId :: Environment -> UnitId
 playerId _ = PlayerUnitId
@@ -319,7 +320,7 @@ getVisibleToPlayer = do
   return $ visiblePositions (lvl ^. lvlMap) visibility playerPos
 
 getSeenByPlayer :: GameEnv [(Int, Int)]
-getSeenByPlayer = do env <- get; return . Set.toList $ (env ^. seenByPlayer) !! (env ^. currentLevel)
+getSeenByPlayer = do env <- get; return . Set.toList $ atDef (error "currentLevel index out of bounds") (env ^. seenByPlayer) (env ^. currentLevel)
 
 getCells :: GameEnv (Array (Int, Int) Char)
 getCells = do
@@ -378,9 +379,9 @@ passiveControl dest uid = do
       maybeStats <- affectUnit uid UnitOp.getStats
       allUnitPositions <- lift getActiveUnits >>= traverse (`affectUnit` UnitOp.getPosition)
       let allVisible = visiblePositions (lvl ^. lvlMap) (getVisibility maybeStats) unitPos
-      let available = allVisible \\ (allUnitPositions \\ [unitPos])
+      let available = unitPos : (allVisible \\ allUnitPositions)
       randomIndex <- lift $ randomRGameEnv (0, length available - 1)
-      let newDestination = available !! randomIndex
+      let newDestination = atDef (error $ "wrong available position index: " ++ show randomIndex ++ " out of " ++ show (length available)) available randomIndex
       setStrategy (Passive newDestination) uid
       return stayAtPosition
 
