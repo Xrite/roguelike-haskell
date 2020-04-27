@@ -5,6 +5,7 @@
 
 module Game.GameLevels.MapCell
   ( MapCell (..)
+  , MapCellState
   , makeCell
   , makeEmptyCell
   , cellTypeKey
