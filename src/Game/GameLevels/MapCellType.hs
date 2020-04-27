@@ -2,7 +2,18 @@
 
 -- | Module responsible for working with the map cell's type
 
-module Game.GameLevels.MapCellType where
+module Game.GameLevels.MapCellType
+  ( MapCellType (..)
+  , makeCellType
+  , makeConstCellType
+  , makeGround
+  , makeWall
+  , cellRender
+  , passable
+  , transparent
+  , interaction
+  , onStep
+  ) where
 
 import Game.Unit.Stats
 import Control.Lens (makeLenses)
@@ -17,10 +28,10 @@ data MapCellType = MapCellType
     -- | decides whether a unit can see through the cell
   , _transparent :: Stats -> Bool
     -- | Cells can let player do weird things like go to the next level or perhaps open a shop.
-
-    -- For lack of better option I'll make it "UnitOp ()", but
-    -- it probably should be something more permissive, at least use GameIO 
-  , _interact :: UnitOp ()
+    
+--     For lack of better option I'll make it "UnitOp ()", but
+--     it probably should be something more permissive, at least use GameIO 
+  , _interaction :: UnitOp ()
     -- | Cells can do things then a unit steps on them (fire applies burn modifier etc.).
       
     -- Also cells should be able to modify themselves (MapCell -> CellState), but we'll leave it to later versions. 
@@ -28,13 +39,16 @@ data MapCellType = MapCellType
   }
 makeLenses ''MapCellType
 
+makeCellType :: Char -> (Stats -> Bool) -> (Stats -> Bool) -> UnitOp () -> UnitOp () -> MapCellType
+makeCellType = MapCellType
+
 makeConstCellType :: Char -> Bool -> Bool -> MapCellType
 makeConstCellType render' passable' transparent' =
   MapCellType
     { _cellRender = render'
     , _transparent = const transparent'
     , _passable = const passable'
-    , _interact = return ()
+    , _interaction = return ()
     , _onStep = return ()
     }
 

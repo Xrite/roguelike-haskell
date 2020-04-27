@@ -26,11 +26,11 @@ testGameLevel =
   makeGameLevel $
   makeMap (10, 17) (10, 2) $
   runSTArray $ do
-    arrType <- newArray ((0, 0), (20, 20)) roomGround :: ST s (STArray s (Int, Int) MapCellType)
-    writeArray arrType (3, 6) wall
-    writeArray arrType (10, 2) ladderDown
-    writeArray arrType (10, 17) ladderUp
-    foldMap (\ i -> writeArray arrType i bush) [(x, 10) | x <- [2..15]]
+    arrType <- newArray ((0, 0), (20, 20)) roomGroundKey :: ST s (STArray s (Int, Int) MapCellTypeKey)
+    writeArray arrType (3, 6) wallKey
+    writeArray arrType (10, 2) ladderDownKey
+    writeArray arrType (10, 17) ladderUpKey
+    foldMap (\ i -> writeArray arrType i bushKey) [(x, 10) | x <- [2..15]]
     mapArray makeEmptyCell arrType
 
 -- |Generates a random level according to given parameters
@@ -46,17 +46,17 @@ buildLevel s rooms halls gen = (level, gen')
 
     ((upLadderPosition, downLadderPosition), gen') = flip runState gen $ liftM2 (,) (pickRandomPlaceInRooms rooms) (pickRandomPlaceInRooms rooms)
 
-    writeInterval :: forall s. STArray s (Int, Int) MapCellType -> Coord -> Coord -> MapCellType -> ST s ()
+    writeInterval :: forall s. STArray s (Int, Int) MapCellTypeKey -> Coord -> Coord -> MapCellTypeKey -> ST s ()
     writeInterval arr (Coord x1 y1) (Coord x2 y2) cellType =
       foldMap (\coord -> writeArray arr coord cellType) [(i, j) | i <- x1 `fromTo` x2, j <- y1 `fromTo` y2]
     levelArray =
       runSTArray $ do
         arrType <-
-          newArray (toPair $ s ^. fromCoord, toPair $ s ^. toCoord) wall :: ST s (STArray s (Int, Int) MapCellType)
-        foldMap (\hall -> writeInterval arrType (hall ^. startCorner) (hall ^. finishCorner) hallGround) halls
-        foldMap (\room -> writeInterval arrType (room ^. fromCorner) (room ^. toCorner) roomGround) rooms
-        writeArray arrType upLadderPosition ladderUp
-        writeArray arrType downLadderPosition ladderDown
+          newArray (toPair $ s ^. fromCoord, toPair $ s ^. toCoord) wallKey :: ST s (STArray s (Int, Int) MapCellTypeKey)
+        foldMap (\hall -> writeInterval arrType (hall ^. startCorner) (hall ^. finishCorner) hallGroundKey) halls
+        foldMap (\room -> writeInterval arrType (room ^. fromCorner) (room ^. toCorner) roomGroundKey) rooms
+        writeArray arrType upLadderPosition ladderUpKey
+        writeArray arrType downLadderPosition ladderDownKey
         mapArray makeEmptyCell arrType
     level = makeGameLevel $ makeMap upLadderPosition downLadderPosition levelArray
 
