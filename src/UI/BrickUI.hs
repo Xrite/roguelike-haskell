@@ -135,23 +135,32 @@ dispatchVtyEventGameUI ::
   V.Event ->
   GameUI.UIDesc a (m (AnyHasUI m)) ->
   EventM n (Next (UIState m))
-dispatchVtyEventGameUI state ui event desc = case event of
-  V.EvKey V.KUp [] -> liftIO (toIO $ tryArrowPress Keys.Up) >>= continue
-  V.EvKey V.KDown [] -> liftIO (toIO $ tryArrowPress Keys.Down) >>= continue
-  V.EvKey V.KRight [] -> liftIO (toIO $ tryArrowPress Keys.Right) >>= continue
-  V.EvKey V.KLeft [] -> liftIO (toIO $ tryArrowPress Keys.Left) >>= continue
-  V.EvKey (V.KChar 'q') [] -> liftIO (toIO $ tryKeyPress (Keys.Letter 'q')) >>= continue
-  _ -> continue $ packedS
+dispatchVtyEventGameUI state ui event desc =
+  case event of
+    V.EvKey V.KUp [] -> passArrow Keys.Up
+    V.EvKey V.KDown [] -> passArrow Keys.Down
+    V.EvKey V.KRight [] -> passArrow Keys.Right
+    V.EvKey V.KLeft [] -> passArrow Keys.Left
+    V.EvKey V.KUpLeft [] -> passArrow Keys.UpLeft
+    V.EvKey V.KUpRight [] -> passArrow Keys.UpRight
+    V.EvKey V.KDownLeft [] -> passArrow Keys.DownLeft
+    V.EvKey V.KDownRight [] -> passArrow Keys.DownRight
+    V.EvKey V.KCenter [] -> passArrow Keys.Center
+    V.EvKey (V.KChar c) [] -> liftIO (toIO $ tryKeyPress (Keys.Letter c)) >>= continue
+    _ -> continue packedS
   where
+    passArrow k = liftIO (toIO $ tryArrowPress k) >>= continue
     packedS = packUIState state ui
     onKeyPress = desc ^. GameUI.onKeyPress
     onArrowPress = desc ^. GameUI.onArrowPress
-    tryArrowPress key = case onArrowPress of
-      Nothing -> return packedS
-      Just f -> packAnyHasIOUIToUIState <$> f key state
-    tryKeyPress key = case onKeyPress of
-      Nothing -> return packedS
-      Just f -> packAnyHasIOUIToUIState <$> f key state
+    tryArrowPress key =
+      case onArrowPress of
+        Nothing -> return packedS
+        Just f -> packAnyHasIOUIToUIState <$> f key state
+    tryKeyPress key =
+      case onKeyPress of
+        Nothing -> return packedS
+        Just f -> packAnyHasIOUIToUIState <$> f key state
 
 dispatchVtyEventInventoryUI state ui event desc = undefined
 

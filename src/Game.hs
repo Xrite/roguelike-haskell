@@ -49,6 +49,38 @@ instance HasUI IO GameState where
 instance HasUI IO MainMenuState where
   getUI (MainMenu ui) = ui
 
+arrowsToAction :: Keys.Arrows -> Action
+arrowsToAction Keys.Up = Move Zero Positive
+arrowsToAction Keys.Down = Move Zero Negative
+arrowsToAction Keys.Left = Move Negative Zero
+arrowsToAction Keys.Right = Move Positive Zero
+arrowsToAction Keys.UpLeft = Move Negative Positive
+arrowsToAction Keys.UpRight = Move Positive Positive
+arrowsToAction Keys.DownLeft = Move Negative Negative
+arrowsToAction Keys.DownRight = Move Positive Negative
+arrowsToAction Keys.Center = Move Zero Zero
+
+keysToAction :: Keys.Keys -> Maybe Action
+keysToAction (Keys.Letter '8') = Just $ Move Zero Positive
+keysToAction (Keys.Letter '2') = Just $ Move Zero Negative
+keysToAction (Keys.Letter '4') = Just $ Move Negative Zero
+keysToAction (Keys.Letter '6') = Just $ Move Positive Zero
+keysToAction (Keys.Letter '7') = Just $ Move Negative Positive
+keysToAction (Keys.Letter '9') = Just $ Move Positive Positive
+keysToAction (Keys.Letter '1') = Just $ Move Negative Negative
+keysToAction (Keys.Letter '3') = Just $ Move Positive Negative
+keysToAction (Keys.Letter '5') = Just $ Move Zero Zero
+keysToAction (Keys.Letter 'j') = Just $ Move Zero Positive
+keysToAction (Keys.Letter 'k') = Just $ Move Zero Negative
+keysToAction (Keys.Letter 'h') = Just $ Move Negative Zero
+keysToAction (Keys.Letter 'l') = Just $ Move Positive Zero
+keysToAction (Keys.Letter 'y') = Just $ Move Negative Positive
+keysToAction (Keys.Letter 'u') = Just $ Move Positive Positive
+keysToAction (Keys.Letter 'b') = Just $ Move Negative Negative
+keysToAction (Keys.Letter 'n') = Just $ Move Positive Negative
+keysToAction (Keys.Letter '.') = Just $ Move Zero Zero
+keysToAction _ = Nothing
+
 gameUI :: (Applicative m, HasUI m GameState, HasUI m MainMenuState) => Environment -> UI m GameState
 gameUI env = makeGameUIPure $
   do
@@ -57,13 +89,11 @@ gameUI env = makeGameUIPure $
     GameUIDesc.setArrowPress arrowPress
     GameUIDesc.setKeyPress keyPress
   where
-    --    arrowPress :: (HasIOUI ma GameState) => Arrows -> GameState -> AnyHasIOUI ma
-    arrowPress Keys.Up (Game e) = packHasIOUI . Game . snd $ runGameEnv (makeTurn moveUp) e
-    arrowPress Keys.Down (Game e) = packHasIOUI . Game . snd $ runGameEnv (makeTurn moveDown) e
-    arrowPress Keys.Left (Game e) = packHasIOUI . Game . snd $ runGameEnv (makeTurn moveLeft) e
-    arrowPress Keys.Right (Game e) = packHasIOUI . Game . snd $ runGameEnv (makeTurn moveRight) e
+    --    arrowPress :: (HasUI ma GameState) => Arrows -> GameState -> AnyHasUI ma
+    arrowPress arrow (Game e) = packHasIOUI . Game . snd $ runGameEnv (makeTurn $ arrowsToAction arrow) e
     arrowPress _ st = packHasIOUI st
-    --    keyPress :: Keys.Keys -> GameState -> AnyHasIOUI m
+    --    keyPress :: Keys.Keys -> GameState -> AnyHasUI m
+    keyPress key (Game e) | Just action <- keysToAction key = packHasIOUI . Game . snd $ runGameEnv (makeTurn action) e
     keyPress (Keys.Letter 'q') (Game _) = packHasIOUI $ MainMenu mainMenuUI
     keyPress _ st = packHasIOUI st
     tryRender = do

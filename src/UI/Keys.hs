@@ -8,6 +8,7 @@ data Arrows = Up
             | UpLeft
             | DownRight
             | DownLeft
+            | Center
 
 data Keys = Letter Char
           | Enter
