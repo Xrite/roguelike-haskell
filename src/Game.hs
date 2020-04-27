@@ -9,11 +9,10 @@ module Game where
 import Control.Lens
 import Control.Monad.Except
 import Data.Either (fromRight, rights)
-import Data.Functor (($>))
 import qualified Data.Map as Map
 import qualified Data.Set as Set
 import Game.Environment
-import Game.FileIO.FileIO (getLevelByName, getSavedLevels)
+import Game.FileIO.FileIO (getLevelByName)
 import Game.GameLevels.GameLevel
 import Game.GameLevels.GenerateLevel (randomBSPGeneratedLevel, testGameLevel)
 import Game.GameLevels.Generation.BSPGen (GeneratorParameters (..))
@@ -22,13 +21,12 @@ import Game.Item (createWeapon)
 import Game.Modifiers.EffectAtom
 import Game.Modifiers.EffectDesc (effectAtom, effectTypical)
 import Game.Modifiers.UnitOp
-import Game.Modifiers.UnitOp (setEffect)
 import Game.Modifiers.UnitOpFactory (makeUnitOpFactory)
 import Game.Unit.Action
 import Game.Unit.Control
 import Game.Unit.Inventory (emptyInventory)
 import Game.Unit.Stats as Stats
-import Game.Unit.TimedUnitOps (addUnitOp, empty)
+import Game.Unit.TimedUnitOps (empty)
 import Game.Unit.Unit
 import System.Random (mkStdGen, getStdRandom, random)
 import qualified UI.Descriptions.GameUIDesc as GameUIDesc
@@ -40,7 +38,7 @@ data GameState
   = Game Environment
   | EndState
 
-data MainMenuState = MainMenu (UI IO MainMenuState)
+newtype MainMenuState = MainMenu (UI IO MainMenuState)
 
 makeLenses ''GameState
 
@@ -106,7 +104,6 @@ mainMenuUI = makeListMenuUI $
     ListMenuDesc.addItem "random" (const (packHasIOUI . Game . randomEnvironment <$> getStdRandom random)) -- TODO use random generator or at least ask user to input a seed
     ListMenuDesc.addItemPure "load level" (const $ packHasIOUI $ MainMenu loadLvlMenuUI)
     ListMenuDesc.addItemPure "test level" (const (packHasIOUI $ Game testEnvironment))
-    ListMenuDesc.addItem "test level & write to HI.txt" (const (appendFile "HI.txt" "x\n" $> packHasIOUI (Game testEnvironment)))
     ListMenuDesc.addItemPure "quit" (const . packHasIOUI $ EndState)
     ListMenuDesc.selectItem 0
 
@@ -167,7 +164,7 @@ makeUnitData position render =
     position
     0
     (Stats.Stats 10 10 10 1)
-    (Game.Unit.TimedUnitOps.empty)
+    Game.Unit.TimedUnitOps.empty
     emptyInventory
     (createWeapon "weapon" (effectAtom (damage 1) >> effectTypical "confuse") 'A')
     render
@@ -178,9 +175,9 @@ makeSomePlayer = makePlayer
 makeTurn :: Action -> GameEnv ()
 makeTurn playerAction = do
   player <- getPlayer
-  runExceptT (evalAction player playerAction)
+  _ <- runExceptT (evalAction player playerAction)
   mobs <- getActiveMobs
-  runExceptT $ traverse (\u -> getAction u >>= evalAction u) mobs
+  _ <- runExceptT $ traverse (\u -> getAction u >>= evalAction u) mobs
   units <- getActiveUnits
-  runExceptT $ traverse (`affectUnit` tickTimedEffects) units
+  _ <- runExceptT $ traverse (`affectUnit` tickTimedEffects) units
   return ()
