@@ -21,7 +21,7 @@ import Game.Item (createWeapon)
 import Game.Modifiers.EffectAtom
 import Game.Modifiers.EffectDesc (effectAtom, effectTypical)
 import Game.Modifiers.UnitOp
-import Game.Modifiers.UnitOpFactory (makeUnitOpFactory)
+import Game.Modifiers.UnitOpFactory (makeUnitOpFactory, UnitOpFactory)
 import Game.Unit.Action
 import Game.Unit.Control
 import Game.Unit.Inventory (emptyInventory)
@@ -127,9 +127,9 @@ testEnvironmentWithLevel :: GameLevel -> Environment
 testEnvironmentWithLevel level =
   makeEnvironment
     ourPlayer
-    [makeMob (makeUnitData (3, 3) 'U') Aggressive]
+    [ makeMob (makeUnitData (3, 3) 'U') Aggressive ]
     [level]
-    (makeUnitOpFactory Map.empty)
+    confusedFactory
   where
     ourPlayer = makeSomePlayer $ makeUnitData (level ^. lvlMap . entrance) 'λ'
 
@@ -139,7 +139,7 @@ randomEnvironment seed =
     ourPlayer
     []
     [lvl]
-    (makeUnitOpFactory $ Map.singleton "confuse" $ setTimedUnitOp 10 (const $ setEffect confuse))
+    confusedFactory
   where
     lvl = fst $ randomBSPGeneratedLevel (GU.Space (GU.Coord 0 0) (GU.Coord 50 50)) (GeneratorParameters 10 1.7 5) $ mkStdGen seed
     startCoord = _entrance $ _lvlMap lvl
@@ -149,12 +149,12 @@ testEnvironment :: Environment
 testEnvironment =
   makeEnvironment
     ourPlayer
-    [ makeMob (makeUnitData (14, 15) 'U') Aggressive,
+    [ makeMob (makeUnitData (3, 3) 'U') Aggressive,
       makeMob (makeUnitData (4, 6) 'U') (Passive (4, 6)),
       makeMob (makeUnitData (5, 6) 'U') Avoiding
     ]
     [testGameLevel]
-    (makeUnitOpFactory $ Map.singleton "confuse" $ setTimedUnitOp 10 (const $ setEffect confuse))
+    confusedFactory
   where
     ourPlayer = makeSomePlayer $ makeUnitData (7, 9) 'λ'
 
@@ -166,11 +166,11 @@ makeUnitData position render =
     (Stats.Stats 10 10 10 1)
     Game.Unit.TimedUnitOps.empty
     emptyInventory
-    (createWeapon "weapon" (effectAtom (damage 1) >> effectTypical "confuse") 'A')
+    (createWeapon "drugged fist" (effectAtom (damage 1) >> effectTypical "confuse") 'A')
     render
 
 makeSomePlayer :: UnitData -> Player
-makeSomePlayer = makePlayer
+makeSomePlayer = makePlayer . (stats . health %~ (*2))
 
 makeTurn :: Action -> GameEnv ()
 makeTurn playerAction = do
@@ -181,3 +181,9 @@ makeTurn playerAction = do
   units <- getActiveUnits
   _ <- runExceptT $ traverse (`affectUnit` tickTimedEffects) units
   return ()
+
+confusedEffect :: UnitOp ()
+confusedEffect = setTimedUnitOp 10 (const $ setEffect confuse)
+
+confusedFactory :: UnitOpFactory
+confusedFactory = makeUnitOpFactory $ Map.singleton "confuse" confusedEffect

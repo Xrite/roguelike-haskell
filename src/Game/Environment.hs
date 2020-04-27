@@ -58,7 +58,7 @@ import Game.Unit
 import Game.Unit.Action as Action
 import System.Random
 
--- | All manipulations with units in environment should use this typegg
+-- | All manipulations with units in environment should use this type
 data UnitId = MobUnitId Int | PlayerUnitId deriving (Eq)
 
 -- TODO maybe extract units to a different module?
@@ -150,7 +150,7 @@ getActivePlayer :: FailableGameEnv UnitIdError UnitId
 getActivePlayer = do
   env <- get
   if isAlive (env ^. player)
-    then return $ PlayerUnitId
+    then return PlayerUnitId
     else throwError NoSuchUnit
 
 getPlayer :: GameEnv UnitId
