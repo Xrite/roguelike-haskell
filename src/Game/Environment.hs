@@ -54,6 +54,7 @@ import Game.GameLevels.PathFinding
 import Game.GameLevels.Visibility
 import Game.Modifiers.UnitOp as UnitOp
 import Game.Modifiers.UnitOpFactory (UnitOpFactory)
+import Game.Modifiers.DefaultUnitOpFactory (defaultUnitOpFactory)
 import Game.Unit
 import Game.Unit.Action as Action
 import System.Random
@@ -107,15 +108,15 @@ runGameEnv :: GameEnv a -> Environment -> (a, Environment)
 runGameEnv gameEnv = runState (unGameEnv gameEnv)
 
 -- | Constructs a new 'Environment'.
-makeEnvironment :: Player -> [Mob] -> [GameLevel] -> UnitOpFactory -> Environment
-makeEnvironment player mobs levels factory =
+makeEnvironment :: Player -> [Mob] -> [GameLevel] -> Environment
+makeEnvironment player mobs levels =
   Environment
     { _player = player,
       _mobs = IntMap.fromList $ zip [0 ..] $ zip mobs [defaultEvaluation (MobUnitId i) | i <- [0 ..]],
       _levels = levels,
       _currentLevel = 0,
       _currentUnitTurn = 0,
-      _modifierFactory = factory,
+      _modifierFactory = defaultUnitOpFactory,
       _playerEvaluator = defaultEvaluation PlayerUnitId,
       _randomGenerator = mkStdGen 42,
       _strategy = getControl,

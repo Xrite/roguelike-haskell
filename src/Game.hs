@@ -159,7 +159,6 @@ testEnvironmentWithLevel level =
     ourPlayer
     [ makeMob (makeUnitData (3, 3) 'U') Aggressive ]
     [level]
-    confusedFactory
   where
     ourPlayer = makeSomePlayer $ makeUnitData (level ^. lvlMap . entrance) 'λ'
 
@@ -169,7 +168,6 @@ randomEnvironment seed =
     ourPlayer
     []
     [lvl]
-    confusedFactory
   where
     lvl = fst $ randomBSPGeneratedLevel (GU.Space (GU.Coord 0 0) (GU.Coord 50 50)) (GeneratorParameters 10 1.7 5) $ mkStdGen seed
     startCoord = _entrance $ _lvlMap lvl
@@ -184,7 +182,6 @@ testEnvironment =
       makeMob (makeUnitData (5, 6) 'U') Avoiding
     ]
     [testGameLevel]
-    confusedFactory
   where
     ourPlayer = makeSomePlayer $ makeUnitData (7, 9) 'λ'
 
@@ -211,9 +208,3 @@ makeTurn playerAction = do
   units <- getActiveUnits
   _ <- runExceptT $ traverse (`affectUnit` tickTimedEffects) units
   return ()
-
-confusedEffect :: UnitOp ()
-confusedEffect = setTimedUnitOp 10 (const $ effectAtom confuse)
-
-confusedFactory :: UnitOpFactory
-confusedFactory = makeUnitOpFactory $ Map.singleton "confuse" confusedEffect
