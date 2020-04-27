@@ -30,7 +30,7 @@ import Game.Unit.Inventory (emptyInventory)
 import Game.Unit.Stats as Stats
 import Game.Unit.TimedUnitOps (addUnitOp, empty)
 import Game.Unit.Unit
-import System.Random (mkStdGen)
+import System.Random (mkStdGen, getStdRandom, random)
 import qualified UI.Descriptions.GameUIDesc as GameUIDesc
 import qualified UI.Descriptions.ListMenuDesc as ListMenuDesc
 import UI.Keys as Keys
@@ -103,7 +103,7 @@ mainMenuUI :: UI IO MainMenuState
 mainMenuUI = makeListMenuUI $
   do
     ListMenuDesc.setTitle "Main menu"
-    ListMenuDesc.addItemPure "random" (const (packHasIOUI $ Game $ randomEnvironment 42)) -- TODO use random generator or at least ask user to input a seed
+    ListMenuDesc.addItem "random" (const (packHasIOUI . Game . randomEnvironment <$> getStdRandom random)) -- TODO use random generator or at least ask user to input a seed
     ListMenuDesc.addItemPure "load level" (const $ packHasIOUI $ MainMenu loadLvlMenuUI)
     ListMenuDesc.addItemPure "test level" (const (packHasIOUI $ Game testEnvironment))
     ListMenuDesc.addItem "test level & write to HI.txt" (const (appendFile "HI.txt" "x\n" $> packHasIOUI (Game testEnvironment)))
