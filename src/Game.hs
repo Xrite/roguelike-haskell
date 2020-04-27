@@ -213,7 +213,7 @@ makeTurn playerAction = do
   return ()
 
 confusedEffect :: UnitOp ()
-confusedEffect = setTimedUnitOp 10 (const $ setEffect confuse)
+confusedEffect = setTimedUnitOp 10 (const $ effectAtom confuse)
 
 confusedFactory :: UnitOpFactory
 confusedFactory = makeUnitOpFactory $ Map.singleton "confuse" confusedEffect

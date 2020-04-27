@@ -1,3 +1,7 @@
-module Game.Unit.Control where
+{-# LANGUAGE DeriveGeneric #-}
 
-data TaggedControl = Aggressive | Passive (Int, Int) | Avoiding | DoNothing
+module Game.Unit.Control (TaggedControl (..)) where
+
+import GHC.Generics (Generic)
+
+data TaggedControl = Aggressive | Passive (Int, Int) | Avoiding | DoNothing deriving (Generic)

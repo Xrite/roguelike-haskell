@@ -228,4 +228,4 @@ unitWithModifiers factory u = applyUnitOp_ allUnitOps u
     wearableEffect = getAllWearableUnitOps inv
     wearableUnitOp = buildUnitOp factory wearableEffect
     timedEffectsOp = composeUnitOp $ _timedUnitOps $ asUnitData u
-    allUnitOps = wearableUnitOp >>= const timedEffectsOp
+    allUnitOps = wearableUnitOp >>= const (buildUnitOp factory timedEffectsOp)
