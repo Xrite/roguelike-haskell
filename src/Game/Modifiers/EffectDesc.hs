@@ -1,3 +1,4 @@
+{-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE DeriveFunctor #-}
 
 module Game.Modifiers.EffectDesc
@@ -11,6 +12,8 @@ module Game.Modifiers.EffectDesc
 
 import Control.Monad.Free (Free(..))
 import Game.Modifiers.EffectAtom
+import Data.Binary (Binary)
+import GHC.Generics (Generic)
 
 -- |A reference to a default 'UnitOp'
 type UnitOpKey = String
@@ -20,7 +23,7 @@ type UnitOpKey = String
 data EffectDescDSL a
   = Atom EffectAtom a         -- ^ basic effect atom
   | TypicalUnitOp UnitOpKey a -- ^ default effect reference that will be substituted by 'UnitOpFactory' 
-  deriving (Functor)
+  deriving (Functor, Generic)
 
 -- |A monad for describing effects
 type EffectDescM a = Free EffectDescDSL a
