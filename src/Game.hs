@@ -174,8 +174,9 @@ inventoryUI env = makeInventoryUIPure $
     clickItem i (Inventory e) = let item = (inv ^. items) !! i in
       case tryFillSlot inv item of
         Left _ -> packHasIOUI $ Inventory e
-        Right newInv -> packHasIOUI . Inventory . snd $ runGameEnv (setPlayerInventory newInv) env
+        Right newInv -> packHasIOUI . Inventory . snd $ runGameEnv (setPlayerInventory $ items %~ pop i $ newInv) env
     close (Inventory e) = packHasIOUI $ Game e
+    pop i list = take i list ++ drop (i + 1) list
 
 loadLevel :: String -> IO GameLevel
 loadLevel name = do
@@ -235,9 +236,15 @@ makeUnitData position render =
     0
     (Stats.Stats 10 10 10 1)
     Game.Unit.TimedUnitOps.empty
-    emptyInventory
+    someInventory
     (createWeapon "drugged fist" (effectAtom (damage 1) >> effectTypical "confuse") 'A')
     render
+  where
+    someInventory =
+        addItem (weaponToItem $ createWeapon "saber" (effectAtom (damage 5)) '?') $
+        addItem (wearableToItem $ createWearable "pointy hat" Head (effectAtom (heal 10)) (return ()) '^') $
+        addItem (wearableToItem $ createWearable "uncomfortable shoes" Legs (effectAtom confuse) (return ()) '"')
+        emptyInventory
 
 makeSomePlayer :: UnitData -> Player
 makeSomePlayer = makePlayer . (stats . health %~ (*2))
