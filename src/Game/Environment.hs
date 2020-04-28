@@ -136,7 +136,7 @@ makeEnvironment :: Player -> [Mob] -> [GameLevel] -> Environment
 makeEnvironment player mobs levels =
   Environment
     { _player = WithEvaluator player PlayerUnitId
-    , _mobs = IntMap.fromList $! [(i, WithEvaluator m $ MobUnitId i) | (i, m) <- zip [0 ..] mobs]
+    , _mobs = IntMap.fromList [(i, WithEvaluator m $ MobUnitId i) | (i, m) <- zip [0 ..] mobs]
     , _levels = levels
     , _currentLevel = 0
     , _currentUnitTurn = 0

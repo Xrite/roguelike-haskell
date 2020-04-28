@@ -1,0 +1,24 @@
+module Game.FileIO.SaveGame () where
+
+import Game.EnvironmentSerialization
+import Game.Environment
+import Data.Binary (encodeFile, decodeFileOrFail)
+import Data.Bifunctor (first)
+import RIO.FilePath ((</>), (<.>))
+
+saveFolder :: FilePath
+saveFolder = "saves"
+
+saveExt :: String
+saveExt = "rsave"
+
+savePath :: String -> FilePath
+savePath name = saveFolder </> name <.> saveExt
+
+-- |Saves game into a save file with provided name.
+saveGame :: String -> Environment -> IO ()
+saveGame name = encodeFile (savePath name)
+
+-- |Loads game by provided save name or returns an error description.
+loadGame :: String -> IO (Either String Environment)
+loadGame name = first snd <$> decodeFileOrFail (savePath name)
