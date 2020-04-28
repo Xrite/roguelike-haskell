@@ -132,10 +132,16 @@ gameUI env = makeGameUI $
           ]
 
 mainMenuUI :: UI IO MainMenuState
-mainMenuUI = makeListMenuUI $
-  do
+mainMenuUI =
+  makeListMenuUI $ do
     ListMenuDesc.setTitle "Main menu"
     ListMenuDesc.addItem "random" (const (packHasIOUI . Game . randomEnvironment <$> getStdRandom random)) -- TODO use random generator or at least ask user to input a seed
+    ListMenuDesc.addItem "load last game" (const
+         (do loaded <- loadGame "autosave"
+             return $ case loaded of
+               Prelude.Left _ -> packHasIOUI $ MainMenu mainMenuUI
+               Prelude.Right env -> packHasIOUI $ Game env)
+         )
     ListMenuDesc.addItemPure "load level" (const $ packHasIOUI $ MainMenu loadLvlMenuUI)
     ListMenuDesc.addItemPure "test level" (const (packHasIOUI $ Game testEnvironment))
     ListMenuDesc.addItemPure "quit" (const . packHasIOUI $ EndState)

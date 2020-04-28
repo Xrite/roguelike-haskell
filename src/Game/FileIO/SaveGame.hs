@@ -3,12 +3,12 @@ module Game.FileIO.SaveGame
   , loadGame
   ) where
 
-import Game.EnvironmentSerialization
+import Game.EnvironmentSerialization ()
 import Game.Environment
 import Data.Binary (encodeFile, decodeFileOrFail)
 import Data.Bifunctor (first)
 import RIO.FilePath ((</>), (<.>))
-import System.Directory (createDirectory)
+import System.Directory (createDirectoryIfMissing)
 
 saveFolder :: FilePath
 saveFolder = "saves"
@@ -22,7 +22,7 @@ savePath name = saveFolder </> name <.> saveExt
 -- |Saves game into a save file with provided name.
 saveGame :: String -> Environment -> IO ()
 saveGame name env = do
-  createDirectory saveFolder
+  createDirectoryIfMissing True saveFolder
   encodeFile (savePath name) env
 
 -- |Loads game by provided save name or returns an error description.
