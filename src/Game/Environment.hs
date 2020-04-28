@@ -2,6 +2,7 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE DeriveGeneric #-}
 
 module Game.Environment
   ( Environment,
@@ -33,6 +34,7 @@ module Game.Environment
     getVisibleToPlayer,
     getSeenByPlayer,
     getCells,
+    WithEvaluator,
   )
 where
 
@@ -59,9 +61,10 @@ import Game.Unit
 import Game.Unit.Action as Action
 import System.Random
 import Safe (atDef)
+import GHC.Generics (Generic)
 
 -- | All manipulations with units in environment should use this type
-data UnitId = MobUnitId Int | PlayerUnitId deriving (Eq)
+data UnitId = MobUnitId Int | PlayerUnitId deriving (Eq, Generic)
 
 -- TODO maybe extract units to a different module?
 -- TODO comment
@@ -75,17 +78,19 @@ data Environment
         _levels :: [GameLevel],
         _currentLevel :: Int,
         _currentUnitTurn :: Int,
-        _modifierFactory :: UnitOpFactory,
+--        _modifierFactory :: UnitOpFactory,
         _randomGenerator :: StdGen,
 --        _strategy :: TaggedControl -> UnitId -> FailableGameEnv UnitIdError Action,  --^ Replaced with a constant Getter (see strategy)
         _seenByPlayer :: [Set.Set (Int, Int)]
       }
+      deriving (Generic)
 
 data WithEvaluator a
   = WithEvaluator
       { _object :: a,
         _objectId :: UnitId
       }
+      deriving (Generic)
 
 makeLenses ''WithEvaluator
 
@@ -100,6 +105,9 @@ makeLenses ''Environment
 
 strategy :: Getter Environment (TaggedControl -> UnitId -> FailableGameEnv UnitIdError Action)
 strategy = to $ const getControl
+
+modifierFactory :: Getter Environment UnitOpFactory
+modifierFactory = to $ const defaultUnitOpFactory
 
 evaluator :: Getter (WithEvaluator a) (Action -> FailableGameEnv UnitIdError ())
 evaluator = to (defaultEvaluation . _objectId)
@@ -129,7 +137,7 @@ makeEnvironment player mobs levels =
     , _levels = levels
     , _currentLevel = 0
     , _currentUnitTurn = 0
-    , _modifierFactory = defaultUnitOpFactory
+--    , _modifierFactory = defaultUnitOpFactory
     , _randomGenerator = mkStdGen 42
 --      _strategy = getControl,
     , _seenByPlayer = [Set.empty | _ <- [0 ..]]
