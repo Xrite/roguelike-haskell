@@ -25,15 +25,21 @@ canSeeSlow m visibility (ax, ay) (bx, by) = fromMaybe False $ do
     allEdges = concatMap (buildEdgesToNeighbours m isVisible) allNodes
 
 canSeeFully :: Map -> (MapCell -> Bool) -> (Int, Int) -> (Int, Int) -> Bool
-canSeeFully m visibility (x1, y1) (x2, y2) = check
+canSeeFully m visibility from@(x1, y1) (x2, y2) = check
   where
     a = y1 - y2
     b = x2 - x1
     c = x1 * y2 - x2 * y1
-    xPts = if b == 0 then [] else [(x, round $ - fromIntegral (a * x + c) / fromIntegral b) | x <- [(min x1 x2) .. (max x1 x2)]]
-    yPts = if a == 0 then [] else [(round $ - fromIntegral (b * y + c) / fromIntegral a, y) | y <- [(min y1 y2) .. (max y1 y2)]]
-    isVisible (x, y) = inBounds m (x, y) && visibility (getCell (x, y) m)
-    check = (a ^ 2 + b ^ 2 < 400) && (all isVisible $ xPts ++ yPts)
+    xPts =
+      if b == 0
+        then []
+        else [(x, round $ -fromIntegral (a * x + c) / fromIntegral b) | x <- [(min x1 x2) .. (max x1 x2)]]
+    yPts =
+      if a == 0
+        then []
+        else [(round $ -fromIntegral (b * y + c) / fromIntegral a, y) | y <- [(min y1 y2) .. (max y1 y2)]]
+    isVisible to = to == from || (inBounds m to && visibility (getCell to m))
+    check = (a ^ 2 + b ^ 2 < 400) && all isVisible (xPts ++ yPts)
 
 canSee :: Map -> (MapCell -> Bool) -> (Int, Int) -> (Int, Int) -> Bool
 canSee m visibility s (x, y) =

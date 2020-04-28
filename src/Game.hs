@@ -22,7 +22,7 @@ import Game.Item
 import Game.Modifiers.EffectAtom
 import Game.Modifiers.EffectDesc (effectAtom, effectTypical)
 import Game.Modifiers.UnitOp
-import Game.Modifiers.UnitOpFactory (makeUnitOpFactory)
+import Game.Modifiers.UnitOpFactory (makeUnitOpFactory, UnitOpFactory)
 import Game.Unit.Action
 import Game.Unit.Control
 import Game.Unit.Inventory
@@ -58,6 +58,38 @@ instance HasUI IO EndState where
 instance HasUI IO MainMenuState where
   getUI (MainMenu ui) = ui
 
+arrowsToAction :: Keys.Arrows -> Action
+arrowsToAction Keys.Up = Move Zero Positive
+arrowsToAction Keys.Down = Move Zero Negative
+arrowsToAction Keys.Left = Move Negative Zero
+arrowsToAction Keys.Right = Move Positive Zero
+arrowsToAction Keys.UpLeft = Move Negative Positive
+arrowsToAction Keys.UpRight = Move Positive Positive
+arrowsToAction Keys.DownLeft = Move Negative Negative
+arrowsToAction Keys.DownRight = Move Positive Negative
+arrowsToAction Keys.Center = Move Zero Zero
+
+keysToAction :: Keys.Keys -> Maybe Action
+keysToAction (Keys.Letter '8') = Just $ Move Zero Positive
+keysToAction (Keys.Letter '2') = Just $ Move Zero Negative
+keysToAction (Keys.Letter '4') = Just $ Move Negative Zero
+keysToAction (Keys.Letter '6') = Just $ Move Positive Zero
+keysToAction (Keys.Letter '7') = Just $ Move Negative Positive
+keysToAction (Keys.Letter '9') = Just $ Move Positive Positive
+keysToAction (Keys.Letter '1') = Just $ Move Negative Negative
+keysToAction (Keys.Letter '3') = Just $ Move Positive Negative
+keysToAction (Keys.Letter '5') = Just $ Move Zero Zero
+keysToAction (Keys.Letter 'j') = Just $ Move Zero Positive
+keysToAction (Keys.Letter 'k') = Just $ Move Zero Negative
+keysToAction (Keys.Letter 'h') = Just $ Move Negative Zero
+keysToAction (Keys.Letter 'l') = Just $ Move Positive Zero
+keysToAction (Keys.Letter 'y') = Just $ Move Negative Positive
+keysToAction (Keys.Letter 'u') = Just $ Move Positive Positive
+keysToAction (Keys.Letter 'b') = Just $ Move Negative Negative
+keysToAction (Keys.Letter 'n') = Just $ Move Positive Negative
+keysToAction (Keys.Letter '.') = Just $ Move Zero Zero
+keysToAction _ = Nothing
+
 gameUI :: (Applicative m, HasUI m GameState, HasUI m MainMenuState, HasUI m InventoryState) => Environment -> UI m GameState
 gameUI env = makeGameUIPure $
   do
@@ -66,13 +98,11 @@ gameUI env = makeGameUIPure $
     GameUIDesc.setArrowPress arrowPress
     GameUIDesc.setKeyPress keyPress
   where
-    --    arrowPress :: (HasIOUI ma GameState) => Arrows -> GameState -> AnyHasIOUI ma
-    arrowPress Keys.Up (Game e) = packHasIOUI . Game . snd $ runGameEnv (makeTurn moveUp) e
-    arrowPress Keys.Down (Game e) = packHasIOUI . Game . snd $ runGameEnv (makeTurn moveDown) e
-    arrowPress Keys.Left (Game e) = packHasIOUI . Game . snd $ runGameEnv (makeTurn moveLeft) e
-    arrowPress Keys.Right (Game e) = packHasIOUI . Game . snd $ runGameEnv (makeTurn moveRight) e
+    --    arrowPress :: (HasUI ma GameState) => Arrows -> GameState -> AnyHasUI ma
+    arrowPress arrow (Game e) = packHasIOUI . Game . snd $ runGameEnv (makeTurn $ arrowsToAction arrow) e
     arrowPress _ st = packHasIOUI st
-    --    keyPress :: Keys.Keys -> GameState -> AnyHasIOUI m
+    --    keyPress :: Keys.Keys -> GameState -> AnyHasUI m
+    keyPress key (Game e) | Just action <- keysToAction key = packHasIOUI . Game . snd $ runGameEnv (makeTurn action) e
     keyPress (Keys.Letter 'q') (Game _) = packHasIOUI $ MainMenu mainMenuUI
     keyPress (Keys.Letter 'i') (Game e) = packHasIOUI $ Inventory e
     keyPress _ st = packHasIOUI st
@@ -167,9 +197,9 @@ testEnvironmentWithLevel :: GameLevel -> Environment
 testEnvironmentWithLevel level =
   makeEnvironment
     ourPlayer
-    [makeMob (makeUnitData (3, 3) 'U') Aggressive]
+    [ makeMob (makeUnitData (3, 3) 'U') Aggressive ]
     [level]
-    (makeUnitOpFactory Map.empty)
+    confusedFactory
   where
     ourPlayer = makeSomePlayer $ makeUnitData (level ^. lvlMap . entrance) 'λ'
 
@@ -179,7 +209,7 @@ randomEnvironment seed =
     ourPlayer
     []
     [lvl]
-    (makeUnitOpFactory $ Map.singleton "confuse" $ setTimedUnitOp 10 (const $ setEffect confuse))
+    confusedFactory
   where
     lvl = fst $ randomBSPGeneratedLevel (GU.Space (GU.Coord 0 0) (GU.Coord 50 50)) (GeneratorParameters 10 1.7 5) $ mkStdGen seed
     startCoord = _entrance $ _lvlMap lvl
@@ -189,12 +219,12 @@ testEnvironment :: Environment
 testEnvironment =
   makeEnvironment
     ourPlayer
-    [ makeMob (makeUnitData (14, 15) 'U') Aggressive,
+    [ makeMob (makeUnitData (3, 3) 'U') Aggressive,
       makeMob (makeUnitData (4, 6) 'U') (Passive (4, 6)),
       makeMob (makeUnitData (5, 6) 'U') Avoiding
     ]
     [testGameLevel]
-    (makeUnitOpFactory $ Map.singleton "confuse" $ setTimedUnitOp 10 (const $ setEffect confuse))
+    confusedFactory
   where
     ourPlayer = makeSomePlayer $ makeUnitData (7, 9) 'λ'
 
@@ -206,11 +236,11 @@ makeUnitData position render =
     (Stats.Stats 10 10 10 1)
     Game.Unit.TimedUnitOps.empty
     emptyInventory
-    (createWeapon "weapon" (effectAtom (damage 1) >> effectTypical "confuse") 'A')
+    (createWeapon "drugged fist" (effectAtom (damage 1) >> effectTypical "confuse") 'A')
     render
 
 makeSomePlayer :: UnitData -> Player
-makeSomePlayer = makePlayer
+makeSomePlayer = makePlayer . (stats . health %~ (*2))
 
 makeTurn :: Action -> GameEnv ()
 makeTurn playerAction = do
@@ -221,3 +251,9 @@ makeTurn playerAction = do
   units <- getActiveUnits
   _ <- runExceptT $ traverse (`affectUnit` tickTimedEffects) units
   return ()
+
+confusedEffect :: UnitOp ()
+confusedEffect = setTimedUnitOp 10 (const $ setEffect confuse)
+
+confusedFactory :: UnitOpFactory
+confusedFactory = makeUnitOpFactory $ Map.singleton "confuse" confusedEffect
