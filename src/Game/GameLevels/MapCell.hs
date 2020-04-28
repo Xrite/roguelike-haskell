@@ -14,7 +14,7 @@ module Game.GameLevels.MapCell
   , renderCell
   ) where
 
-import Control.Lens (makeLenses, (^.))
+import Control.Lens (makeLenses, (^.), to)
 import Game.Item
 import Game.GameLevels.MapCellType
 import Game.GameLevels.MapCellTypeImpl
@@ -44,7 +44,7 @@ makeLenses ''MapCell
 
 -- | Flyweight for MapCellType constructed by cell
 cellType :: Getter MapCell MapCellType
-cellType f cell = cell <$ f (cellTypeByKey $ _cellTypeKey cell)
+cellType = to (cellTypeByKey . _cellTypeKey)
 
 makeCell :: MapCellTypeKey -> MapCellState -> MapCell
 makeCell = MapCell
