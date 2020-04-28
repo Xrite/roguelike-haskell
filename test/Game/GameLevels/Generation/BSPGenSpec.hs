@@ -6,6 +6,7 @@ import Control.Lens ((^.))
 import Control.Monad.State (runState)
 import Control.Monad.State.Lazy (evalState)
 import qualified Game.GameLevels.Generation.BSPGen as SUT
+import Game.GameLevels.Generation.GenerationUtil
 import System.Random (mkStdGen)
 import Test.Hspec
 import Test.Hspec.QuickCheck
@@ -21,7 +22,7 @@ spec =
        evalState
          (SUT.generateLevel
             (SUT.GeneratorParameters 20 1.5 10)
-            (SUT.Space (SUT.Coord 0 0) (SUT.Coord 100 100))) .
+            (Space (Coord 0 0) (Coord 100 100))) .
        mkStdGen <$>
        [1 .. 100]) `shouldSatisfy`
       and .
@@ -32,9 +33,9 @@ generateTightRoom roomSize =
   runState
     (SUT.generateLevel
        (SUT.GeneratorParameters roomSize 1 roomSize)
-       (SUT.Space (SUT.Coord 0 0) (SUT.Coord (roomSize + 1) (roomSize + 1))))
+       (Space (Coord 0 0) (Coord (roomSize + 1) (roomSize + 1))))
     (mkStdGen 42)
 
 isOneTightRoom roomSize [room] =
-  (room ^. SUT.fromCorner == SUT.Coord 0 0) &&
-  (room ^. SUT.toCorner == SUT.Coord (roomSize - 1) (roomSize - 1))
+  (room ^. fromCorner == Coord 0 0) &&
+  (room ^. toCorner == Coord (roomSize - 1) (roomSize - 1))
