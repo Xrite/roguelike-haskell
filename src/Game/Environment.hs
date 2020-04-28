@@ -15,6 +15,8 @@ module Game.Environment
     envAttack,
     playerId,
     getPlayer,
+    getPlayerInventory,
+    setPlayerInventory,
     affectUnit,
     queryUnitWithModifiers,
     moveUnit,
@@ -42,11 +44,11 @@ import Control.Monad.Except
 import Control.Monad.Fail
 import Control.Monad.State
 import Data.Array
-import qualified Data.Set as Set
 import Data.Either (rights)
 import qualified Data.IntMap as IntMap
 import Data.List
 import Data.Maybe (fromJust, fromMaybe, isJust, isNothing, listToMaybe)
+import qualified Data.Set as Set
 import Game.GameLevels.GameLevel
 import Game.GameLevels.MapCell
 import Game.GameLevels.MapCellType
@@ -118,7 +120,7 @@ makeEnvironment player mobs levels factory =
       _playerEvaluator = defaultEvaluation PlayerUnitId,
       _randomGenerator = mkStdGen 42,
       _strategy = getControl,
-      _seenByPlayer = [Set.empty | _ <- [0..]]
+      _seenByPlayer = [Set.empty | _ <- [0 ..]]
     }
 
 -- | This function should remove dead units from environment.
@@ -155,6 +157,12 @@ getActivePlayer = do
 
 getPlayer :: GameEnv UnitId
 getPlayer = return PlayerUnitId
+
+getPlayerInventory :: GameEnv Inventory
+getPlayerInventory = gets $ view (player . playerUnit . inventory)
+
+setPlayerInventory :: Inventory -> GameEnv ()
+setPlayerInventory inv = modify $ set (player . playerUnit . inventory) inv
 
 setStrategy :: TaggedControl -> UnitId -> FailableGameEnv UnitIdError ()
 setStrategy tag (MobUnitId i) = modify $ set (mobs . ix i . _1 . controlTag) tag
@@ -197,7 +205,7 @@ getUnitPosition :: UnitId -> FailableGameEnv UnitIdError (Int, Int)
 getUnitPosition uid = affectUnit uid UnitOp.getPosition
 
 getUnitPortrait :: UnitId -> FailableGameEnv UnitIdError Char
-getUnitPortrait uid = affectUnit uid UnitOp.getPortrait 
+getUnitPortrait uid = affectUnit uid UnitOp.getPortrait
 
 getUnitStats :: UnitId -> FailableGameEnv UnitIdError Stats
 getUnitStats uid = do

@@ -10,6 +10,7 @@ import Control.Lens
 import Control.Monad.Except
 import Data.Either (fromRight, rights)
 import qualified Data.Map as Map
+import Data.Maybe (fromMaybe, isJust)
 import qualified Data.Set as Set
 import Game.Environment
 import Game.FileIO.FileIO (getLevelByName)
@@ -17,26 +18,29 @@ import Game.GameLevels.GameLevel
 import Game.GameLevels.GenerateLevel (randomBSPGeneratedLevel, testGameLevel)
 import Game.GameLevels.Generation.BSPGen (GeneratorParameters (..))
 import qualified Game.GameLevels.Generation.GenerationUtil as GU
-import Game.Item (createWeapon)
+import Game.Item
 import Game.Modifiers.EffectAtom
 import Game.Modifiers.EffectDesc (effectAtom, effectTypical)
 import Game.Modifiers.UnitOp
 import Game.Modifiers.UnitOpFactory (makeUnitOpFactory)
 import Game.Unit.Action
 import Game.Unit.Control
-import Game.Unit.Inventory (emptyInventory)
+import Game.Unit.Inventory
 import Game.Unit.Stats as Stats
 import Game.Unit.TimedUnitOps (empty)
 import Game.Unit.Unit
-import System.Random (mkStdGen, getStdRandom, random)
+import System.Random (getStdRandom, mkStdGen, random)
 import qualified UI.Descriptions.GameUIDesc as GameUIDesc
+import qualified UI.Descriptions.InventoryUIDesc as InventoryUI
 import qualified UI.Descriptions.ListMenuDesc as ListMenuDesc
-import UI.Keys as Keys
+import qualified UI.Keys as Keys
 import UI.UI
 
-data GameState
-  = Game Environment
-  | EndState
+data GameState = Game Environment
+
+newtype InventoryState = Inventory Environment
+
+data EndState = EndState
 
 newtype MainMenuState = MainMenu (UI IO MainMenuState)
 
@@ -44,12 +48,17 @@ makeLenses ''GameState
 
 instance HasUI IO GameState where
   getUI (Game env) = gameUI env
+
+instance HasUI IO InventoryState where
+  getUI (Inventory env) = inventoryUI env
+
+instance HasUI IO EndState where
   getUI EndState = terminalUI
 
 instance HasUI IO MainMenuState where
   getUI (MainMenu ui) = ui
 
-gameUI :: (Applicative m, HasUI m GameState, HasUI m MainMenuState) => Environment -> UI m GameState
+gameUI :: (Applicative m, HasUI m GameState, HasUI m MainMenuState, HasUI m InventoryState) => Environment -> UI m GameState
 gameUI env = makeGameUIPure $
   do
     fst $ runGameEnv tryRender env
@@ -65,6 +74,7 @@ gameUI env = makeGameUIPure $
     arrowPress _ st = packHasIOUI st
     --    keyPress :: Keys.Keys -> GameState -> AnyHasIOUI m
     keyPress (Keys.Letter 'q') (Game _) = packHasIOUI $ MainMenu mainMenuUI
+    keyPress (Keys.Letter 'i') (Game e) = packHasIOUI $ Inventory e
     keyPress _ st = packHasIOUI st
     tryRender = do
       visible <- Set.fromList <$> getVisibleToPlayer
@@ -88,14 +98,15 @@ gameUI env = makeGameUIPure $
       return $ fromRight (return ()) $ do
         stats <- eStats
         levellingStats <- eLevellingStats
-        return $ GameUIDesc.setStats
-          [ ("Health", show (stats ^. health)),
-            ("Attack power", show (stats ^. attackPower)),
-            ("Shield", show (stats ^. shield)),
-            ("Level", show (stats ^. level)),
-            ("Experience", show (levellingStats ^. experience)),
-            ("Skill points", show (levellingStats ^. skillPoints))
-          ]
+        return $
+          GameUIDesc.setStats
+            [ ("Health", show (stats ^. health)),
+              ("Attack power", show (stats ^. attackPower)),
+              ("Shield", show (stats ^. shield)),
+              ("Level", show (stats ^. level)),
+              ("Experience", show (levellingStats ^. experience)),
+              ("Skill points", show (levellingStats ^. skillPoints))
+            ]
 
 mainMenuUI :: UI IO MainMenuState
 mainMenuUI = makeListMenuUI $
@@ -106,6 +117,35 @@ mainMenuUI = makeListMenuUI $
     ListMenuDesc.addItemPure "test level" (const (packHasIOUI $ Game testEnvironment))
     ListMenuDesc.addItemPure "quit" (const . packHasIOUI $ EndState)
     ListMenuDesc.selectItem 0
+
+inventoryUI :: (Applicative m, HasUI m InventoryState, HasUI m GameState) => Environment -> UI m InventoryState
+inventoryUI env = makeInventoryUIPure $
+  do
+    InventoryUI.setItems $ map name (inv ^. items)
+    InventoryUI.setSlots
+      [ ("Head", defaultSlot (view wearableName) (inv ^. wearableSlots . headSlot)),
+        ("Chest", defaultSlot (view wearableName) (inv ^. wearableSlots . chestSlot)),
+        ("Legs", defaultSlot (view wearableName) (inv ^. wearableSlots . legsSlot)),
+        ("Hand", defaultSlot (view weaponName) (inv ^. weaponSlots . hand))
+      ]
+    InventoryUI.setOnSlotSelected $ clickSlot
+    InventoryUI.setOnItemSelected $ clickItem
+    InventoryUI.setOnClosed $ close
+    InventoryUI.selectItem 0
+  where
+    (inv, _) = runGameEnv getPlayerInventory env
+    defaultSlot = maybe "free"
+    clickSlot i (Inventory e)
+      | i == 0 = packHasIOUI . Inventory . snd $ runGameEnv (setPlayerInventory (freeHeadSlot inv)) env
+      | i == 1 = packHasIOUI . Inventory . snd $ runGameEnv (setPlayerInventory (freeChestSlot inv)) env
+      | i == 2 = packHasIOUI . Inventory . snd $ runGameEnv (setPlayerInventory (freeLegsSlot inv)) env
+      | i == 3 = packHasIOUI . Inventory . snd $ runGameEnv (setPlayerInventory (freeHandSlot inv)) env
+      | otherwise = packHasIOUI $ Inventory e
+    clickItem i (Inventory e) = let item = (inv ^. items) !! i in
+      case tryFillSlot inv item of
+        Left _ -> packHasIOUI $ Inventory e
+        Right newInv -> packHasIOUI . Inventory . snd $ runGameEnv (setPlayerInventory newInv) env
+    close (Inventory e) = packHasIOUI $ Game e
 
 loadLevel :: String -> IO GameLevel
 loadLevel name = do

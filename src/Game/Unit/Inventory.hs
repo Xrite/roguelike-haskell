@@ -11,6 +11,7 @@ module Game.Unit.Inventory
     headSlot,
     chestSlot,
     legsSlot,
+    hand,
     getAllWearableUnitOps,
     emptyInventory,
     addItem,
@@ -19,10 +20,18 @@ module Game.Unit.Inventory
     fillLegsSlot,
     fillWeaponSlot,
     getEquippedWeapon,
+    freeHeadSlot,
+    freeChestSlot,
+    freeLegsSlot,
+    freeHandSlot,
+    tryFillSlot,
   )
 where
 
+import Control.Applicative
 import Control.Lens
+import Data.Either
+import Data.Maybe
 import Game.Item
 import Game.Modifiers.EffectDesc
 import Prelude hiding (head)
@@ -114,3 +123,38 @@ fillWeaponSlot inv item = case toWeapon item of
   Just wItem -> case inv ^. weaponSlots . hand of
     Just _ -> Left Occupied
     Nothing -> Right $ inv & weaponSlots . hand .~ pure wItem
+
+-- | Try to fill suitable slot with given item
+tryFillSlot :: Inventory -> Item -> Either InventoryError Inventory
+tryFillSlot inv item =
+  case rights [fillHeadSlot inv item, fillChestSlot inv item, fillLegsSlot inv item, fillWeaponSlot inv item] of
+    [] -> Left Occupied
+    x : _ -> Right x
+
+freeHeadSlot :: Inventory -> Inventory
+freeHeadSlot inv
+  | Just item <- slot = set (wearableSlots . headSlot) Nothing $ (addItem (wearableToItem item) inv)
+  | otherwise = inv
+  where
+    slot = inv ^. wearableSlots . headSlot
+
+freeChestSlot :: Inventory -> Inventory
+freeChestSlot inv
+  | Just item <- slot = set (wearableSlots . chestSlot) Nothing $ (addItem (wearableToItem item) inv)
+  | otherwise = inv
+  where
+    slot = inv ^. wearableSlots . chestSlot
+
+freeLegsSlot :: Inventory -> Inventory
+freeLegsSlot inv
+  | Just item <- slot = set (wearableSlots . legsSlot) Nothing $ (addItem (wearableToItem item) inv)
+  | otherwise = inv
+  where
+    slot = inv ^. wearableSlots . legsSlot
+
+freeHandSlot :: Inventory -> Inventory
+freeHandSlot inv
+  | Just item <- slot = set (weaponSlots . hand) Nothing $ (addItem (weaponToItem item) inv)
+  | otherwise = inv
+  where
+    slot = inv ^. weaponSlots . hand

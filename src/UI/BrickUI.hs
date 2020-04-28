@@ -11,12 +11,13 @@ import Control.Lens
 import Control.Monad.IO.Class
 import Data.Array
 import Data.Maybe
+import Debug.Trace
 import qualified Graphics.Vty as V
 import qualified UI.Descriptions.GameUIDesc as GameUI
+import qualified UI.Descriptions.InventoryUIDesc as InventoryUI
 import qualified UI.Descriptions.ListMenuDesc as ListMenu
 import qualified UI.Keys as Keys
 import UI.UI as UI
-import Debug.Trace
 
 type Name = ()
 
@@ -49,7 +50,7 @@ app =
 drawUI :: UIState m -> [Widget Name]
 drawUI (UIState s ui) = case UI.baseLayout ui of
   UI.GameUI desc -> drawGameUI desc
-  UI.InventoryUI desc -> undefined
+  UI.InventoryUI desc -> drawInventoryUI desc
   UI.ListMenuUI desc -> drawMenu desc
   UI.End -> [C.center $ str "game stopped"]
 
@@ -61,6 +62,22 @@ drawGameUI desc =
                 <=> drawEquippedItems (desc ^. GameUI.equippedItems)
             )
   ]
+
+drawInventoryUI :: InventoryUI.UIDesc a b -> [Widget n]
+drawInventoryUI desc =
+  [ C.center $ withBorderStyle BS.unicodeBold (B.borderWithLabel (str "Items") drawItems)
+      <+> withBorderStyle BS.unicodeBold (B.borderWithLabel (str "Slots") drawSlots)
+  ]
+  where
+    drawItems = vBox [drawItem i x | (i, x) <- zip [0 ..] $ desc ^. InventoryUI.items]
+    drawItem i x
+      | Just i == desc ^. InventoryUI.selectedItem, desc ^. InventoryUI.selectedFrame == InventoryUI.First = withAttr selectedAttr $ str x
+      | otherwise = withAttr notSelectedAttr $ str x
+    drawSlots = vBox [drawSlot i x | (i, x) <- zip [0 ..] $ desc ^. InventoryUI.slots]
+    drawSlot i (name, item)
+      | Just i == desc ^. InventoryUI.selectedItem, desc ^. InventoryUI.selectedFrame == InventoryUI.Second = withAttr selectedAttr $ slotStr name item
+      | otherwise = withAttr notSelectedAttr $ slotStr name item
+    slotStr name item = str $ name ++ ": " ++ item
 
 drawMap :: GameUI.Map -> Widget n
 drawMap m =
@@ -104,12 +121,12 @@ drawMenu menu = [vBox rows]
   where
     rows =
       [ C.center
-          $ str
-          $ if menu ^. ListMenu.selectedItem == Just i
-            then s ++ "+"
-            else s
+          $ drawElem i s
         | (i, (ListMenu.ListItem s _)) <- zip [0 ..] (menu ^. ListMenu.items)
       ]
+    drawElem i s
+     | menu ^. ListMenu.selectedItem == Just i = withAttr selectedAttr $ str s
+     | otherwise = withAttr notSelectedAttr $ str s
 
 handleEvent ::
   (ToIO m) =>
@@ -121,7 +138,7 @@ handleEvent (UIState s ui) event = case UI.baseLayout ui of
     VtyEvent e -> dispatchVtyEventGameUI s ui e desc
     _ -> continue (UIState s ui)
   UI.InventoryUI desc -> case event of
-    VtyEvent e -> undefined
+    VtyEvent e -> dispatchVtyEventInventoryUI s ui e desc
     _ -> continue (UIState s ui)
   UI.ListMenuUI desc -> case event of
     VtyEvent e -> dispatchVtyEventListMenuUI s ui e desc
@@ -140,7 +157,7 @@ dispatchVtyEventGameUI state ui event desc = case event of
   V.EvKey V.KDown [] -> liftIO (toIO $ tryArrowPress Keys.Down) >>= continue
   V.EvKey V.KRight [] -> liftIO (toIO $ tryArrowPress Keys.Right) >>= continue
   V.EvKey V.KLeft [] -> liftIO (toIO $ tryArrowPress Keys.Left) >>= continue
-  V.EvKey (V.KChar 'q') [] -> liftIO (toIO $ tryKeyPress (Keys.Letter 'q')) >>= continue
+  V.EvKey (V.KChar c) [] -> liftIO (toIO $ tryKeyPress (Keys.Letter c)) >>= continue
   _ -> continue $ packedS
   where
     packedS = packUIState state ui
@@ -153,7 +170,25 @@ dispatchVtyEventGameUI state ui event desc = case event of
       Nothing -> return packedS
       Just f -> packAnyHasIOUIToUIState <$> f key state
 
-dispatchVtyEventInventoryUI state ui event desc = undefined
+dispatchVtyEventInventoryUI ::
+  (ToIO m, HasUI m s) =>
+  s ->
+  UI m s ->
+  V.Event ->
+  InventoryUI.UIDesc s (m (AnyHasUI m)) ->
+  EventM n (Next (UIState m))
+dispatchVtyEventInventoryUI state ui event desc = case event of
+  V.EvKey V.KEnter [] -> liftIO (toIO $ fromMaybe (return packedS) onClick) >>= continue
+  V.EvKey V.KUp [] -> continue $ packUIState state (UI.UIDesc . UI.InventoryUI $ InventoryUI.moveSelectionUp desc)
+  V.EvKey V.KDown [] -> continue $ packUIState state (UI.UIDesc . UI.InventoryUI $ InventoryUI.moveSelectionDown desc)
+  V.EvKey V.KLeft [] -> continue $ packUIState state (UI.UIDesc . UI.InventoryUI $ InventoryUI.switchSelection desc)
+  V.EvKey V.KRight [] -> continue $ packUIState state (UI.UIDesc . UI.InventoryUI $ InventoryUI.switchSelection desc)
+  V.EvKey (V.KChar 'q') [] -> liftIO (toIO $ fromMaybe (return packedS) onClose) >>= continue
+  _ -> continue $ packedS
+  where
+    packedS = packUIState state ui
+    onClick = fmap packAnyHasIOUIToUIState <$> (InventoryUI.onSelected desc <*> (desc ^. InventoryUI.selectedItem) <*> pure state)
+    onClose = fmap packAnyHasIOUIToUIState <$> (desc ^. InventoryUI.onClosed <*> pure state)
 
 dispatchVtyEventListMenuUI ::
   (ToIO m, HasUI m s) =>
@@ -187,9 +222,14 @@ theMap =
   attrMap
     V.defAttr
     [ (visibleAttr, V.white `on` V.black),
-      (shadowedAttr, V.white `on` V.brightBlack)
+      (shadowedAttr, V.white `on` V.brightBlack),
+      (selectedAttr, V.black `on` V.white)
     ]
 
 visibleAttr, shadowedAttr :: AttrName
 visibleAttr = "visibleAttr"
 shadowedAttr = "shadowedAttr"
+
+selectedAttr, notSelectedAttr :: AttrName
+selectedAttr = "selectedAttr"
+notSelectedAttr = "notSelectedAttr"
