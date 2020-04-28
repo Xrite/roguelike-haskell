@@ -34,7 +34,9 @@ module Game.Environment
     getVisibleToPlayer,
     getSeenByPlayer,
     getCells,
-    WithEvaluator,
+    EnvMemento,
+    getEnvState,
+    loadEnvironmentState
   )
 where
 
@@ -76,26 +78,25 @@ instance Eq StdGen where
 data Environment
   = Environment
       { _player :: WithEvaluator Player,
-        -- | Mob's id, mob itself and it's action evaluator
-        _mobs :: IntMap.IntMap (WithEvaluator Mob), -- evaluator (Action -> FailableGameEnv UnitIdError ()) removed
+        -- | Mobs with their evaluators
+        _mobs :: IntMap.IntMap (WithEvaluator Mob),
         _levels :: [GameLevel],
         _currentLevel :: Int,
         _currentUnitTurn :: Int,
---        _modifierFactory :: UnitOpFactory,
+        _modifierFactory :: UnitOpFactory,
         _randomGenerator :: StdGen,
---        _strategy :: TaggedControl -> UnitId -> FailableGameEnv UnitIdError Action,  --^ Replaced with a constant Getter (see strategy)
+        _strategy :: TaggedControl -> UnitId -> FailableGameEnv UnitIdError Action,
         _seenByPlayer :: [Set.Set (Int, Int)]
       }
-      deriving (Generic, Eq)
+      deriving (Generic)
 
+-- | A box for a unit with it's evaluator.
 data WithEvaluator a
   = WithEvaluator
       { _object :: a,
-        _objectId :: UnitId
+        _evaluator :: Action -> FailableGameEnv UnitIdError ()
       }
-      deriving (Generic, Eq)
-
-makeLenses ''WithEvaluator
+      deriving (Generic)
 
 -- | A type for evaluating action on Environment
 newtype GameEnv a = GameEnv {unGameEnv :: State Environment a} deriving (Functor, Applicative, Monad, MonadState Environment)
@@ -106,14 +107,7 @@ type FailableGameEnv err = ExceptT err GameEnv
 
 makeLenses ''Environment
 
-strategy :: Getter Environment (TaggedControl -> UnitId -> FailableGameEnv UnitIdError Action)
-strategy = to $ const getControl
-
-modifierFactory :: Getter Environment UnitOpFactory
-modifierFactory = to $ const defaultUnitOpFactory
-
-evaluator :: Getter (WithEvaluator a) (Action -> FailableGameEnv UnitIdError ())
-evaluator = to (defaultEvaluation . _objectId)
+makeLenses ''WithEvaluator
 
 instance MonadFail GameEnv where
   fail = error
@@ -131,20 +125,28 @@ randomRGameEnv range = do
 runGameEnv :: GameEnv a -> Environment -> (a, Environment)
 runGameEnv gameEnv = runState (unGameEnv gameEnv)
 
--- | Constructs a new 'Environment'.
-makeEnvironment :: Player -> [Mob] -> [GameLevel] -> Environment
-makeEnvironment player mobs levels =
+makeEnvironmentInternal :: Player -> [(Int, Mob)] -> [GameLevel] -> StdGen -> Environment
+makeEnvironmentInternal player imobs levels gen =
   Environment
-    { _player = WithEvaluator player PlayerUnitId
-    , _mobs = IntMap.fromList [(i, WithEvaluator m $ MobUnitId i) | (i, m) <- zip [0 ..] mobs]
+    { _player = WithEvaluator player (defaultEvaluation PlayerUnitId)
+    , _mobs = IntMap.fromList [(i, WithEvaluator m $ defaultEvaluation $ MobUnitId i) | (i, m) <- imobs]
     , _levels = levels
     , _currentLevel = 0
     , _currentUnitTurn = 0
---    , _modifierFactory = defaultUnitOpFactory
-    , _randomGenerator = mkStdGen 42
---      _strategy = getControl,
+    , _modifierFactory = defaultUnitOpFactory
+    , _randomGenerator = gen
+    , _strategy = getControl
     , _seenByPlayer = [Set.empty | _ <- levels]
     }
+
+-- | Constructs a new 'Environment'.
+makeEnvironment :: Player -> [Mob] -> [GameLevel] -> Environment
+makeEnvironment player mobs levels =
+  makeEnvironmentInternal
+    player
+    (zip [1..] mobs)
+    levels
+    (mkStdGen 42)
 
 -- | This function should remove dead units from environment.
 -- It is called after each function that can modify units in the environment. With current implementation of units storage it invalidates 'UnitId'.
@@ -489,3 +491,26 @@ confusedDecorator eval u dir = do
 {--------------------------------------------------------------------
   Save / Load
 --------------------------------------------------------------------}
+
+data EnvMemento = EnvMemento
+  { envPlayer :: Player
+  , envMobs :: [(Int, Mob)]
+  , envLevels :: [GameLevel]
+  , envGen :: StdGen
+  }
+  deriving (Generic, Eq)
+
+getEnvState :: Environment -> EnvMemento
+getEnvState env = EnvMemento
+  { envPlayer = env ^. player . object
+  , envMobs =  itoList $ IntMap.map _object $ env ^. mobs
+  , envLevels = _levels env
+  , envGen = _randomGenerator env
+  }
+
+loadEnvironmentState (EnvMemento player imobs levels gen) =
+  makeEnvironmentInternal
+    player
+    imobs
+    levels
+    gen

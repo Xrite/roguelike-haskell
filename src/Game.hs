@@ -97,7 +97,7 @@ gameUI env = makeGameUI $
     --    keyPress :: Keys.Keys -> GameState -> AnyHasUI m
     keyPress key (Game e) | Just action <- keysToAction key = return $ packHasIOUI . Game . snd $ runGameEnv (makeTurn action) e
     keyPress (Keys.Letter 'q') (Game e) = do
-      saveGame "autosave" e
+      saveGame "autosave" $ getEnvState e
       return $ packHasIOUI $ MainMenu mainMenuUI
     keyPress _ st = return $ packHasIOUI st
     tryRender = do
@@ -140,7 +140,7 @@ mainMenuUI =
          (do loaded <- loadGame "autosave"
              return $ case loaded of
                Prelude.Left _ -> packHasIOUI $ MainMenu mainMenuUI
-               Prelude.Right env -> packHasIOUI $ Game env)
+               Prelude.Right env -> packHasIOUI $ Game $ loadEnvironmentState env)
          )
     ListMenuDesc.addItemPure "load level" (const $ packHasIOUI $ MainMenu loadLvlMenuUI)
     ListMenuDesc.addItemPure "test level" (const (packHasIOUI $ Game testEnvironment))

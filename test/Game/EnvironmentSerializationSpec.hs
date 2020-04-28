@@ -36,8 +36,9 @@ instance Show Mob where
 instance Show AnyUnit where
   show _ = "AnyUnit"
 instance Show1 EffectDescDSL where
-instance Show (WithEvaluator a) where
-  show _ = "WithEvaluator"
+
+instance Show EnvMemento where
+  show _ = "Memento"
 
 spec :: Spec
 spec =
@@ -49,9 +50,9 @@ spec =
     it "Player" $ testCoding $ makeSomePlayer $ makeUnitData (7, 9) 'λ'
     it "Mob" $ testCoding $ makeMob (makeUnitData (3, 3) 'U') Aggressive
     it "Set of coords" $ testCoding (Set.empty :: Set.Set (Int, Int))
-    it "IntMap of WithEvaluator" $ testCoding (IntMap.empty :: IntMap.IntMap (Int, Int))
-    it "Environment (simple)" $ testCoding simpleEnvironment
-    it "Environment" $ testCoding testEnvironment
+    it "IntMap of coords" $ testCoding (IntMap.empty :: IntMap.IntMap (Int, Int))
+    it "Environment state (simple)" $ testCoding $ getEnvState simpleEnvironment
+    it "Environment state" $ testCoding $ getEnvState testEnvironment
 
 simpleEnvironment :: Environment
 simpleEnvironment =

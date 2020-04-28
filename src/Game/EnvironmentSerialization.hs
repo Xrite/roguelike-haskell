@@ -1,6 +1,6 @@
 module Game.EnvironmentSerialization () where
 
-import Game.Environment (Environment, UnitId, WithEvaluator)
+import Game.Environment (EnvMemento)
 import Data.Binary (Binary (..))
 import Game.Unit.UnitSerialization
 import Game.GameLevels.GameLevelSerialization
@@ -12,6 +12,4 @@ instance Binary StdGen where
   put = put . show
   get = (read :: String -> StdGen) <$> get
 
-instance Binary UnitId
-instance Binary a => Binary (WithEvaluator a)
-instance Binary Environment
+instance Binary EnvMemento
