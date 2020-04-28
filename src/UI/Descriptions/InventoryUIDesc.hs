@@ -79,8 +79,8 @@ selectFrame f = modify $ set selectedFrame f
 
 switchSelection :: UIDesc a b -> UIDesc a b
 switchSelection desc = case desc ^. selectedFrame of
-  First -> set selectedFrame Second desc
-  Second -> set selectedFrame First desc
+  First -> set selectedItem (Just 0) $ set selectedFrame Second desc
+  Second -> set selectedItem (Just 0) $ set selectedFrame First desc
 
 moveSelectionUp :: UIDesc a b -> UIDesc a b
 moveSelectionUp =
