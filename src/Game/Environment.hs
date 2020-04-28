@@ -17,7 +17,11 @@ module Game.Environment
     playerId,
     getPlayer,
     getPlayerInventory,
-    setPlayerInventory,
+    playerFreeHeadSlot,
+    playerFreeChestSlot,
+    playerFreeLegsSlot,
+    playerFreeHandSlot,
+    playerEquipItem,
     affectUnit,
     queryUnitWithModifiers,
     moveUnit,
@@ -191,6 +195,26 @@ getPlayerInventory = gets $ view (player . object . playerUnit . inventory)
 
 setPlayerInventory :: Inventory -> GameEnv ()
 setPlayerInventory inv = modify $ set (player . object . playerUnit . inventory) inv
+
+playerEquipItem :: Int -> GameEnv ()
+playerEquipItem i = do
+  inv <- getPlayerInventory
+  case tryEquipItem i inv of
+    (Right inv') -> setPlayerInventory inv'
+    (Left _) -> return ()
+
+
+playerFreeHeadSlot :: GameEnv ()
+playerFreeHeadSlot = (player . object . playerUnit . inventory) %= freeHeadSlot
+
+playerFreeChestSlot :: GameEnv ()
+playerFreeChestSlot = (player . object . playerUnit . inventory) %= freeChestSlot
+
+playerFreeLegsSlot :: GameEnv ()
+playerFreeLegsSlot = (player . object . playerUnit . inventory) %= freeLegsSlot
+
+playerFreeHandSlot :: GameEnv ()
+playerFreeHandSlot = (player . object . playerUnit . inventory) %= freeHandSlot
 
 setStrategy :: TaggedControl -> UnitId -> FailableGameEnv UnitIdError ()
 setStrategy tag (MobUnitId i) = modify $ set (mobs . ix i . object . controlTag) tag

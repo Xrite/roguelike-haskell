@@ -176,17 +176,13 @@ inventoryUI env = makeInventoryUIPure $
     (inv, _) = runGameEnv getPlayerInventory env
     defaultSlot = maybe "free"
     clickSlot i (Inventory e)
-      | i == 0 = packHasIOUI . Inventory . snd $ runGameEnv (setPlayerInventory (freeHeadSlot inv)) env
-      | i == 1 = packHasIOUI . Inventory . snd $ runGameEnv (setPlayerInventory (freeChestSlot inv)) env
-      | i == 2 = packHasIOUI . Inventory . snd $ runGameEnv (setPlayerInventory (freeLegsSlot inv)) env
-      | i == 3 = packHasIOUI . Inventory . snd $ runGameEnv (setPlayerInventory (freeHandSlot inv)) env
+      | i == 0 = packHasIOUI . Inventory . snd $ runGameEnv playerFreeHeadSlot env
+      | i == 1 = packHasIOUI . Inventory . snd $ runGameEnv playerFreeChestSlot env
+      | i == 2 = packHasIOUI . Inventory . snd $ runGameEnv playerFreeLegsSlot env
+      | i == 3 = packHasIOUI . Inventory . snd $ runGameEnv playerFreeHandSlot env
       | otherwise = packHasIOUI $ Inventory e
-    clickItem i (Inventory e) = let item = (inv ^. items) !! i in
-      case tryFillSlot inv item of
-        Left _ -> packHasIOUI $ Inventory e
-        Right newInv -> packHasIOUI . Inventory . snd $ runGameEnv (setPlayerInventory $ items %~ pop i $ newInv) env
+    clickItem i (Inventory _) = packHasIOUI . Inventory . snd $ runGameEnv (playerEquipItem i) env
     close (Inventory e) = packHasIOUI $ Game e
-    pop i list = take i list ++ drop (i + 1) list
 
 loadLevel :: String -> IO GameLevel
 loadLevel name = do

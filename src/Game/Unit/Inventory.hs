@@ -26,7 +26,7 @@ module Game.Unit.Inventory
     freeChestSlot,
     freeLegsSlot,
     freeHandSlot,
-    tryFillSlot,
+    tryEquipItem,
   )
 where
 
@@ -58,7 +58,7 @@ data WearableSlots
 newtype WeaponSlots = WeaponSlots{_hand :: Maybe WeaponItem}
                         deriving (Generic, Eq)
 
-data InventoryError = Occupied | WrongItemType | WrongWearableType
+data InventoryError = Occupied | WrongItemType | WrongWearableType | NoSuchItem
       deriving (Generic, Eq)
 
 makeLenses ''Inventory
@@ -137,6 +137,19 @@ tryFillSlot inv item =
   case rights [fillHeadSlot inv item, fillChestSlot inv item, fillLegsSlot inv item, fillWeaponSlot inv item] of
     [] -> Left Occupied
     x : _ -> Right x
+
+-- | Equips an item by index or returns an error
+tryEquipItem :: Int -> Inventory -> Either InventoryError Inventory
+tryEquipItem i inv = do
+  let itms = _items inv
+  if i < 0 || length itms <= i
+    then Left NoSuchItem
+    else return ()
+  inv' <- tryFillSlot inv (itms !! i)
+  return $ items %~ pop i $ inv'
+  where
+    pop i list = take i list ++ drop (i + 1) list
+
 
 freeHeadSlot :: Inventory -> Inventory
 freeHeadSlot inv
