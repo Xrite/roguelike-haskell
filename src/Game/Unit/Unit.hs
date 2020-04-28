@@ -1,5 +1,6 @@
 {-# LANGUAGE ExistentialQuantification #-}
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE DeriveGeneric #-}
 
 -- | Describes common interface for all units in the game.
 module Game.Unit.Unit
@@ -46,6 +47,7 @@ import Game.Unit.Inventory
 import Game.Unit.Stats
 import Game.Unit.TimedUnitOps
 import Game.Unit.Control
+import GHC.Generics (Generic)
 
 -- | Common data of all units.
 data UnitData
@@ -67,15 +69,17 @@ data UnitData
         -- | How to display this unit
         _portrait :: Char
       }
+      deriving (Generic, Eq)
 
 -- | Tagged union of units
-data AnyUnit = MkMob Mob | MkPlayer Player
+data AnyUnit = MkMob Mob | MkPlayer Player deriving (Generic, Eq)
 
 data LevellingStats
   = LevellingStats {_experience :: Int, _skillPoints :: Int}
+  deriving (Generic, Eq)
 
 -- | A unit that can get experience points and level-ups. Controlled from the outside world.
-data Player = Player {_playerUnit :: UnitData, _levelling :: LevellingStats}
+data Player = Player {_playerUnit :: UnitData, _levelling :: LevellingStats} deriving (Generic, Eq)
 
 -- | A mob is a simple computer-controlled 'Unit'.
 data Mob
@@ -84,7 +88,8 @@ data Mob
         _mobUnit :: UnitData,
         -- | Mob behaviour using some context
         _controlTag :: TaggedControl
-      }
+      } 
+      deriving (Generic, Eq)
 
 makeLenses ''LevellingStats
 
@@ -223,4 +228,4 @@ unitWithModifiers factory u = applyUnitOp_ allUnitOps u
     wearableEffect = getAllWearableUnitOps inv
     wearableUnitOp = buildUnitOp factory wearableEffect
     timedEffectsOp = composeUnitOp $ _timedUnitOps $ asUnitData u
-    allUnitOps = wearableUnitOp >>= const timedEffectsOp
+    allUnitOps = wearableUnitOp >>= const (buildUnitOp factory timedEffectsOp)

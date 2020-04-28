@@ -1,5 +1,6 @@
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE DeriveGeneric #-}
 
 module Game.Item
   ( WearableType (..),
@@ -36,20 +37,24 @@ where
 
 import Control.Lens
 import Game.Modifiers.EffectDesc
+import GHC.Generics (Generic)
 
 data WearableType
   = Head
   | Chest
   | Legs
+  deriving (Generic, Eq)
 
 data Item
   = Consumable ConsumableItem
   | Wearable WearableItem
   | Weapon WeaponItem
   | Junk JunkItem
+  deriving (Generic, Eq)
 
 data WeaponItem
   = WeaponItem {_weaponName :: String, _weaponAttackUnitOp :: EffectDesc, _weaponRender :: Char}
+  deriving (Generic, Eq)
 
 data WearableItem
   = WearableItem
@@ -59,11 +64,14 @@ data WearableItem
         wearableRepulseUnitOp :: EffectDesc,
         _wearableRender :: Char
       }
+  deriving (Generic, Eq)
 
 data ConsumableItem
   = ConsumableItem {_consumableName :: String, _consumableUnitOp :: EffectDesc, _consumableRender :: Char}
+  deriving (Generic, Eq)
 
 data JunkItem = JunkItem {_junkName :: String, _junkRender :: Char}
+  deriving (Generic, Eq)
 
 makeLenses ''WeaponItem
 

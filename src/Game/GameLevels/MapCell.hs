@@ -1,25 +1,32 @@
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE DeriveGeneric #-}
 
 -- | Module responsible for working with a map cell
 
 module Game.GameLevels.MapCell
   ( MapCell (..)
+  , MapCellState
   , makeCell
   , makeEmptyCell
+  , cellTypeKey
   , cellType
   , floorItems
   , renderCell
   ) where
 
-import Control.Lens (makeLenses, (^.))
+import Control.Lens (makeLenses, (^.), to)
 import Game.Item
 import Game.GameLevels.MapCellType
+import Game.GameLevels.MapCellTypeImpl
 import Safe (headMay)
+import GHC.Generics (Generic)
+import Control.Lens.Getter (Getter)
 
--- | Describes items that belongs to the cell
+-- | Describes items that belong to the cell
 data MapCellState =
   MapCellState
     { _floorItems :: [Item] }
+  deriving (Generic, Eq)
 makeLenses ''MapCellState
 
 -- | Map cell is described by its properties and its items
@@ -27,17 +34,23 @@ data MapCell =
   MapCell
     {
      -- | Defines map cell's properties
-     _cellType :: MapCellType
+     _cellTypeKey :: MapCellTypeKey
      -- | Defines map cell's items
     , _cellState :: MapCellState
     }
+  deriving (Generic, Eq)
+
 makeLenses ''MapCell
 
-makeCell :: MapCellType -> MapCellState -> MapCell
+-- | Flyweight for MapCellType constructed by cell
+cellType :: Getter MapCell MapCellType
+cellType = to (cellTypeByKey . _cellTypeKey)
+
+makeCell :: MapCellTypeKey -> MapCellState -> MapCell
 makeCell = MapCell
 
 -- | Creates cell with no items with the given cellType
-makeEmptyCell :: MapCellType -> MapCell
+makeEmptyCell :: MapCellTypeKey -> MapCell
 makeEmptyCell cellType' = makeCell cellType' $ MapCellState []
 
 -- | Renders cell's first item if it presents 

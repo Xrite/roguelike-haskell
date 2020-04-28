@@ -1,9 +1,11 @@
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE DeriveGeneric #-}
 
 module Game.Unit.Inventory
   ( Inventory,
     WearableSlots,
+    WeaponSlots,
     InventoryError (..),
     items,
     wearableSlots,
@@ -35,6 +37,7 @@ import Data.Maybe
 import Game.Item
 import Game.Modifiers.EffectDesc
 import Prelude hiding (head)
+import GHC.Generics (Generic)
 
 data Inventory
   = Inventory
@@ -42,6 +45,7 @@ data Inventory
         _wearableSlots :: WearableSlots,
         _weaponSlots :: WeaponSlots
       }
+      deriving (Generic, Eq)
 
 data WearableSlots
   = WearableSlots
@@ -49,10 +53,13 @@ data WearableSlots
         _chestSlot :: Maybe WearableItem,
         _legsSlot :: Maybe WearableItem
       }
+      deriving (Generic, Eq)
 
-data WeaponSlots = WeaponSlots {_hand :: Maybe WeaponItem}
+newtype WeaponSlots = WeaponSlots{_hand :: Maybe WeaponItem}
+                        deriving (Generic, Eq)
 
 data InventoryError = Occupied | WrongItemType | WrongWearableType
+      deriving (Generic, Eq)
 
 makeLenses ''Inventory
 

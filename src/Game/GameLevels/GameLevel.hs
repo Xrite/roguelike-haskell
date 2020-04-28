@@ -1,5 +1,7 @@
 {-# LANGUAGE Rank2Types #-}
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE DeriveGeneric #-}
+
 
 -- | Module responsible for working with the level's map
 module Game.GameLevels.GameLevel
@@ -22,6 +24,7 @@ where
 import Control.Lens ((^.), makeLenses)
 import Data.Array.IArray
 import Game.GameLevels.MapCell
+import GHC.Generics (Generic)
 
 data Map
   = Map
@@ -29,6 +32,7 @@ data Map
         _exit :: (Int, Int),
         _cells :: Array (Int, Int) MapCell
       }
+  deriving (Generic, Eq)
 
 makeLenses ''Map
 
@@ -36,6 +40,7 @@ data GameLevel
   = GameLevel
       { _lvlMap :: Map
       }
+  deriving (Generic, Eq)
 
 makeLenses ''GameLevel
 

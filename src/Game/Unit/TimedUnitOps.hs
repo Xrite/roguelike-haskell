@@ -1,4 +1,5 @@
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE DeriveGeneric #-}
 
 module Game.Unit.TimedUnitOps
   ( TimedUnitOps
@@ -9,24 +10,24 @@ module Game.Unit.TimedUnitOps
   )
 where
 
-import           Game.Modifiers.UnitOp
 import           Control.Lens
+import           GHC.Generics (Generic)
+import Game.Modifiers.EffectDesc (EffectDesc)
 
-data TimedUnitOps = TimedUnitOps { _modifiers :: [(Int, Int -> UnitOp ())] }
+newtype TimedUnitOps = TimedUnitOps{_modifiers :: [[EffectDesc]]} deriving (Generic, Eq)
 
 makeLenses ''TimedUnitOps
 
 empty :: TimedUnitOps
 empty = TimedUnitOps []
 
-addUnitOp :: Int -> (Int -> UnitOp ()) -> TimedUnitOps -> TimedUnitOps
+addUnitOp :: Int -> (Int -> EffectDesc) -> TimedUnitOps -> TimedUnitOps
 addUnitOp time modifier timedUnitOps
-  | time > 0  = TimedUnitOps $ (time, modifier) : _modifiers timedUnitOps
+  | time > 0  = TimedUnitOps $ map modifier [1 .. time] : _modifiers timedUnitOps
   | otherwise = timedUnitOps
 
 tick :: TimedUnitOps -> TimedUnitOps
-tick (TimedUnitOps effs) =
-  TimedUnitOps $ filter ((> 0) . fst) $ map (over _1 (+ (-1))) effs
+tick (TimedUnitOps effs) = TimedUnitOps $ filter (not . null) $ map tail effs
 
-composeUnitOp :: TimedUnitOps -> UnitOp ()
-composeUnitOp = mapM_ (\(i, eff) -> eff i) . _modifiers
+composeUnitOp :: TimedUnitOps -> EffectDesc
+composeUnitOp = mapM_ head . _modifiers

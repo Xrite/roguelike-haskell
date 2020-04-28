@@ -1,3 +1,5 @@
+{-# LANGUAGE DeriveGeneric #-}
+
 module Game.Modifiers.EffectAtom
   ( EffectAtom (..)
   , NonNegative
@@ -9,14 +11,18 @@ module Game.Modifiers.EffectAtom
   )
 where
 
+import GHC.Generics (Generic)
+
+
 -- |Describes basic effects that might be applied to a unit as part of game mechanics.
 data EffectAtom = Damage NonNegative -- ^ Deal damage to a unit
                 | Heal NonNegative -- ^ Heal a unit
                 | GiveExp NonNegative -- ^ Give experience points to a unit
                 | SetConfusion Bool -- ^ Confuses or unconfuses unit
+                deriving (Generic, Eq)
 
 -- |A non negative Int.
-newtype NonNegative = NonNegative Int
+newtype NonNegative = NonNegative Int deriving (Generic, Eq)
 
 -- |Constructs a 'NonNegative' if provided value is not negative or throws an error otherwise.
 nonNegative :: Int -> NonNegative

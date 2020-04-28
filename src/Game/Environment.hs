@@ -2,6 +2,7 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE DeriveGeneric #-}
 
 module Game.Environment
   ( Environment,
@@ -35,6 +36,9 @@ module Game.Environment
     getVisibleToPlayer,
     getSeenByPlayer,
     getCells,
+    EnvMemento,
+    getEnvState,
+    loadEnvironmentState
   )
 where
 
@@ -56,32 +60,45 @@ import Game.GameLevels.PathFinding
 import Game.GameLevels.Visibility
 import Game.Modifiers.UnitOp as UnitOp
 import Game.Modifiers.UnitOpFactory (UnitOpFactory)
+import Game.Modifiers.DefaultUnitOpFactory (defaultUnitOpFactory)
 import Game.Unit
 import Game.Unit.Action as Action
 import System.Random
 import Safe (atDef)
+import GHC.Generics (Generic)
 
 -- | All manipulations with units in environment should use this type
-data UnitId = MobUnitId Int | PlayerUnitId deriving (Eq)
+data UnitId = MobUnitId Int | PlayerUnitId deriving (Eq, Generic, Show)
 
 -- TODO maybe extract units to a different module?
 -- TODO comment
 
+instance Eq StdGen where
+  g1 == g2 = show g1 == show g2
+
 -- | Contains description of current game state (e.g. map, mobs)
 data Environment
   = Environment
-      { _player :: Player,
-        -- | Mob's id, mob itself and it's action evaluator
-        _mobs :: IntMap.IntMap (Mob, Action -> FailableGameEnv UnitIdError ()),
+      { _player :: WithEvaluator Player,
+        -- | Mobs with their evaluators
+        _mobs :: IntMap.IntMap (WithEvaluator Mob),
         _levels :: [GameLevel],
         _currentLevel :: Int,
         _currentUnitTurn :: Int,
         _modifierFactory :: UnitOpFactory,
-        _playerEvaluator :: Action -> FailableGameEnv UnitIdError (),
         _randomGenerator :: StdGen,
         _strategy :: TaggedControl -> UnitId -> FailableGameEnv UnitIdError Action,
         _seenByPlayer :: [Set.Set (Int, Int)]
       }
+      deriving (Generic)
+
+-- | A box for a unit with it's evaluator.
+data WithEvaluator a
+  = WithEvaluator
+      { _object :: a,
+        _evaluator :: Action -> FailableGameEnv UnitIdError ()
+      }
+      deriving (Generic)
 
 -- | A type for evaluating action on Environment
 newtype GameEnv a = GameEnv {unGameEnv :: State Environment a} deriving (Functor, Applicative, Monad, MonadState Environment)
@@ -91,6 +108,8 @@ data UnitIdError = InvalidUnitId | NoSuchUnit | UnitCastException deriving (Eq)
 type FailableGameEnv err = ExceptT err GameEnv
 
 makeLenses ''Environment
+
+makeLenses ''WithEvaluator
 
 instance MonadFail GameEnv where
   fail = error
@@ -108,21 +127,29 @@ randomRGameEnv range = do
 runGameEnv :: GameEnv a -> Environment -> (a, Environment)
 runGameEnv gameEnv = runState (unGameEnv gameEnv)
 
--- | Constructs a new 'Environment'.
-makeEnvironment :: Player -> [Mob] -> [GameLevel] -> UnitOpFactory -> Environment
-makeEnvironment player mobs levels factory =
+makeEnvironmentInternal :: Player -> [(Int, Mob)] -> [GameLevel] -> StdGen -> [Set.Set (Int, Int)] -> Environment
+makeEnvironmentInternal player imobs levels gen seen =
   Environment
-    { _player = player,
-      _mobs = IntMap.fromList $ zip [0 ..] $ zip mobs [defaultEvaluation (MobUnitId i) | i <- [0 ..]],
-      _levels = levels,
-      _currentLevel = 0,
-      _currentUnitTurn = 0,
-      _modifierFactory = factory,
-      _playerEvaluator = defaultEvaluation PlayerUnitId,
-      _randomGenerator = mkStdGen 42,
-      _strategy = getControl,
-      _seenByPlayer = [Set.empty | _ <- [0 ..]]
+    { _player = WithEvaluator player (defaultEvaluation PlayerUnitId)
+    , _mobs = IntMap.fromList [(i, WithEvaluator m $ defaultEvaluation $ MobUnitId i) | (i, m) <- imobs]
+    , _levels = levels
+    , _currentLevel = 0
+    , _currentUnitTurn = 0
+    , _modifierFactory = defaultUnitOpFactory
+    , _randomGenerator = gen
+    , _strategy = getControl
+    , _seenByPlayer = seen
     }
+
+-- | Constructs a new 'Environment'.
+makeEnvironment :: Player -> [Mob] -> [GameLevel] -> Environment
+makeEnvironment player mobs levels =
+  makeEnvironmentInternal
+    player
+    (zip [1..] mobs)
+    levels
+    (mkStdGen 42)
+    [Set.empty | _ <- levels]
 
 -- | This function should remove dead units from environment.
 -- It is called after each function that can modify units in the environment. With current implementation of units storage it invalidates 'UnitId'.
@@ -132,13 +159,13 @@ filterDead = do
   env <- get
   modify $ set mobs (newMobs env)
   where
-    newMobs env = IntMap.filter (isAlive . (^. _1)) (env ^. mobs)
+    newMobs env = IntMap.filter (isAlive . (^. object)) (env ^. mobs)
 
 getActiveUnits :: GameEnv [UnitId]
 getActiveUnits = do
   filterDead
   env <- get
-  let players = if isAlive (env ^. player) then [PlayerUnitId] else []
+  let players = if isAlive (env ^. player . object) then [PlayerUnitId] else []
   activeMobs <- getActiveMobs
   return $ players ++ activeMobs
 
@@ -152,7 +179,7 @@ getActiveMobs = do
 getActivePlayer :: FailableGameEnv UnitIdError UnitId
 getActivePlayer = do
   env <- get
-  if isAlive (env ^. player)
+  if isAlive (env ^. player . object)
     then return PlayerUnitId
     else throwError NoSuchUnit
 
@@ -160,27 +187,27 @@ getPlayer :: GameEnv UnitId
 getPlayer = return PlayerUnitId
 
 getPlayerInventory :: GameEnv Inventory
-getPlayerInventory = gets $ view (player . playerUnit . inventory)
+getPlayerInventory = gets $ view (player . object . playerUnit . inventory)
 
 setPlayerInventory :: Inventory -> GameEnv ()
-setPlayerInventory inv = modify $ set (player . playerUnit . inventory) inv
+setPlayerInventory inv = modify $ set (player . object . playerUnit . inventory) inv
 
 setStrategy :: TaggedControl -> UnitId -> FailableGameEnv UnitIdError ()
-setStrategy tag (MobUnitId i) = modify $ set (mobs . ix i . _1 . controlTag) tag
+setStrategy tag (MobUnitId i) = modify $ set (mobs . ix i . object . controlTag) tag
 setStrategy _ _ = throwError UnitCastException
 
 _getMobById :: Int -> FailableGameEnv UnitIdError Mob
 _getMobById idx = do
   env <- get
-  case env ^? mobs . ix idx . _1 of
+  case env ^? mobs . ix idx . object of
     Nothing -> throwError InvalidUnitId
     Just mob -> return mob
 
 setMobById :: Int -> Mob -> Environment -> Environment
-setMobById idx mob env = env & mobs . ix idx . _1 .~ mob
+setMobById idx mob env = env & mobs . ix idx . object .~ mob
 
 getLevellingStats :: UnitId -> FailableGameEnv UnitIdError LevellingStats
-getLevellingStats PlayerUnitId = gets (view (player . levelling))
+getLevellingStats PlayerUnitId = gets (view (player . object . levelling))
 getLevellingStats _ = throwError UnitCastException
 
 {- mobLensById :: Int -> Lens' Environment Mob
@@ -190,8 +217,8 @@ affectUnit :: UnitId -> UnitOp a -> FailableGameEnv UnitIdError a
 affectUnit PlayerUnitId modifier = do
   lift updateSeenByPlayer
   env <- get
-  let (newPlayer, result) = applyUnitOp modifier (env ^. player)
-  modify $ set player newPlayer
+  let (newPlayer, result) = applyUnitOp modifier (env ^. player . object)
+  player . object .= newPlayer
   lift filterDead
   lift updateSeenByPlayer
   return result
@@ -263,7 +290,7 @@ _accessUnit :: UnitId -> FailableGameEnv UnitIdError AnyUnit
 _accessUnit uid = do
   env <- get
   case uid of
-    PlayerUnitId -> return . MkPlayer $ (env ^. player)
+    PlayerUnitId -> return . MkPlayer $ (env ^. player . object)
     MobUnitId i -> do
       mob <- _getMobById i
       return $ MkMob mob
@@ -272,8 +299,8 @@ _accessUnit uid = do
 _trySetUnit :: UnitId -> AnyUnit -> FailableGameEnv UnitIdError ()
 _trySetUnit uid u =
   case (uid, u) of
-    (PlayerUnitId, MkPlayer p) -> void (modify (set player p))
-    (MobUnitId i, MkMob m) -> void (modify (setMobById i m))
+    (PlayerUnitId, MkPlayer p) -> player . object .= p
+    (MobUnitId i, MkMob m) -> modify (setMobById i m)
     _ -> throwError UnitCastException
 
 -- | Perform and attack between two units
@@ -297,10 +324,10 @@ evalAction :: UnitId -> Action -> FailableGameEnv UnitIdError Bool
 evalAction u a = do
   env <- get
   case u of
-    PlayerUnitId -> (env ^. playerEvaluator) a >> return True
-    MobUnitId idx -> case env ^? mobs . ix idx . _2 of
+    PlayerUnitId -> (env ^. player . evaluator) a >> return True
+    MobUnitId idx -> case env ^? mobs . ix idx . evaluator of
       Nothing -> throwError InvalidUnitId
-      Just evaluator -> evaluator a >> return True
+      Just unitEvaluator -> unitEvaluator a >> return True
 
 getCurrentLevel :: GameEnv GameLevel
 getCurrentLevel = do
@@ -314,7 +341,7 @@ getAction :: UnitId -> FailableGameEnv UnitIdError Action
 getAction PlayerUnitId = return stayAtPosition
 getAction uid@(MobUnitId idx) = do
   env <- get
-  tag <- case env ^? mobs . ix idx . _1 . controlTag of
+  tag <- case env ^? mobs . ix idx . object . controlTag of
     Nothing -> throwError InvalidUnitId
     Just t -> return t
   (env ^. strategy) tag uid
@@ -323,8 +350,8 @@ getVisibleToPlayer :: GameEnv [(Int, Int)]
 getVisibleToPlayer = do
   env <- get
   lvl <- getCurrentLevel
-  let visibility = getVisibility (Just $ env ^. player . playerUnit . stats)
-  let playerPos = env ^. player . playerUnit . position
+  let visibility = getVisibility (Just $ env ^. player . object . playerUnit . stats)
+  let playerPos = env ^. player . object . playerUnit . position
   return $ visiblePositions (lvl ^. lvlMap) visibility playerPos
 
 getSeenByPlayer :: GameEnv [(Int, Int)]
@@ -469,3 +496,33 @@ confusedDecorator eval u dir = do
     prevDirection = foldl1 (.) $ replicate 7 nextDirection
     drops f (x : xs) = if f x then xs else drops f xs
     drops _ [] = error "element no found"
+
+{--------------------------------------------------------------------
+  Save / Load
+--------------------------------------------------------------------}
+
+data EnvMemento = EnvMemento
+  { envPlayer :: Player
+  , envMobs :: [(Int, Mob)]
+  , envLevels :: [GameLevel]
+  , envGen :: StdGen
+  , envSeen :: [Set.Set (Int, Int)]
+  }
+  deriving (Generic, Eq)
+
+getEnvState :: Environment -> EnvMemento
+getEnvState env = EnvMemento
+  { envPlayer = env ^. player . object
+  , envMobs =  itoList $ IntMap.map _object $ env ^. mobs
+  , envLevels = _levels env
+  , envGen = _randomGenerator env
+  , envSeen = _seenByPlayer env
+  }
+
+loadEnvironmentState (EnvMemento player imobs levels gen seen) =
+  makeEnvironmentInternal
+    player
+    imobs
+    levels
+    gen
+    seen

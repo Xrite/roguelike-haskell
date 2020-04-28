@@ -35,6 +35,7 @@ import qualified UI.Descriptions.InventoryUIDesc as InventoryUI
 import qualified UI.Descriptions.ListMenuDesc as ListMenuDesc
 import qualified UI.Keys as Keys
 import UI.UI
+import Game.FileIO.SaveGame
 
 data GameState = Game Environment
 
@@ -90,8 +91,9 @@ keysToAction (Keys.Letter 'n') = Just $ Move Positive Negative
 keysToAction (Keys.Letter '.') = Just $ Move Zero Zero
 keysToAction _ = Nothing
 
-gameUI :: (Applicative m, HasUI m GameState, HasUI m MainMenuState, HasUI m InventoryState) => Environment -> UI m GameState
-gameUI env = makeGameUIPure $
+--gameUI :: (Applicative m, HasUI m GameState, HasUI m MainMenuState) => Environment -> UI m GameState
+gameUI :: Environment -> UI IO GameState
+gameUI env = makeGameUI $
   do
     fst $ runGameEnv tryRender env
     fst $ runGameEnv tryGetStats env
@@ -99,13 +101,15 @@ gameUI env = makeGameUIPure $
     GameUIDesc.setKeyPress keyPress
   where
     --    arrowPress :: (HasUI ma GameState) => Arrows -> GameState -> AnyHasUI ma
-    arrowPress arrow (Game e) = packHasIOUI . Game . snd $ runGameEnv (makeTurn $ arrowsToAction arrow) e
-    arrowPress _ st = packHasIOUI st
+    arrowPress arrow (Game e) = return $ packHasIOUI . Game . snd $ runGameEnv (makeTurn $ arrowsToAction arrow) e
+    arrowPress _ st = return $ packHasIOUI st
     --    keyPress :: Keys.Keys -> GameState -> AnyHasUI m
-    keyPress key (Game e) | Just action <- keysToAction key = packHasIOUI . Game . snd $ runGameEnv (makeTurn action) e
-    keyPress (Keys.Letter 'q') (Game _) = packHasIOUI $ MainMenu mainMenuUI
-    keyPress (Keys.Letter 'i') (Game e) = packHasIOUI $ Inventory e
-    keyPress _ st = packHasIOUI st
+    keyPress key (Game e) | Just action <- keysToAction key = return $ packHasIOUI . Game . snd $ runGameEnv (makeTurn action) e
+    keyPress (Keys.Letter 'i') (Game e) = return . packHasIOUI $ Inventory e
+    keyPress (Keys.Letter 'q') (Game e) = do
+      saveGame "autosave" $ getEnvState e
+      return $ packHasIOUI $ MainMenu mainMenuUI
+    keyPress _ st = return $ packHasIOUI st
     tryRender = do
       visible <- Set.fromList <$> getVisibleToPlayer
       seen <- Set.fromList <$> getSeenByPlayer
@@ -139,10 +143,16 @@ gameUI env = makeGameUIPure $
             ]
 
 mainMenuUI :: UI IO MainMenuState
-mainMenuUI = makeListMenuUI $
-  do
+mainMenuUI =
+  makeListMenuUI $ do
     ListMenuDesc.setTitle "Main menu"
     ListMenuDesc.addItem "random" (const (packHasIOUI . Game . randomEnvironment <$> getStdRandom random)) -- TODO use random generator or at least ask user to input a seed
+    ListMenuDesc.addItem "load last game" (const
+         (do loaded <- loadGame "autosave"
+             return $ case loaded of
+               Prelude.Left _ -> packHasIOUI $ MainMenu mainMenuUI
+               Prelude.Right env -> packHasIOUI $ Game $ loadEnvironmentState env)
+         )
     ListMenuDesc.addItemPure "load level" (const $ packHasIOUI $ MainMenu loadLvlMenuUI)
     ListMenuDesc.addItemPure "test level" (const (packHasIOUI $ Game testEnvironment))
     ListMenuDesc.addItemPure "quit" (const . packHasIOUI $ EndState)
@@ -200,7 +210,6 @@ testEnvironmentWithLevel level =
     ourPlayer
     [ makeMob (makeUnitData (3, 3) 'U') Aggressive ]
     [level]
-    confusedFactory
   where
     ourPlayer = makeSomePlayer $ makeUnitData (level ^. lvlMap . entrance) 'λ'
 
@@ -210,7 +219,6 @@ randomEnvironment seed =
     ourPlayer
     []
     [lvl]
-    confusedFactory
   where
     lvl = fst $ randomBSPGeneratedLevel (GU.Space (GU.Coord 0 0) (GU.Coord 50 50)) (GeneratorParameters 10 1.7 5) $ mkStdGen seed
     startCoord = _entrance $ _lvlMap lvl
@@ -220,12 +228,11 @@ testEnvironment :: Environment
 testEnvironment =
   makeEnvironment
     ourPlayer
-    [ makeMob (makeUnitData (3, 3) 'U') Aggressive,
-      makeMob (makeUnitData (4, 6) 'U') (Passive (4, 6)),
-      makeMob (makeUnitData (5, 6) 'U') Avoiding
+    [ makeMob (makeUnitData (3, 3) 'U') Aggressive
+    , makeMob (makeUnitData (4, 6) 'U') (Passive (4, 6))
+    , makeMob (makeUnitData (5, 6) 'U') Avoiding
     ]
     [testGameLevel]
-    confusedFactory
   where
     ourPlayer = makeSomePlayer $ makeUnitData (7, 9) 'λ'
 
@@ -258,9 +265,3 @@ makeTurn playerAction = do
   units <- getActiveUnits
   _ <- runExceptT $ traverse (`affectUnit` tickTimedEffects) units
   return ()
-
-confusedEffect :: UnitOp ()
-confusedEffect = setTimedUnitOp 10 (const $ setEffect confuse)
-
-confusedFactory :: UnitOpFactory
-confusedFactory = makeUnitOpFactory $ Map.singleton "confuse" confusedEffect

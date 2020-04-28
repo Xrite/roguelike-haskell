@@ -67,13 +67,13 @@ readMapCell str = do
     mapCellType <- readMapCellType str
     return $ makeEmptyCell mapCellType
 
-readMapCellType :: Char -> Maybe MapCellType
+readMapCellType :: Char -> Maybe MapCellTypeKey
 readMapCellType str = case str of 
-    '#' -> Just wall
-    '+' -> Just hallGround
-    '.' -> Just roomGround
-    'T' -> Just tree
-    '%' -> Just bush
-    '>' -> Just ladderDown
-    '<' -> Just ladderUp
+    '#' -> Just wallKey
+    '+' -> Just hallGroundKey
+    '.' -> Just roomGroundKey
+    'T' -> Just treeKey
+    '%' -> Just bushKey
+    '>' -> Just ladderDownKey
+    '<' -> Just ladderUpKey
     _ -> Nothing

@@ -21,6 +21,7 @@ where
 import Control.Monad.Free
 import Game.Modifiers.EffectAtom
 import Game.Unit.Stats
+import Game.Modifiers.EffectDesc (EffectDesc)
 
 -- | Low level actions to perform with game entities (e.g. units, doors, objects)
 data UnitOpDSL a
@@ -28,7 +29,7 @@ data UnitOpDSL a
   | ModifyStats (Stats -> Stats) a
   | GetPosition ((Int, Int) -> a)
   | ModifyPosition ((Int, Int) -> (Int, Int)) a
-  | SetTimedUnitOp Int (Int -> UnitOp ()) a
+  | SetTimedUnitOp Int (Int -> EffectDesc) a
   | MoveTo (Int, Int) a
   | GetPortrait (Char -> a)
   | ApplyEffect EffectAtom a
@@ -56,7 +57,7 @@ setPosition pos = modifyPosition $ const pos
 modifyPosition :: ((Int, Int) -> (Int, Int)) -> UnitOp ()
 modifyPosition f = liftF $ ModifyPosition f ()
 
-setTimedUnitOp :: Int -> (Int -> UnitOp ()) -> UnitOp ()
+setTimedUnitOp :: Int -> (Int -> EffectDesc) -> UnitOp ()
 setTimedUnitOp time modifier = Free $ SetTimedUnitOp time modifier (Pure ())
 
 setCoord :: (Int, Int) -> UnitOp ()
