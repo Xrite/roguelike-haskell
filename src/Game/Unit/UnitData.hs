@@ -45,7 +45,7 @@ data UnitData
         -- | How to display this unit
         _portrait :: Char
       }
-      deriving (Generic)
+      deriving (Generic, Eq)
 
 makeLenses ''UnitData
 -- | Returns an active weapon unit data implies.

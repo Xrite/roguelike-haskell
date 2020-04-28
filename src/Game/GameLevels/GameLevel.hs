@@ -32,7 +32,7 @@ data Map
         _exit :: (Int, Int),
         _cells :: Array (Int, Int) MapCell
       }
-  deriving (Generic)
+  deriving (Generic, Eq)
 
 makeLenses ''Map
 
@@ -40,7 +40,7 @@ data GameLevel
   = GameLevel
       { _lvlMap :: Map
       }
-  deriving (Generic)
+  deriving (Generic, Eq)
 
 makeLenses ''GameLevel
 

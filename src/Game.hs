@@ -33,6 +33,7 @@ import qualified UI.Descriptions.GameUIDesc as GameUIDesc
 import qualified UI.Descriptions.ListMenuDesc as ListMenuDesc
 import UI.Keys as Keys
 import UI.UI
+import Game.EnvironmentSerialization
 
 data GameState
   = Game Environment
@@ -177,9 +178,9 @@ testEnvironment :: Environment
 testEnvironment =
   makeEnvironment
     ourPlayer
-    [ makeMob (makeUnitData (3, 3) 'U') Aggressive,
-      makeMob (makeUnitData (4, 6) 'U') (Passive (4, 6)),
-      makeMob (makeUnitData (5, 6) 'U') Avoiding
+    [ makeMob (makeUnitData (3, 3) 'U') Aggressive
+    , makeMob (makeUnitData (4, 6) 'U') (Passive (4, 6))
+    , makeMob (makeUnitData (5, 6) 'U') Avoiding
     ]
     [testGameLevel]
   where

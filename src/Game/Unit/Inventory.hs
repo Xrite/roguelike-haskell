@@ -36,7 +36,7 @@ data Inventory
         _wearableSlots :: WearableSlots,
         _weaponSlots :: WeaponSlots
       }
-      deriving (Generic)
+      deriving (Generic, Eq)
 
 data WearableSlots
   = WearableSlots
@@ -44,13 +44,13 @@ data WearableSlots
         _chestSlot :: Maybe WearableItem,
         _legsSlot :: Maybe WearableItem
       }
-      deriving (Generic)
+      deriving (Generic, Eq)
 
 newtype WeaponSlots = WeaponSlots{_hand :: Maybe WeaponItem}
-                        deriving (Generic)
+                        deriving (Generic, Eq)
 
 data InventoryError = Occupied | WrongItemType | WrongWearableType
-      deriving (Generic)
+      deriving (Generic, Eq)
 
 makeLenses ''Inventory
 

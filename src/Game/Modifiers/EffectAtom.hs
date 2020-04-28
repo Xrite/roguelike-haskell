@@ -19,10 +19,10 @@ data EffectAtom = Damage NonNegative -- ^ Deal damage to a unit
                 | Heal NonNegative -- ^ Heal a unit
                 | GiveExp NonNegative -- ^ Give experience points to a unit
                 | SetConfusion Bool -- ^ Confuses or unconfuses unit
-                deriving (Generic)
+                deriving (Generic, Eq)
 
 -- |A non negative Int.
-newtype NonNegative = NonNegative Int deriving (Generic)
+newtype NonNegative = NonNegative Int deriving (Generic, Eq)
 
 -- |Constructs a 'NonNegative' if provided value is not negative or throws an error otherwise.
 nonNegative :: Int -> NonNegative

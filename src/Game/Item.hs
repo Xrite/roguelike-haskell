@@ -39,18 +39,18 @@ data WearableType
   = Head
   | Chest
   | Legs
-  deriving (Generic)
+  deriving (Generic, Eq)
 
 data Item
   = Consumable ConsumableItem
   | Wearable WearableItem
   | Weapon WeaponItem
   | Junk JunkItem
-  deriving (Generic)
+  deriving (Generic, Eq)
 
 data WeaponItem
   = WeaponItem {_weaponName :: String, _weaponAttackUnitOp :: EffectDesc, _weaponRender :: Char}
-  deriving (Generic)
+  deriving (Generic, Eq)
 
 data WearableItem
   = WearableItem
@@ -60,14 +60,14 @@ data WearableItem
         wearableRepulseUnitOp :: EffectDesc,
         _wearableRender :: Char
       }
-  deriving (Generic)
+  deriving (Generic, Eq)
 
 data ConsumableItem
   = ConsumableItem {_consumableName :: String, _consumableUnitOp :: EffectDesc, _consumableRender :: Char}
-  deriving (Generic)
+  deriving (Generic, Eq)
 
 data JunkItem = JunkItem {_junkName :: String, _junkRender :: Char}
-  deriving (Generic)
+  deriving (Generic, Eq)
 
 makeLenses ''WeaponItem
 

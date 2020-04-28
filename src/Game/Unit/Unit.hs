@@ -69,17 +69,17 @@ data UnitData
         -- | How to display this unit
         _portrait :: Char
       }
-      deriving (Generic)
+      deriving (Generic, Eq)
 
 -- | Tagged union of units
-data AnyUnit = MkMob Mob | MkPlayer Player deriving (Generic)
+data AnyUnit = MkMob Mob | MkPlayer Player deriving (Generic, Eq)
 
 data LevellingStats
   = LevellingStats {_experience :: Int, _skillPoints :: Int}
-  deriving (Generic)
+  deriving (Generic, Eq)
 
 -- | A unit that can get experience points and level-ups. Controlled from the outside world.
-data Player = Player {_playerUnit :: UnitData, _levelling :: LevellingStats} deriving (Generic)
+data Player = Player {_playerUnit :: UnitData, _levelling :: LevellingStats} deriving (Generic, Eq)
 
 -- | A mob is a simple computer-controlled 'Unit'.
 data Mob
@@ -89,7 +89,7 @@ data Mob
         -- | Mob behaviour using some context
         _controlTag :: TaggedControl
       } 
-      deriving (Generic)
+      deriving (Generic, Eq)
 
 makeLenses ''LevellingStats
 

@@ -10,5 +10,5 @@ import GHC.Generics (Generic)
  
 data Stats =
   Stats { _health :: Int, _attackPower :: Int, _shield :: Int, _level :: Int }
-  deriving (Generic)
+  deriving (Generic, Eq)
 makeLenses ''Stats

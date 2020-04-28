@@ -26,7 +26,7 @@ import Control.Lens.Getter (Getter)
 data MapCellState =
   MapCellState
     { _floorItems :: [Item] }
-  deriving (Generic)
+  deriving (Generic, Eq)
 makeLenses ''MapCellState
 
 -- | Map cell is described by its properties and its items
@@ -38,7 +38,7 @@ data MapCell =
      -- | Defines map cell's items
     , _cellState :: MapCellState
     }
-  deriving (Generic)
+  deriving (Generic, Eq)
 
 makeLenses ''MapCell
 

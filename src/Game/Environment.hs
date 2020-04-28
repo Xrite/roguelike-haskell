@@ -64,10 +64,13 @@ import Safe (atDef)
 import GHC.Generics (Generic)
 
 -- | All manipulations with units in environment should use this type
-data UnitId = MobUnitId Int | PlayerUnitId deriving (Eq, Generic)
+data UnitId = MobUnitId Int | PlayerUnitId deriving (Eq, Generic, Show)
 
 -- TODO maybe extract units to a different module?
 -- TODO comment
+
+instance Eq StdGen where
+  g1 == g2 = show g1 == show g2
 
 -- | Contains description of current game state (e.g. map, mobs)
 data Environment
@@ -83,14 +86,14 @@ data Environment
 --        _strategy :: TaggedControl -> UnitId -> FailableGameEnv UnitIdError Action,  --^ Replaced with a constant Getter (see strategy)
         _seenByPlayer :: [Set.Set (Int, Int)]
       }
-      deriving (Generic)
+      deriving (Generic, Eq)
 
 data WithEvaluator a
   = WithEvaluator
       { _object :: a,
         _objectId :: UnitId
       }
-      deriving (Generic)
+      deriving (Generic, Eq)
 
 makeLenses ''WithEvaluator
 
@@ -133,14 +136,14 @@ makeEnvironment :: Player -> [Mob] -> [GameLevel] -> Environment
 makeEnvironment player mobs levels =
   Environment
     { _player = WithEvaluator player PlayerUnitId
-    , _mobs = IntMap.fromList [(i, WithEvaluator m $ MobUnitId i) | (i, m) <- zip [0 ..] mobs]
+    , _mobs = IntMap.fromList $! [(i, WithEvaluator m $ MobUnitId i) | (i, m) <- zip [0 ..] mobs]
     , _levels = levels
     , _currentLevel = 0
     , _currentUnitTurn = 0
 --    , _modifierFactory = defaultUnitOpFactory
     , _randomGenerator = mkStdGen 42
 --      _strategy = getControl,
-    , _seenByPlayer = [Set.empty | _ <- [0 ..]]
+    , _seenByPlayer = [Set.empty | _ <- levels]
     }
 
 -- | This function should remove dead units from environment.

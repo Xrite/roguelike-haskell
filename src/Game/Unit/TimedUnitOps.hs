@@ -14,7 +14,7 @@ import           Control.Lens
 import           GHC.Generics (Generic)
 import Game.Modifiers.EffectDesc (EffectDesc)
 
-newtype TimedUnitOps = TimedUnitOps{_modifiers :: [[EffectDesc]]} deriving (Generic)
+newtype TimedUnitOps = TimedUnitOps{_modifiers :: [[EffectDesc]]} deriving (Generic, Eq)
 
 makeLenses ''TimedUnitOps
 
