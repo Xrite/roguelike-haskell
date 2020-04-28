@@ -125,8 +125,8 @@ randomRGameEnv range = do
 runGameEnv :: GameEnv a -> Environment -> (a, Environment)
 runGameEnv gameEnv = runState (unGameEnv gameEnv)
 
-makeEnvironmentInternal :: Player -> [(Int, Mob)] -> [GameLevel] -> StdGen -> Environment
-makeEnvironmentInternal player imobs levels gen =
+makeEnvironmentInternal :: Player -> [(Int, Mob)] -> [GameLevel] -> StdGen -> [Set.Set (Int, Int)] -> Environment
+makeEnvironmentInternal player imobs levels gen seen =
   Environment
     { _player = WithEvaluator player (defaultEvaluation PlayerUnitId)
     , _mobs = IntMap.fromList [(i, WithEvaluator m $ defaultEvaluation $ MobUnitId i) | (i, m) <- imobs]
@@ -136,7 +136,7 @@ makeEnvironmentInternal player imobs levels gen =
     , _modifierFactory = defaultUnitOpFactory
     , _randomGenerator = gen
     , _strategy = getControl
-    , _seenByPlayer = [Set.empty | _ <- levels]
+    , _seenByPlayer = seen
     }
 
 -- | Constructs a new 'Environment'.
@@ -147,6 +147,7 @@ makeEnvironment player mobs levels =
     (zip [1..] mobs)
     levels
     (mkStdGen 42)
+    [Set.empty | _ <- levels]
 
 -- | This function should remove dead units from environment.
 -- It is called after each function that can modify units in the environment. With current implementation of units storage it invalidates 'UnitId'.
@@ -497,6 +498,7 @@ data EnvMemento = EnvMemento
   , envMobs :: [(Int, Mob)]
   , envLevels :: [GameLevel]
   , envGen :: StdGen
+  , envSeen :: [Set.Set (Int, Int)]
   }
   deriving (Generic, Eq)
 
@@ -506,11 +508,13 @@ getEnvState env = EnvMemento
   , envMobs =  itoList $ IntMap.map _object $ env ^. mobs
   , envLevels = _levels env
   , envGen = _randomGenerator env
+  , envSeen = _seenByPlayer env
   }
 
-loadEnvironmentState (EnvMemento player imobs levels gen) =
+loadEnvironmentState (EnvMemento player imobs levels gen seen) =
   makeEnvironmentInternal
     player
     imobs
     levels
     gen
+    seen
