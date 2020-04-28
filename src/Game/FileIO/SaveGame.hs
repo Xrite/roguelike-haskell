@@ -1,10 +1,14 @@
-module Game.FileIO.SaveGame () where
+module Game.FileIO.SaveGame
+  ( saveGame
+  , loadGame
+  ) where
 
 import Game.EnvironmentSerialization
 import Game.Environment
 import Data.Binary (encodeFile, decodeFileOrFail)
 import Data.Bifunctor (first)
 import RIO.FilePath ((</>), (<.>))
+import System.Directory (createDirectory)
 
 saveFolder :: FilePath
 saveFolder = "saves"
@@ -17,7 +21,9 @@ savePath name = saveFolder </> name <.> saveExt
 
 -- |Saves game into a save file with provided name.
 saveGame :: String -> Environment -> IO ()
-saveGame name = encodeFile (savePath name)
+saveGame name env = do
+  createDirectory saveFolder
+  encodeFile (savePath name) env
 
 -- |Loads game by provided save name or returns an error description.
 loadGame :: String -> IO (Either String Environment)

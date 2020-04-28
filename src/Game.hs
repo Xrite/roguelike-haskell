@@ -33,7 +33,7 @@ import qualified UI.Descriptions.GameUIDesc as GameUIDesc
 import qualified UI.Descriptions.ListMenuDesc as ListMenuDesc
 import UI.Keys as Keys
 import UI.UI
-import Game.EnvironmentSerialization
+import Game.FileIO.SaveGame
 
 data GameState
   = Game Environment
@@ -82,8 +82,9 @@ keysToAction (Keys.Letter 'n') = Just $ Move Positive Negative
 keysToAction (Keys.Letter '.') = Just $ Move Zero Zero
 keysToAction _ = Nothing
 
-gameUI :: (Applicative m, HasUI m GameState, HasUI m MainMenuState) => Environment -> UI m GameState
-gameUI env = makeGameUIPure $
+--gameUI :: (Applicative m, HasUI m GameState, HasUI m MainMenuState) => Environment -> UI m GameState
+gameUI :: Environment -> UI IO GameState
+gameUI env = makeGameUI $
   do
     fst $ runGameEnv tryRender env
     fst $ runGameEnv tryGetStats env
@@ -91,12 +92,14 @@ gameUI env = makeGameUIPure $
     GameUIDesc.setKeyPress keyPress
   where
     --    arrowPress :: (HasUI ma GameState) => Arrows -> GameState -> AnyHasUI ma
-    arrowPress arrow (Game e) = packHasIOUI . Game . snd $ runGameEnv (makeTurn $ arrowsToAction arrow) e
-    arrowPress _ st = packHasIOUI st
+    arrowPress arrow (Game e) = return $ packHasIOUI . Game . snd $ runGameEnv (makeTurn $ arrowsToAction arrow) e
+    arrowPress _ st = return $ packHasIOUI st
     --    keyPress :: Keys.Keys -> GameState -> AnyHasUI m
-    keyPress key (Game e) | Just action <- keysToAction key = packHasIOUI . Game . snd $ runGameEnv (makeTurn action) e
-    keyPress (Keys.Letter 'q') (Game _) = packHasIOUI $ MainMenu mainMenuUI
-    keyPress _ st = packHasIOUI st
+    keyPress key (Game e) | Just action <- keysToAction key = return $ packHasIOUI . Game . snd $ runGameEnv (makeTurn action) e
+    keyPress (Keys.Letter 'q') (Game e) = do
+      saveGame "autosave" e
+      return $ packHasIOUI $ MainMenu mainMenuUI
+    keyPress _ st = return $ packHasIOUI st
     tryRender = do
       visible <- Set.fromList <$> getVisibleToPlayer
       seen <- Set.fromList <$> getSeenByPlayer
