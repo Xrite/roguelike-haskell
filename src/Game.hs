@@ -251,13 +251,3 @@ makeUnitData position render =
 
 makeSomePlayer :: UnitData -> Player
 makeSomePlayer = makePlayer . (stats . health %~ (*2))
-
-makeTurn :: Action -> GameEnv ()
-makeTurn playerAction = do
-  player <- getPlayer
-  _ <- runExceptT (evalAction player playerAction)
-  mobs <- getActiveMobs
-  _ <- runExceptT $ traverse (\u -> getAction u >>= evalAction u) mobs
-  units <- getActiveUnits
-  _ <- runExceptT $ traverse (`affectUnit` tickTimedEffects) units
-  return ()

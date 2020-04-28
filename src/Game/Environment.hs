@@ -12,8 +12,6 @@ module Game.Environment
     UnitIdError (..),
     makeEnvironment,
     getCurrentLevel,
-    unitByCoord,
-    envAttack,
     playerId,
     getPlayer,
     getPlayerInventory,
@@ -22,11 +20,9 @@ module Game.Environment
     playerFreeLegsSlot,
     playerFreeHandSlot,
     playerEquipItem,
-    affectUnit,
     queryUnitWithModifiers,
-    moveUnit,
     runGameEnv,
-    evalAction,
+    makeTurn,
     randomRGameEnv,
     getActiveMobs,
     getAction,
@@ -34,7 +30,6 @@ module Game.Environment
     getActivePlayer,
     getUnitPosition,
     getUnitPortrait,
-    setStrategy,
     getLevellingStats,
     getUnitStats,
     getVisibleToPlayer,
@@ -520,6 +515,16 @@ confusedDecorator eval u dir = do
     prevDirection = foldl1 (.) $ replicate 7 nextDirection
     drops f (x : xs) = if f x then xs else drops f xs
     drops _ [] = error "element no found"
+
+makeTurn :: Action -> GameEnv ()
+makeTurn playerAction = do
+  player <- getPlayer
+  _ <- runExceptT (evalAction player playerAction)
+  mobs <- getActiveMobs
+  _ <- runExceptT $ traverse (\u -> getAction u >>= evalAction u) mobs
+  units <- getActiveUnits
+  _ <- runExceptT $ traverse (`affectUnit` tickTimedEffects) units
+  return ()
 
 {--------------------------------------------------------------------
   Save / Load
