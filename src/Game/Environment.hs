@@ -149,7 +149,7 @@ makeEnvironment player mobs levels =
     (zip [1..] mobs)
     levels
     (mkStdGen 42)
-    [Set.empty | _ <- levels]
+    ([Set.fromList $ getVisible player lvl | lvl <- levels])
 
 -- | This function should remove dead units from environment.
 -- It is called after each function that can modify units in the environment. With current implementation of units storage it invalidates 'UnitId'.
@@ -390,6 +390,10 @@ updateSeenByPlayer = do
   lvlNum <- gets $ view currentLevel
   visible <- Set.fromList <$> getVisibleToPlayer
   modify $ over (seenByPlayer . ix lvlNum) (Set.union visible)
+
+getVisible :: Player -> GameLevel -> [(Int, Int)]
+getVisible player lvl = let visibility = getVisibility (Just $ player ^. playerUnit . stats) in
+  visiblePositions (lvl ^. lvlMap) visibility (player ^. playerUnit . position)
 
 --------------------------------------------------------------------
 -- Control
