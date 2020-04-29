@@ -12,6 +12,7 @@ module Game.Environment
     UnitIdError (..),
     makeEnvironment,
     getCurrentLevel,
+    isPlayerAlive,
     playerId,
     getPlayer,
     getPlayerInventory,
@@ -181,6 +182,9 @@ getActivePlayer = do
   if isAlive (env ^. player . object)
     then return PlayerUnitId
     else throwError NoSuchUnit
+
+isPlayerAlive :: Environment -> Bool
+isPlayerAlive env = isAlive (env ^. player . object)
 
 getPlayer :: GameEnv UnitId
 getPlayer = return PlayerUnitId

@@ -101,7 +101,12 @@ gameUI env = makeGameUI $
     GameUIDesc.setKeyPress keyPress
   where
     --    arrowPress :: (HasUI ma GameState) => Arrows -> GameState -> AnyHasUI ma
-    arrowPress arrow (Game e) = return $ packHasIOUI . Game . snd $ runGameEnv (makeTurn $ arrowsToAction arrow) e
+    arrowPress arrow (Game e) = let newEnv = snd $ runGameEnv (makeTurn $ arrowsToAction arrow) e in 
+      if (not . isPlayerAlive $ newEnv) 
+        then do
+          removeGame "autosave"
+          return $ packHasIOUI $ MainMenu mainMenuUI 
+      else return $ packHasIOUI . Game $ newEnv
     arrowPress _ st = return $ packHasIOUI st
     --    keyPress :: Keys.Keys -> GameState -> AnyHasUI m
     keyPress key (Game e) | Just action <- keysToAction key = return $ packHasIOUI . Game . snd $ runGameEnv (makeTurn action) e
