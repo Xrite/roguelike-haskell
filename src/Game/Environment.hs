@@ -103,7 +103,12 @@ data WithEvaluator a
 -- | A type for evaluating action on Environment
 newtype GameEnv a = GameEnv {unGameEnv :: State Environment a} deriving (Functor, Applicative, Monad, MonadState Environment)
 
-data UnitIdError = InvalidUnitId | NoSuchUnit | UnitCastException deriving (Eq)
+-- | An error that could occur when evaluating actions on environment
+data UnitIdError
+  = InvalidUnitId
+  | NoSuchUnit
+  | UnitCastException
+  deriving (Eq)
 
 type FailableGameEnv err = ExceptT err GameEnv
 
