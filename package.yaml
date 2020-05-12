@@ -35,7 +35,11 @@ dependencies:
 - containers
 - fgl
 - binary
-#- grpc-haskell-core >= 0.0.0.0
+
+extra-deps:
+  - grpc-haskell-core-0.0.0.0@sha256:4bacd90915321750db570042cd05ada01b9b83c79f6bf6b6ccdef1889b383efa,3306
+
+
 
 ghc-options:
 - -Wall
