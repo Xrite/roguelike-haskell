@@ -14,7 +14,7 @@ import Prelude hiding
   )
 
 -- | A backend agnostic description of the game UI
-data UIDesc a b
+data UIDesc e a b
   = GameUIDesc
       { -- | Game map
         _map :: Map,
@@ -27,7 +27,9 @@ data UIDesc a b
         -- | Arrow press handler
         _onArrowPress :: Maybe (Keys.Arrows -> a -> b),
         -- | Key press handler
-        _onKeyPress :: Maybe (Keys.Keys -> a -> b)
+        _onKeyPress :: Maybe (Keys.Keys -> a -> b),
+        -- | Additional custom event handler
+        _customEventHandler :: Maybe (e -> a -> b)
       }
   deriving (Functor)
 
@@ -72,7 +74,7 @@ data EquippedItems
       }
 
 -- | UIDesc builder
-type Builder a b = State (UIDesc a b)
+type Builder e a b = State (UIDesc e a b)
 
 makeLenses ''UIDesc
 
@@ -114,7 +116,7 @@ blankEquippedItems =
     { _equippedItemsSlots = []
     }
 
-blankUIDesc :: UIDesc a b
+blankUIDesc :: UIDesc e a b
 blankUIDesc =
   GameUIDesc
     { _map = blankMap,
@@ -122,71 +124,72 @@ blankUIDesc =
       _stats = blankStats,
       _equippedItems = blankEquippedItems,
       _onArrowPress = Nothing,
-      _onKeyPress = Nothing
+      _onKeyPress = Nothing,
+      _customEventHandler = Nothing
     }
 
 -- | Get an UIDesc from a builder
-makeUI :: Builder a b c -> UIDesc a b
+makeUI :: Builder e a b c -> UIDesc e a b
 makeUI = flip execState blankUIDesc
 
 -- | Set a map terrain in game UI
-setMapTerrain :: Array (Int, Int) Char -> Builder a b ()
+setMapTerrain :: Array (Int, Int) Char -> Builder e a b ()
 setMapTerrain t = modify $ set (map . mapTerrain) t
 
 -- | Set positions that have been seen by player
-setMapHasBeenSeenByPlayer :: ((Int, Int) -> Bool) -> Builder a b ()
+setMapHasBeenSeenByPlayer :: ((Int, Int) -> Bool) -> Builder e a b ()
 setMapHasBeenSeenByPlayer seen = modify $ set (map . mapHasBeenSeenByPlayer) seen
 
 -- | Set positions that are visible to the player
-setMapIsVisibleToPlayer :: ((Int, Int) -> Bool) -> Builder a b ()
+setMapIsVisibleToPlayer :: ((Int, Int) -> Bool) -> Builder e a b ()
 setMapIsVisibleToPlayer visible = modify $ set (map . mapIsVisibleToPlayer) visible
 
 -- | Set mobs on the map
-setMapMobs :: [((Int, Int), Char)] -> Builder a b ()
+setMapMobs :: [((Int, Int), Char)] -> Builder e a b ()
 setMapMobs mobs = modify $ set (map . mapMobs) mobs
 
 -- | Add a mob to the map
-addMapMob :: (Int, Int) -> Char -> Builder a b ()
+addMapMob :: (Int, Int) -> Char -> Builder e a b ()
 addMapMob position portrait = modify $ over (map . mapMobs) ((position, portrait) :)
 
 -- | Set the player on the map
-setMapPlayer :: (Int, Int) -> Char -> Builder a b ()
+setMapPlayer :: (Int, Int) -> Char -> Builder e a b ()
 setMapPlayer position portrait = do
   modify $ set (map . mapPlayerPosition) position
   modify $ set (map . mapPlayerPortrait) portrait
 
 -- | Set entities on the map
-setMapEntities :: [((Int, Int), Char)] -> Builder a b ()
+setMapEntities :: [((Int, Int), Char)] -> Builder e a b ()
 setMapEntities entities = modify $ set (map . mapEntities) entities
 
 -- | Add a mob to the map
-addMapEntity :: (Int, Int) -> Char -> Builder a b ()
+addMapEntity :: (Int, Int) -> Char -> Builder e a b ()
 addMapEntity position icon = modify $ over (map . mapMobs) ((position, icon) :)
 
 -- | Set log records
-setLog :: [String] -> Builder a b ()
+setLog :: [String] -> Builder e a b ()
 setLog newLog = modify $ set log (Log newLog)
 
 -- | Set an arrow press handler
-setArrowPress :: (Keys.Arrows -> a -> b) -> Builder a b ()
+setArrowPress :: (Keys.Arrows -> a -> b) -> Builder e a b ()
 setArrowPress f = modify $ set onArrowPress (Just f)
 
 -- | Set a key press handler
-setKeyPress :: (Keys.Keys -> a -> b) -> Builder a b ()
+setKeyPress :: (Keys.Keys -> a -> b) -> Builder e a b ()
 setKeyPress f = modify $ set onKeyPress (Just f)
 
 -- | Set stats records
-setStats :: [(String, String)] -> Builder a b ()
+setStats :: [(String, String)] -> Builder e a b ()
 setStats newStats = modify $ set stats (Stats newStats)
 
 -- | Add a log record to the end of the current log records
-addToLog :: String -> Builder a b ()
+addToLog :: String -> Builder e a b ()
 addToLog item = modify $ over (log . logRecords) (++ [item])
 
 -- | Add an equipped item to the end of the current equipped items list
-addEquippedItem :: String -> Maybe String -> Builder a b ()
+addEquippedItem :: String -> Maybe String -> Builder e a b ()
 addEquippedItem slot item = modify $ over (equippedItems . equippedItemsSlots) (++ [(slot, item)])
 
 -- | Set equipped items records
-setEquippedItems :: [(String, Maybe String)] -> Builder a b ()
+setEquippedItems :: [(String, Maybe String)] -> Builder e a b ()
 setEquippedItems items = modify $ set equippedItems (EquippedItems items)
