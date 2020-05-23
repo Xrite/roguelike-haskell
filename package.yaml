@@ -36,6 +36,8 @@ dependencies:
 - fgl
 - binary
 - stm
+- thrift
+
 
 ghc-options:
 - -Wall
