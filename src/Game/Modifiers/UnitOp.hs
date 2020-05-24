@@ -14,63 +14,63 @@ module Game.Modifiers.UnitOp
     getPortrait,
     setEffect,
     getConfusion,
-    tickTimedEffects
+    tickTimedEffects,
   )
 where
 
 import Control.Monad.Free
 import Game.Modifiers.EffectAtom
-import Game.Unit.Stats
 import Game.Modifiers.EffectDesc (EffectDesc)
+import Game.Unit.Stats
 
 -- | Low level actions to perform with game entities (e.g. units, doors, objects)
-data UnitOpDSL a
+data UnitOpDSL pos a
   = GetStats (Maybe Stats -> a)
   | ModifyStats (Stats -> Stats) a
-  | GetPosition ((Int, Int) -> a)
-  | ModifyPosition ((Int, Int) -> (Int, Int)) a
+  | GetPosition (pos -> a)
+  | ModifyPosition (pos -> pos) a
   | SetTimedUnitOp Int (Int -> EffectDesc) a
-  | MoveTo (Int, Int) a
+  | MoveTo pos a
   | GetPortrait (Char -> a)
   | ApplyEffect EffectAtom a
   | GetConfusion (Bool -> a)
   | TickTimedEffects a
   deriving (Functor)
 
-type UnitOp a = Free UnitOpDSL a
+type UnitOp pos a = Free (UnitOpDSL pos) a
 
-getStats :: UnitOp (Maybe Stats)
+getStats :: UnitOp pos (Maybe Stats)
 getStats = liftF $ GetStats id
 
-setStats :: Stats -> UnitOp ()
+setStats :: Stats -> UnitOp pos ()
 setStats stats = modifyStats $ const stats
 
-modifyStats :: (Stats -> Stats) -> UnitOp ()
+modifyStats :: (Stats -> Stats) -> UnitOp pos ()
 modifyStats f = Free $ ModifyStats f (Pure ())
 
-getPosition :: UnitOp (Int, Int)
+getPosition :: UnitOp pos pos
 getPosition = liftF $ GetPosition id
 
-setPosition :: (Int, Int) -> UnitOp ()
+setPosition :: pos -> UnitOp pos ()
 setPosition pos = modifyPosition $ const pos
 
-modifyPosition :: ((Int, Int) -> (Int, Int)) -> UnitOp ()
+modifyPosition :: (pos -> pos) -> UnitOp pos ()
 modifyPosition f = liftF $ ModifyPosition f ()
 
-setTimedUnitOp :: Int -> (Int -> EffectDesc) -> UnitOp ()
+setTimedUnitOp :: Int -> (Int -> EffectDesc) -> UnitOp pos ()
 setTimedUnitOp time modifier = Free $ SetTimedUnitOp time modifier (Pure ())
 
-setCoord :: (Int, Int) -> UnitOp ()
+setCoord :: pos -> UnitOp pos ()
 setCoord coord = Free $ MoveTo coord $ Pure ()
 
-getPortrait :: UnitOp Char
+getPortrait :: UnitOp pos Char
 getPortrait = liftF $ GetPortrait id
 
-setEffect :: EffectAtom -> UnitOp ()
+setEffect :: EffectAtom -> UnitOp pos ()
 setEffect atom = Free $ ApplyEffect atom (Pure ())
 
-getConfusion :: UnitOp Bool
+getConfusion :: UnitOp pos Bool
 getConfusion = liftF $ GetConfusion id
 
-tickTimedEffects :: UnitOp ()
+tickTimedEffects :: UnitOp pos ()
 tickTimedEffects = Free $ TickTimedEffects (Pure ())

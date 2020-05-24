@@ -43,7 +43,7 @@ data MapCell =
 makeLenses ''MapCell
 
 -- | Flyweight for MapCellType constructed by cell
-cellType :: Getter MapCell MapCellType
+cellType :: Getter MapCell (MapCellType pos)
 cellType = to (cellTypeByKey . _cellTypeKey)
 
 makeCell :: MapCellTypeKey -> MapCellState -> MapCell

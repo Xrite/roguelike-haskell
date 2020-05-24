@@ -6,9 +6,9 @@ import Game.Unit.Unit
 import Prelude hiding (head)
 
 -- | Calculates units after attack
-attack :: UnitOpFactory -> AnyUnit -> AnyUnit -> (AnyUnit, AnyUnit)
+attack :: UnitOpFactory pos -> Unit pos -> Unit pos -> (Unit pos, Unit pos)
 attack fact attacker attacked =
-  (attacker, applyUnitOp_ (attackUnitOp fact attacker) attacked)
+  (attacker, applyUnitOp_ attacked (attackUnitOp fact attacker))
 
-attackUnitOp :: Unit u => UnitOpFactory -> u -> UnitOp ()
-attackUnitOp factory u = buildUnitOp factory $ getAttackUnitOp . asUnitData $ unitWithModifiers factory u
+attackUnitOp :: UnitOpFactory pos -> Unit pos -> UnitOp pos ()
+attackUnitOp factory u = buildUnitOp factory $ getAttackUnitOp . getUnitData $ unitWithModifiers factory u
