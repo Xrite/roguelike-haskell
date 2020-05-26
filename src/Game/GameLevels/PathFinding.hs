@@ -1,7 +1,7 @@
 module Game.GameLevels.PathFinding where
 
 import Data.Graph.Inductive hiding (getNode)
-import Data.List ((\\))
+import Data.List ((\\), minimumBy)
 import Data.Maybe
 import Game.GameLevels.GameLevel
 import Game.GameLevels.MapCell
@@ -63,11 +63,46 @@ findPath passability m s t exclude = do
   where
     gr = buildGraph passability m
   
-getFurtherFrom :: Map -> (MapCell -> Bool) -> (Int, Int) -> (Int, Int) -> [(Int, Int)] -> [(Int, Int)]
-getFurtherFrom m passability s t exclude = furtherNeighbours \\ exclude
+getFurthestFrom ::
+  Map ->
+  (MapCell -> Bool) ->
+  -- | Start position
+  (Int, Int) ->
+  -- | Target positions
+  [(Int, Int)] ->
+  -- | Excluded positions
+  [(Int, Int)] ->
+  [(Int, Int)]
+getFurthestFrom m passability s ts exclude = furthestNeighbours \\ exclude
   where
-    neighbours = let (x, y) = t in [(x + dx, y + dy) | dx <- [-1, 0, 1], dy <- [-1, 0, 1]]
-    currentDistance = distance2 s t
-    furtherNeighbours = filter isPassable $ filter ((> currentDistance) . distance2 s) neighbours
+    neighbours = let (x, y) = s in [(x + dx, y + dy) | dx <- [-1, 0, 1], dy <- [-1, 0, 1]]
+    currentDistance = maxDistance s
+    furthestNeighbours = filter isPassable $ filter ((> currentDistance) . maxDistance) neighbours
     isPassable p = inBounds m p && passability (getCell p m)
+    maxDistance p = maximum $ map (distance2 p) ts
     distance2 (x1, y1) (x2, y2) = (x1 - x2) ^ 2 + (y1 - y2) ^ 2
+
+--findNearest :: Map -> (MapCell -> Bool) -> (Int, Int) -> [(Int, Int)] -> 
+findNearest ::
+  (Num ix, Enum ix) =>
+  Map ->
+  -- | Passability function
+  (MapCell -> Bool) ->
+  -- | Start position
+  (Int, Int) ->
+  -- | Target positions
+  [(Int, Int)] ->
+  -- | Forbidden positions
+  [(Int, Int)] ->
+  -- | Shortest path or Nothing if no path exists
+  Maybe (ix, [(Int, Int)])
+findNearest m passability s ts exclude = do
+  sNode <- getNode m s
+  tNodes <- mapM (getNode m) ts
+  let paths = zip [0 ..] $ mapMaybe (\t -> findPathInGraph sNode t gr excludeNodes) tNodes
+  let best = minimumBy (\a b -> compare (length . snd $ a) (length . snd $ b)) paths
+  coords <- traverse (lab gr) (snd best)
+  return (fst best, coords)
+  where
+    gr = buildGraph passability m
+    excludeNodes = mapMaybe (getNode m) exclude
