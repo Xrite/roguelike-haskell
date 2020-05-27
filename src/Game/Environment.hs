@@ -11,7 +11,7 @@ module Game.Environment
   ( Environment,
     UnitId,
     GameEnv,
-    FailableGameEnv,
+    FallibleGameEnv,
     UnitIdError (..),
     makeEnvironment,
     queryUnitWithModifiers,
@@ -135,7 +135,7 @@ data Environment
         _unitQueue :: Seq.Seq UnitId,
         _modifierFactory :: EUnitOpFactory,
         _randomGenerator :: StdGen,
-        _strategy :: TaggedControl -> MobId -> FailableGameEnv UnitIdError Action,
+        _strategy :: TaggedControl -> MobId -> FallibleGameEnv UnitIdError Action,
         _seenByPlayer :: IntMap.IntMap SeenByPlayer
       }
   deriving (Generic)
@@ -145,7 +145,7 @@ data Environment
 data WithEvaluator a
   = WithEvaluator
       { _object :: a,
-        _evaluator :: Action -> FailableGameEnv UnitIdError ()
+        _evaluator :: Action -> FallibleGameEnv UnitIdError ()
       }
   deriving (Generic)
 
@@ -160,7 +160,7 @@ data UnitIdError
   | WrongUnitTurn
   deriving (Eq)
 
-type FailableGameEnv err = ExceptT err GameEnv
+type FallibleGameEnv err = ExceptT err GameEnv
 
 makeLenses ''Environment
 
@@ -284,7 +284,7 @@ getActiveMobs env = activeMobs
   where
     activeMobs = map MobId $ IntMap.keys (env ^. mobs)
 
-{- getActivePlayer :: FailableGameEnv UnitIdError UnitId
+{- getActivePlayer :: FallibleGameEnv UnitIdError UnitId
 getActivePlayer = do
   env <- get
   if isAlive (env ^. player . object)
@@ -307,12 +307,12 @@ getPlayer = return PlayerUnitId -}
 getPlayerInventory = gets $ view (player . object . playerUnit . inventory) -}
 
 -- | Sets an inventory to the unit. Can fail if unit is not present in the environment.
-setUnitInventory :: (uid `Is` UnitId) => uid -> Inventory -> FailableGameEnv UnitIdError ()
+setUnitInventory :: (uid `Is` UnitId) => uid -> Inventory -> FallibleGameEnv UnitIdError ()
 setUnitInventory uid inv = case cast uid of
   PlayerUnitId (PlayerId i) -> modify $ set (players . ix i . object . playerUnitData . inventory) inv
   MobUnitId (MobId i) -> modify $ set (mobs . ix i . object . mobUnitData . inventory) inv
 
-unitEquipItem :: (uid `Is` UnitId) => uid -> Int -> FailableGameEnv UnitIdError ()
+unitEquipItem :: (uid `Is` UnitId) => uid -> Int -> FallibleGameEnv UnitIdError ()
 unitEquipItem uid i = do
   unit <- gets (getUnitByUnitId uid) >>= liftEither
   let inv = getUnitData unit ^. inventory
@@ -340,11 +340,11 @@ unitFreeHandSlot uid = case cast uid of
   PlayerUnitId (PlayerId i) -> (players . ix i . object . playerUnitData . inventory) %= freeHandSlot
   MobUnitId (MobId i) -> (mobs . ix i . object . mobUnitData . inventory) %= freeHandSlot
 
-setStrategy :: TaggedControl -> MobId -> FailableGameEnv UnitIdError ()
+setStrategy :: TaggedControl -> MobId -> FallibleGameEnv UnitIdError ()
 setStrategy tag (MobId i) = modify $ set (mobs . ix i . object . mobControlTag) tag
 setStrategy _ _ = throwError UnitCastException
 
-{- _getMobById :: Int -> FailableGameEnv UnitIdError Mob
+{- _getMobById :: Int -> FallibleGameEnv UnitIdError Mob
 _getMobById idx = do
   env <- get
   case env ^? mobs . ix idx . object of
@@ -354,7 +354,7 @@ _getMobById idx = do
 {- setMobById :: Int -> Mob -> Environment -> Environment
 setMobById idx mob env = env & mobs . ix idx . object .~ mob -}
 
-{- getLevellingStats :: PlayerId -> FailableGameEnv UnitIdError LevellingStats
+{- getLevellingStats :: PlayerId -> FallibleGameEnv UnitIdError LevellingStats
 getLevellingStats (PlayerId i) = gets (view (player . object . levelling))
 getLevellingStats _ = throwError UnitCastException -}
 
@@ -362,20 +362,20 @@ getLevellingStats _ = throwError UnitCastException -}
 mobLensById idx = mobs . ix idx . _1 -}
 
 -- | Apply UnitOp to the unit and change the environment.
-affectUnit :: (uid `Is` UnitId) => uid -> EUnitOp a -> FailableGameEnv UnitIdError a
+affectUnit :: (uid `Is` UnitId) => uid -> EUnitOp a -> FallibleGameEnv UnitIdError a
 affectUnit uid modifier = do
   unit <- gets (getUnitByUnitId uid) >>= liftEither
   let (newUnit, result) = applyUnitOp unit modifier
   _trySetUnit uid newUnit
   return result
 
-{- getUnitPosition :: UnitId -> FailableGameEnv UnitIdError (Int, Int)
+{- getUnitPosition :: UnitId -> FallibleGameEnv UnitIdError (Int, Int)
 getUnitPosition uid = affectUnit uid UnitOp.getPosition -}
 
-{- getUnitPortrait :: UnitId -> FailableGameEnv UnitIdError Char
+{- getUnitPortrait :: UnitId -> FallibleGameEnv UnitIdError Char
 getUnitPortrait uid = affectUnit uid UnitOp.getPortrait -}
 
-{- getUnitStats :: UnitId -> FailableGameEnv UnitIdError Stats
+{- getUnitStats :: UnitId -> FallibleGameEnv UnitIdError Stats
 getUnitStats uid = do
   maybeStats <- affectUnit uid UnitOp.getStats
   case maybeStats of
@@ -401,7 +401,7 @@ unitAtPosition pos env = listToMaybe allAtPos
       Right r -> r
 
 -- | Move unit to the position
-moveUnit :: (uid `Is` UnitId) => uid -> Position -> FailableGameEnv UnitIdError Bool
+moveUnit :: (uid `Is` UnitId) => uid -> Position -> FallibleGameEnv UnitIdError Bool
 moveUnit uid pos = do
   isPassable <- gets (checkPassable uid pos) >>= liftEither
   if isPassable
@@ -444,7 +444,7 @@ checkPassable uid pos env = do
 unitByCoord coord env = find ((== coord) . _position . Unit.asUnitData) $ _units env -}
 
 -- | Get AnyUnit from UnitId. Returns Nothing if UnitId is invalid.
-{- _accessUnit :: UnitId -> FailableGameEnv UnitIdError Unit
+{- _accessUnit :: UnitId -> FallibleGameEnv UnitIdError Unit
 _accessUnit uid = do
   env <- get
   case uid of
@@ -463,7 +463,7 @@ getUnitByUnitId uid env = case cast uid of
     assert (Just x) = Right x
 
 -- | Try to set Unit by UnitId.
-_trySetUnit :: (uid `Is` UnitId) => uid -> EUnit -> FailableGameEnv UnitIdError ()
+_trySetUnit :: (uid `Is` UnitId) => uid -> EUnit -> FallibleGameEnv UnitIdError ()
 _trySetUnit uid u =
   case (cast uid, u) of
     (PlayerUnitId (PlayerId i), MkPlayer p) -> players . ix i . object .= p
@@ -476,7 +476,7 @@ envAttack ::
   (uid `Is` UnitId) => uid ->
   -- | Attacked
   uid ->
-  FailableGameEnv UnitIdError ()
+  FallibleGameEnv UnitIdError ()
 envAttack attackerId attackedId = do
   env <- get
   let fact = env ^. modifierFactory
@@ -487,7 +487,7 @@ envAttack attackerId attackedId = do
   _trySetUnit attackedId attacked'
   return ()
 
-evalAction :: (uid `Is` UnitId) => uid -> Action -> FailableGameEnv UnitIdError Bool
+evalAction :: (uid `Is` UnitId) => uid -> Action -> FallibleGameEnv UnitIdError Bool
 evalAction uid a = do
   env <- get
   case cast uid of
@@ -501,7 +501,7 @@ evalAction uid a = do
 {- getCurrentLevel :: Environment -> GameLevel
 getCurrentLevel env = atDef (error "currentLevel index out of bounds") (env ^. levels) (env ^. currentLevel) -}
 
-getAction :: MobId -> Environment -> Either UnitIdError (FailableGameEnv UnitIdError Action)
+getAction :: MobId -> Environment -> Either UnitIdError (FallibleGameEnv UnitIdError Action)
 getAction mid@(MobId i) env = (env ^. strategy) <$> tag <*> pure mid
   where
     tag = case env ^? mobs . ix i . object . mobControlTag of
@@ -530,7 +530,7 @@ getCells = do
   lvl <- getCurrentLevel
   return $ view (cellType . cellRender) <$> lvl ^. lvlMap . cells -}
 
-updateSeenByPlayer :: PlayerId -> FailableGameEnv UnitIdError ()
+updateSeenByPlayer :: PlayerId -> FallibleGameEnv UnitIdError ()
 updateSeenByPlayer pid@(PlayerId i) = do
   visible <- gets (getVisibleToUnit (PlayerUnitId pid)) >>= liftEither
   modify $ over (seenByPlayer . ix i) (bulkAddToSeenByPlayer visible)
@@ -540,13 +540,13 @@ updateSeenByPlayer pid@(PlayerId i) = do
 -- Control
 --------------------------------------------------------------------
 
-getControl :: TaggedControl -> MobId -> FailableGameEnv UnitIdError Action
+getControl :: TaggedControl -> MobId -> FallibleGameEnv UnitIdError Action
 getControl Aggressive = aggressiveControl
 getControl (Passive dest) = passiveControl dest
 getControl Avoiding = avoidingControl
 getControl DoNothing = const $ return stayAtPosition
 
-allVisiblePlayersXYToMob :: MobId -> FailableGameEnv UnitIdError [(Int, Int)] 
+allVisiblePlayersXYToMob :: MobId -> FallibleGameEnv UnitIdError [(Int, Int)] 
 allVisiblePlayersXYToMob mid = do
   env <- get
   mobPosition <- gets (getUnitPosition (MobUnitId mid)) >>= liftEither
@@ -563,7 +563,7 @@ allVisiblePlayersXYToMob mid = do
 
 allUnitsXYAtTheSameLevel ::
   MobId ->
-  FailableGameEnv UnitIdError [(Int, Int)]
+  FallibleGameEnv UnitIdError [(Int, Int)]
 allUnitsXYAtTheSameLevel mid = do
   env <- get
   mobPosition <- gets (getUnitPosition (MobUnitId mid)) >>= liftEither
@@ -577,7 +577,7 @@ allUnitsXYAtTheSameLevel mid = do
 
 
 -- | Tries to reach and attack a player whenever player is visible to this unit
-aggressiveControl :: MobId -> FailableGameEnv UnitIdError Action
+aggressiveControl :: MobId -> FallibleGameEnv UnitIdError Action
 aggressiveControl mid = do
   mobPos <- gets (getUnitPosition (MobUnitId mid)) >>= liftEither
   playersOnSameLevel <- gets (getActivePlayers) >>= filterM (checkSameLevel (mobPos ^. posLevel))
@@ -598,7 +598,7 @@ aggressiveControl mid = do
       pos <- gets (getUnitPosition u) >>= liftEither
       if pos ^. posLevel == lvl then return True else return False
 
-passiveControl :: (Int, Int) -> MobId -> FailableGameEnv UnitIdError Action
+passiveControl :: (Int, Int) -> MobId -> FallibleGameEnv UnitIdError Action
 passiveControl dest mid = do
   mobPosition <- gets (getUnitPosition mid) >>= liftEither
   if positionXY mobPosition == dest
@@ -628,7 +628,7 @@ passiveControl dest mid = do
         Just (_ : (x, y) : _) -> return $ deltaToAction (x - fst mobXY, y - snd mobXY)
         Just _ -> return stayAtPosition
 
-avoidingControl :: MobId -> FailableGameEnv UnitIdError Action
+avoidingControl :: MobId -> FallibleGameEnv UnitIdError Action
 avoidingControl mid = do
   env <- get
   mobPosition <- gets (getUnitPosition mid) >>= liftEither
@@ -655,7 +655,7 @@ getVisibility maybeStats cell = case maybeStats of
   Nothing -> False
   Just stats -> (cell ^. cellType . transparent) stats
 
-type ActionEvaluator = UnitId -> Action -> FailableGameEnv UnitIdError ()
+type ActionEvaluator = UnitId -> Action -> FallibleGameEnv UnitIdError ()
 
 basicEvaluation :: ActionEvaluator
 basicEvaluation uid (Move xDir yDir) = do
