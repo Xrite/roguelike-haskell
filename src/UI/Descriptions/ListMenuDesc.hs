@@ -29,12 +29,13 @@ defaultTitle :: Title
 defaultTitle = Title ""
 
 defaultUIDesc :: UIDesc e a b
-defaultUIDesc = Desc {
-  _title = defaultTitle,
-  _items = [],
-  _selectedItem = Nothing,
-  _customEventHandler = Nothing 
-}
+defaultUIDesc =
+  Desc
+    { _title = defaultTitle,
+      _items = [],
+      _selectedItem = Nothing,
+      _customEventHandler = Nothing
+    }
 
 makeUI :: Builder e a b c -> UIDesc e a b
 makeUI = flip execState defaultUIDesc

@@ -10,9 +10,13 @@
 module Game.Environment
   ( Environment,
     UnitId,
+    PlayerId,
+    MobId,
     GameEnv,
     FallibleGameEnv,
     UnitIdError (..),
+    Position,
+    SeenByPlayer,
     makeEnvironment,
     queryUnitWithModifiers,
     runGameEnv,
@@ -20,15 +24,39 @@ module Game.Environment
     getActiveMobs,
     getAction,
     getActiveUnits,
+    getActivePlayers,
+    getActiveMobs,
     getVisibleToUnit,
     getSeenByPlayer,
     EnvMemento,
     getEnvState,
     loadEnvironmentState,
+    unitFreeChestSlot,
+    unitFreeHandSlot,
+    unitFreeHeadSlot,
+    unitFreeLegsSlot,
+    evalAction,
+    getCurrentUnit,
+    popCurrentUnit,
+    addUnitToQueue,
+    affectUnit,
+    unitEquipItem,
+    getUnitByUnitId,
+    getPlayerByPlayerId,
+    getMobByMobId,
+    getUnitPosition,
+    getUnitPortrait,
+    seenAtLevel,
+    getLevelByUnitId,
+    positionXY,
+    getSeenByPlayer,
+    posLevel,
+    posX,
+    posY
   )
 where
 
-import Control.Lens hiding (levels)
+import Control.Lens hiding (levels, (<|), (|>))
 import Control.Monad (void, when)
 import Control.Monad.Except
 import Control.Monad.Fail
@@ -39,6 +67,7 @@ import Data.Either (rights)
 import qualified Data.IntMap as IntMap
 import Data.List
 import Data.Maybe (fromJust, fromMaybe, isJust, isNothing, listToMaybe)
+import Data.Sequence (Seq (Empty, (:<|), (:|>)), (<|), (|>))
 import qualified Data.Sequence as Seq
 import qualified Data.Set as Set
 import GHC.Generics (Generic)
@@ -99,7 +128,7 @@ data Position
         _posX :: Int,
         _posY :: Int
       }
-      deriving (Eq, Ord)
+      deriving (Eq, Ord, Generic)
 
 makeLenses ''Position
 
@@ -119,6 +148,7 @@ instance Eq StdGen where
 
 -- | All positions in the environment have been seen by a player
 newtype SeenByPlayer = SeenByPlayer (Seq.Seq (Set.Set (Int, Int)))
+  deriving (Generic)
 
 
 -- | Contains description of current game state (e.g. map, mobs)
@@ -212,6 +242,9 @@ addToSeenByPlayer (SeenByPlayer s) p = SeenByPlayer $ Seq.adjust (Set.insert (p 
 bulkAddToSeenByPlayer :: Foldable t =>
                            t Position -> SeenByPlayer -> SeenByPlayer
 bulkAddToSeenByPlayer ps s = foldl' addToSeenByPlayer s ps
+
+seenAtLevel :: Int -> SeenByPlayer -> Set.Set (Int, Int)
+seenAtLevel l (SeenByPlayer s) = fromMaybe Set.empty (Seq.lookup l s)
 
 randomRGameEnv :: Random a => (a, a) -> GameEnv a
 randomRGameEnv range = do
@@ -413,6 +446,11 @@ getUnitPosition uid env = do
   unit <- getUnitByUnitId uid env
   return $ snd $ applyUnitOp unit UnitOp.getPosition
 
+getUnitPortrait :: (uid `Is` UnitId) => uid -> Environment -> Either UnitIdError Char
+getUnitPortrait uid env = do
+  unit <- getUnitByUnitId uid env
+  return $ snd $ applyUnitOp unit UnitOp.getPortrait
+
 getLevelByUnitId :: (uid `Is` UnitId) => uid -> Environment -> Either UnitIdError GameLevel
 getLevelByUnitId uid env = do
   pos <- getUnitPosition uid env
@@ -453,14 +491,40 @@ _accessUnit uid = do
       mob <- _getMobById i
       return $ MkMob mob -}
 
+-- | Returns a first unit from the unit queue
+getCurrentUnit :: Environment -> Maybe UnitId
+getCurrentUnit env = case (env ^. unitQueue) of
+  Seq.Empty -> Nothing
+  uid :<| _ -> Just uid
+
+-- | Returns a first unit from the unit queue and removes it
+popCurrentUnit :: GameEnv (Maybe UnitId)
+popCurrentUnit = do
+  currentUnit <- gets getCurrentUnit
+  modify $ over unitQueue (Seq.drop 1)
+  return currentUnit
+
+-- | Add a unit to the end of the unit queue
+addUnitToQueue :: (uid `Is` UnitId) => uid -> GameEnv ()
+addUnitToQueue uid = do
+  modify $ over unitQueue (|> cast uid)
+
+
 -- | Get Unit by the unitId. Fails if the unit is not present in the environment (e.g. was removed after death).
 getUnitByUnitId :: (uid `Is` UnitId) => uid -> Environment -> Either UnitIdError EUnit
 getUnitByUnitId uid env = case cast uid of
-  PlayerUnitId (PlayerId i) -> assert $ MkPlayer <$> (env ^? players . ix i . object)
-  MobUnitId (MobId i) -> assert $ MkMob <$> (env ^? mobs . ix i . object)
-  where
-    assert Nothing = Left InvalidUnitId
-    assert (Just x) = Right x
+  PlayerUnitId pid -> MkPlayer <$> getPlayerByPlayerId pid env
+  MobUnitId mid -> MkMob <$> getMobByMobId mid env
+
+getPlayerByPlayerId :: PlayerId -> Environment -> Either UnitIdError EPlayer
+getPlayerByPlayerId (PlayerId i) env = case (env ^? players . ix i . object) of
+  Nothing -> Left InvalidUnitId
+  Just p -> Right p
+
+getMobByMobId :: MobId -> Environment -> Either UnitIdError EMob
+getMobByMobId (MobId i) env = case (env ^? mobs  . ix i . object) of
+  Nothing -> Left InvalidUnitId
+  Just m -> Right m
 
 -- | Try to set Unit by UnitId.
 _trySetUnit :: (uid `Is` UnitId) => uid -> EUnit -> FallibleGameEnv UnitIdError ()
@@ -718,6 +782,7 @@ makeTurn playerAction = do
   _ <- runExceptT $ traverse (`affectUnit` tickTimedEffects) units
   return () -}
 
+
 {--------------------------------------------------------------------
   Save / Load
 --------------------------------------------------------------------}
@@ -742,6 +807,7 @@ getEnvState env =
       envSeen = IntMap.toList $ env ^. seenByPlayer
     }
 
+loadEnvironmentState :: EnvMemento -> Environment
 loadEnvironmentState (EnvMemento player imobs levels gen seen) =
   makeEnvironmentInternal
     player

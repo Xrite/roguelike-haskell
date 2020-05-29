@@ -44,6 +44,8 @@ data Map
         _mapIsVisibleToPlayer :: (Int, Int) -> Bool,
         -- | Mobs on the map with portrait
         _mapMobs :: [((Int, Int), Char)],
+        -- | Players on the map with portrait
+        _mapPlayers :: [((Int, Int), Char)],
         -- | Position of the player
         _mapPlayerPosition :: (Int, Int),
         -- | Portrait of the player
@@ -93,6 +95,7 @@ blankMap =
       _mapHasBeenSeenByPlayer = const False,
       _mapIsVisibleToPlayer = const False,
       _mapMobs = [],
+      _mapPlayers = [],
       _mapPlayerPosition = undefined,
       _mapPlayerPortrait = undefined,
       _mapEntities = []
@@ -152,9 +155,17 @@ setMapMobs mobs = modify $ set (map . mapMobs) mobs
 addMapMob :: (Int, Int) -> Char -> Builder e a b ()
 addMapMob position portrait = modify $ over (map . mapMobs) ((position, portrait) :)
 
--- | Set the player on the map
-setMapPlayer :: (Int, Int) -> Char -> Builder e a b ()
-setMapPlayer position portrait = do
+-- | Set players on the map
+setMapPlayers :: [((Int, Int), Char)] -> Builder e a b ()
+setMapPlayers players = modify $ set (map . mapPlayers) players
+
+-- | Add a player to the map
+addMapPlayer :: (Int, Int) -> Char -> Builder e a b ()
+addMapPlayer position portrait = modify $ over (map . mapPlayers) ((position, portrait) :)
+
+-- | Set the main player on the map
+setMapMainPlayer :: (Int, Int) -> Char -> Builder e a b ()
+setMapMainPlayer position portrait = do
   modify $ set (map . mapPlayerPosition) position
   modify $ set (map . mapPlayerPortrait) portrait
 
@@ -177,6 +188,9 @@ setArrowPress f = modify $ set onArrowPress (Just f)
 -- | Set a key press handler
 setKeyPress :: (Keys.Keys -> a -> b) -> Builder e a b ()
 setKeyPress f = modify $ set onKeyPress (Just f)
+
+setCustomEventHandler :: (e -> a -> b) -> Builder e a b ()
+setCustomEventHandler f = modify $ set customEventHandler (Just f)
 
 -- | Set stats records
 setStats :: [(String, String)] -> Builder e a b ()

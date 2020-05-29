@@ -36,27 +36,54 @@ import qualified UI.Descriptions.ListMenuDesc as ListMenuDesc
 import qualified UI.Keys as Keys
 import UI.UI
 import Game.FileIO.SaveGame
+import Game.Transaction (Transaction)
+import qualified Game.Transaction as Transaction
+import Game.GameControl (GameCfg(..), makeAction, clickSlot, clickItem, interpret)
+import Game.GameLevels.MapCell (renderCell)
 
-data GameState = Game Environment
+data CustomEvent 
+  = UpdateEnvUsingTransaction Transaction
+  | UpdateEnvUsingMemento EnvMemento
 
-newtype InventoryState = Inventory Environment
+data Handle =
+  Handle {
+    handleDeath :: Environment -> IO (),
+    handleQuitGame :: Environment -> IO (),
+    handleStartGame :: IO Environment
+  }
+
+data GameState 
+  = Game {
+    gameRealEnv :: Environment,
+    gameFakeEnv :: Environment,
+    gameGameCfg :: GameCfg,
+    gameHandle :: Handle
+  }
+
+data InventoryState 
+  = Inventory {
+    inventoryRealEnv :: Environment,
+    inventoryFakeEnv :: Environment,
+    inventoryGameCfg :: GameCfg,
+    inventoryHandle :: Handle
+  }
 
 data EndState = EndState
 
-newtype MainMenuState = MainMenu (UI IO MainMenuState)
+newtype MainMenuState = MainMenu (UI IO MainMenuState CustomEvent)
 
 makeLenses ''GameState
 
-instance HasUI IO GameState where
-  getUI (Game env) = gameUI env
+instance HasUI IO GameState CustomEvent where
+  getUI gs = gameUI (gameFakeEnv gs) (playerId $ gameGameCfg gs)
 
-instance HasUI IO InventoryState where
-  getUI (Inventory env) = inventoryUI env
+instance HasUI IO InventoryState CustomEvent where
+  getUI is = inventoryUI (inventoryFakeEnv is) (playerId $ inventoryGameCfg is)
 
-instance HasUI IO EndState where
+instance HasUI IO EndState CustomEvent where
   getUI EndState = terminalUI
 
-instance HasUI IO MainMenuState where
+instance HasUI IO MainMenuState CustomEvent where
   getUI (MainMenu ui) = ui
 
 arrowsToAction :: Keys.Arrows -> Action
@@ -92,62 +119,83 @@ keysToAction (Keys.Letter '.') = Just $ Move Zero Zero
 keysToAction _ = Nothing
 
 --gameUI :: (Applicative m, HasUI m GameState, HasUI m MainMenuState) => Environment -> UI m GameState
-gameUI :: Environment -> UI IO GameState
-gameUI env = makeGameUI $
+gameUI :: Environment -> PlayerId -> UI IO GameState CustomEvent
+gameUI env pid = makeGameUI $
   do
-    fst $ runGameEnv tryRender env
-    fst $ runGameEnv tryGetStats env
+    fromRight (return ()) renderMap
+    fromRight (return ()) renderStats
     GameUIDesc.setArrowPress arrowPress
     GameUIDesc.setKeyPress keyPress
+    GameUIDesc.setCustomEventHandler customEvent
   where
     --    arrowPress :: (HasUI ma GameState) => Arrows -> GameState -> AnyHasUI ma
-    arrowPress arrow (Game e) = let newEnv = snd $ runGameEnv (makeTurn $ arrowsToAction arrow) e in 
+    arrowPress arrow gs = do
+      let cmd = makeAction $ arrowsToAction arrow
+      env' <- interpret (gameGameCfg gs) env
       if (not . isPlayerAlive $ newEnv) 
         then do
-          removeGame "autosave"
+          handleDeath $ gameHandle gs
           return $ packHasIOUI $ MainMenu mainMenuUI 
-      else return $ packHasIOUI . Game $ newEnv
+      else return $ packHasIOUI (gs {gameFakeEnv = env'})
     arrowPress _ st = return $ packHasIOUI st
     --    keyPress :: Keys.Keys -> GameState -> AnyHasUI m
-    keyPress key (Game e) | Just action <- keysToAction key = return $ packHasIOUI . Game . snd $ runGameEnv (makeTurn action) e
-    keyPress (Keys.Letter 'i') (Game e) = return . packHasIOUI $ Inventory e
-    keyPress (Keys.Letter 'q') (Game e) = do
+    keyPress key gs 
+      | Just action <- keysToAction key = do
+        let cmd = makeAction action
+        env' <- interpret (gameGameCfg gs) env
+        if (not . isPlayerAlive $ newEnv) 
+          then do
+            handleDeath $ gameHandle gs
+            return $ packHasIOUI $ MainMenu mainMenuUI 
+        else return $ packHasIOUI (gs {gameFakeEnv = env'})
+    keyPress (Keys.Letter 'i') gs = 
+      return . packHasIOUI $ Inventory e
+    keyPress (Keys.Letter 'q') gs = do
       saveGame "autosave" $ getEnvState e
       return $ packHasIOUI $ MainMenu mainMenuUI
     keyPress _ st = return $ packHasIOUI st
-    tryRender = do
-      visible <- Set.fromList <$> getVisibleToPlayer
-      seen <- Set.fromList <$> getSeenByPlayer
-      cells <- getCells
-      mobs <- getActiveMobs
-      ms <- rights <$> traverse (\uid -> runExceptT $ (,) <$> getUnitPosition uid <*> getUnitPortrait uid) mobs
-      playerUid <- getPlayer
-      playerPosition <- runExceptT $ getUnitPosition playerUid
-      playerPortrait <- runExceptT $ getUnitPortrait playerUid
+
+    customEvent (UpdateEnvUsingTransaction t) gs = do
+      let env' = runGameEnv (applyTransaction t) (gameRealEnv gs)
+      return $ packHasIOUI (gs {gameRealEnv = env', gameFakeEnv = env'})
+    customEvent (UpdateEnvUsingMemento m) gs = do
+      let env' = loadEnvironmentState m
+      return $ packHasIOUI (gs {gameRealEnv = env', gameFakeEnv = env'})
+
+    renderMap = do
+      playerPosition <- getUnitPosition pid env
+      playerPortrait <- getUnitPortrait pid env
+      visible <- Set.fromList . fmap positionXY <$> getVisibleToUnit pid env
+      seenOnLevel <- seenAtLevel (playerPosition ^. posLevel) <$> getSeenByPlayer pid env
+      level <- getLevelByUnitId pid env
+      let mobs = getActiveMobs env
+      let mobPositions = rights $ map (flip getUnitPosition $ env) mobs
+      let mobPortraits = rights $ map (flip getUnitPortrait $ env) mobs
+      let players = getActivePlayers env
+      let playerPositions = rights $ map (flip getUnitPosition $ env) players
+      let playerPortraits = rights $ map (flip getUnitPortrait $ env) players
       return $ do
-        GameUIDesc.setMapTerrain cells
-        GameUIDesc.setMapHasBeenSeenByPlayer (`Set.member` seen)
+        GameUIDesc.setMapTerrain (renderCell  <$> level ^. lvlMap . cells)
+        GameUIDesc.setMapHasBeenSeenByPlayer (`Set.member` seenOnLevel)
         GameUIDesc.setMapIsVisibleToPlayer (`Set.member` visible)
-        GameUIDesc.setMapMobs ms
-        fromRight (return ()) $ pure GameUIDesc.setMapPlayer <*> playerPosition <*> playerPortrait
-    tryGetStats = do
-      uid <- getPlayer
-      eStats <- runExceptT $ getUnitStats uid
-      eLevellingStats <- runExceptT $ getLevellingStats uid
-      return $ fromRight (return ()) $ do
-        stats <- eStats
-        levellingStats <- eLevellingStats
-        return $
-          GameUIDesc.setStats
-            [ ("Health", show (stats ^. health)),
-              ("Attack power", show (stats ^. attackPower)),
-              ("Shield", show (stats ^. shield)),
-              ("Level", show (stats ^. level)),
-              ("Experience", show (levellingStats ^. experience)),
-              ("Skill points", show (levellingStats ^. skillPoints))
+        GameUIDesc.setMapMobs $ zip (map positionXY mobPositions) mobPortraits
+        GameUIDesc.setMapPlayers $ zip (map positionXY playerPositions) playerPortraits
+        GameUIDesc.setMapMainPlayer (positionXY playerPosition) playerPortrait
+    renderStats = do
+      player <- getPlayerByPlayerId pid env
+      let pStats = player ^. playerUnitData . stats
+      let pLevellingStats = player ^. playerLevelling
+      return $ 
+        GameUIDesc.setStats
+            [ ("Health", show (pStats ^. health)),
+              ("Attack power", show (pStats ^. attackPower)),
+              ("Shield", show (pStats ^. shield)),
+              ("Level", show (pStats ^. level)),
+              ("Experience", show (pLevellingStats ^. experience)),
+              ("Skill points", show (pLevellingStats ^. skillPoints))
             ]
 
-mainMenuUI :: UI IO MainMenuState
+mainMenuUI :: UI IO MainMenuState CustomEvent
 mainMenuUI =
   makeListMenuUI $ do
     ListMenuDesc.setTitle "Main menu"
@@ -160,11 +208,13 @@ mainMenuUI =
          )
     ListMenuDesc.addItemPure "load level" (const $ packHasIOUI $ MainMenu loadLvlMenuUI)
     ListMenuDesc.addItemPure "test level" (const (packHasIOUI $ Game testEnvironment))
+    ListMenuDesc.addItem "create multiplayer game" undefined
+    ListMenuDesc.addItem "join multiplayer game" undefined
     ListMenuDesc.addItemPure "quit" (const . packHasIOUI $ EndState)
     ListMenuDesc.selectItem 0
 
-inventoryUI :: (Applicative m, HasUI m InventoryState, HasUI m GameState) => Environment -> UI m InventoryState
-inventoryUI env = makeInventoryUIPure $
+inventoryUI :: Environment -> PlayerId -> UI IO InventoryState CustomEvent
+inventoryUI env pid = makeInventoryUI $
   do
     InventoryUI.setItems $ map name (inv ^. items)
     InventoryUI.setSlots
@@ -180,14 +230,21 @@ inventoryUI env = makeInventoryUIPure $
   where
     (inv, _) = runGameEnv getPlayerInventory env
     defaultSlot = maybe "free"
-    clickSlot i (Inventory e)
-      | i == 0 = packHasIOUI . Inventory . snd $ runGameEnv playerFreeHeadSlot env
-      | i == 1 = packHasIOUI . Inventory . snd $ runGameEnv playerFreeChestSlot env
-      | i == 2 = packHasIOUI . Inventory . snd $ runGameEnv playerFreeLegsSlot env
-      | i == 3 = packHasIOUI . Inventory . snd $ runGameEnv playerFreeHandSlot env
-      | otherwise = packHasIOUI $ Inventory e
-    clickItem i (Inventory _) = packHasIOUI . Inventory . snd $ runGameEnv (playerEquipItem i) env
-    close (Inventory e) = packHasIOUI $ Game e
+    clickSlot i is = do
+      let cmd = Transaction.clickSlot i
+      env' <- interpret (inventoryGameCfg is) env cmd
+      return $ packHasIOUI (is {gameFakeEnv = env'})
+    clickItem i is = do
+      let cmd = Transaction.clickItem i
+      env' <- interpret (inventoryGameCfg is) env cmd
+      return $ packHasIOUI (is {gameFakeEnv = env'})
+    close is = do
+      return $ packHasIOUI (Game {
+        gameRealEnv = inventoryRealEnv is,
+        gameFakeEnv = inventoryFakeEnv is,
+        gameGameCfg = inventoryGameCfg is,
+        gameHandle = inventoryHandle is
+      })
 
 loadLevel :: String -> IO GameLevel
 loadLevel name = do
@@ -195,7 +252,7 @@ loadLevel name = do
   let level1 = fromRight testGameLevel levelEither
   return level1
 
-loadLvlMenuUI :: UI IO MainMenuState
+loadLvlMenuUI :: UI IO MainMenuState CustomEvent
 loadLvlMenuUI =
   makeListMenuUI $ do
     ListMenuDesc.setTitle "Load level"
@@ -237,7 +294,7 @@ testEnvironment =
   where
     ourPlayer = makeSomePlayer $ makeUnitData (7, 9) 'λ'
 
-makeUnitData :: (Int, Int) -> Char -> UnitData
+makeUnitData :: (Int, Int) -> Char -> UnitData Position
 makeUnitData position render =
   createUnitData
     position
@@ -254,5 +311,6 @@ makeUnitData position render =
         addItem (wearableToItem $ createWearable "uncomfortable shoes" Legs (effectAtom confuse) (return ()) '"')
         emptyInventory
 
-makeSomePlayer :: UnitData -> Player
+makeSomePlayer :: UnitData Position -> Player Position
 makeSomePlayer = makePlayer . (stats . health %~ (*2))
+
