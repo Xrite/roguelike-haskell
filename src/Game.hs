@@ -6,6 +6,7 @@
 
 module Game where
 
+import Brick.BChan
 import Control.Lens
 import Control.Monad.Except
 import Data.Either (fromRight, rights)
@@ -38,47 +39,54 @@ import UI.UI
 import Game.FileIO.SaveGame
 import Game.Transaction (Transaction)
 import qualified Game.Transaction as Transaction
-import Game.GameControl (GameCfg(..), makeAction, clickSlot, clickItem, interpret)
 import Game.GameLevels.MapCell (renderCell)
+import Game.Position
 
 data CustomEvent 
   = UpdateEnvUsingTransaction Transaction
   | UpdateEnvUsingMemento EnvMemento
+  | UpdateEnvironment Environment
 
 data Handle =
   Handle {
-    handleDeath :: Environment -> IO (),
-    handleQuitGame :: Environment -> IO (),
-    handleStartGame :: IO Environment
+    _handleDeath :: Environment -> IO (),
+    _handleQuitGame :: Environment -> IO (),
+    _handleAction :: PlayerId -> Action -> Environment -> IO Environment,
+    _handleClickSlot :: PlayerId -> Int -> Environment -> IO Environment,
+    _handleClickItem :: PlayerId -> Int -> Environment -> IO Environment
   }
 
 data GameState 
   = Game {
-    gameRealEnv :: Environment,
-    gameFakeEnv :: Environment,
-    gameGameCfg :: GameCfg,
-    gameHandle :: Handle
+    _gamePlayerId :: PlayerId,
+    _gameRealEnv :: Environment,
+    _gameFakeEnv :: Environment,
+    _gameHandle :: Handle,
+    _gameBChan :: BChan CustomEvent
   }
 
 data InventoryState 
   = Inventory {
-    inventoryRealEnv :: Environment,
-    inventoryFakeEnv :: Environment,
-    inventoryGameCfg :: GameCfg,
-    inventoryHandle :: Handle
+    _inventoryPlayerId :: PlayerId,
+    _inventoryRealEnv :: Environment,
+    _inventoryFakeEnv :: Environment,
+    _inventoryHandle :: Handle,
+    _inventoryBChan :: BChan CustomEvent
   }
 
 data EndState = EndState
 
 newtype MainMenuState = MainMenu (UI IO MainMenuState CustomEvent)
 
+makeLenses ''Handle
 makeLenses ''GameState
+makeLenses ''InventoryState
 
 instance HasUI IO GameState CustomEvent where
-  getUI gs = gameUI (gameFakeEnv gs) (playerId $ gameGameCfg gs)
+  getUI gs = gameUI (gs ^. gameFakeEnv) (gs ^. gamePlayerId)
 
 instance HasUI IO InventoryState CustomEvent where
-  getUI is = inventoryUI (inventoryFakeEnv is) (playerId $ inventoryGameCfg is)
+  getUI is = inventoryUI (is ^. inventoryFakeEnv) (is ^. inventoryPlayerId)
 
 instance HasUI IO EndState CustomEvent where
   getUI EndState = terminalUI
@@ -128,39 +136,49 @@ gameUI env pid = makeGameUI $
     GameUIDesc.setKeyPress keyPress
     GameUIDesc.setCustomEventHandler customEvent
   where
-    --    arrowPress :: (HasUI ma GameState) => Arrows -> GameState -> AnyHasUI ma
+    arrowPress :: Keys.Arrows -> GameState -> IO (AnyHasUI IO CustomEvent)
     arrowPress arrow gs = do
-      let cmd = makeAction $ arrowsToAction arrow
-      env' <- interpret (gameGameCfg gs) env
-      if (not . isPlayerAlive $ newEnv) 
+      let env = (gs ^. gameFakeEnv)
+      let pid = (gs ^. gamePlayerId)
+      let act = arrowsToAction arrow
+      let chan = gs ^. gameBChan
+      env' <- (gs ^. gameHandle . handleAction) pid act env
+      if (not . isUnitAlive pid $ env') 
         then do
-          handleDeath $ gameHandle gs
-          return $ packHasIOUI $ MainMenu mainMenuUI 
-      else return $ packHasIOUI (gs {gameFakeEnv = env'})
-    arrowPress _ st = return $ packHasIOUI st
-    --    keyPress :: Keys.Keys -> GameState -> AnyHasUI m
-    keyPress key gs 
+          (gs ^. gameHandle . handleDeath) env
+          return $ packHasIOUI $ MainMenu (mainMenuUI chan)
+      else return $ packHasIOUI (gs {_gameFakeEnv = env'})
+    keyPress :: Keys.Keys -> GameState -> IO (AnyHasUI IO CustomEvent)
+    keyPress key gs
       | Just action <- keysToAction key = do
-        let cmd = makeAction action
-        env' <- interpret (gameGameCfg gs) env
-        if (not . isPlayerAlive $ newEnv) 
+        let env = (gs ^. gameFakeEnv)
+        let pid = (gs ^. gamePlayerId)
+        let chan = gs ^. gameBChan
+        env' <- (gs ^. gameHandle . handleAction) pid action env
+        if (not . isUnitAlive pid $ env')
           then do
-            handleDeath $ gameHandle gs
-            return $ packHasIOUI $ MainMenu mainMenuUI 
-        else return $ packHasIOUI (gs {gameFakeEnv = env'})
+            (gs ^. gameHandle . handleDeath) env
+            return $ packHasIOUI $ MainMenu (mainMenuUI chan)
+          else return $ packHasIOUI (gs {_gameFakeEnv = env'})
     keyPress (Keys.Letter 'i') gs = 
-      return . packHasIOUI $ Inventory e
+      return . packHasIOUI $ Inventory {
+        _inventoryFakeEnv = gs ^. gameFakeEnv ,
+        _inventoryRealEnv = gs ^. gameRealEnv ,
+        _inventoryHandle = gs ^. gameHandle ,
+        _inventoryPlayerId = gs ^. gamePlayerId 
+      }
     keyPress (Keys.Letter 'q') gs = do
-      saveGame "autosave" $ getEnvState e
-      return $ packHasIOUI $ MainMenu mainMenuUI
+      let chan = gs ^. gameBChan
+      (gs ^. gameHandle . handleQuitGame) (gs ^. gameFakeEnv)
+      return $ packHasIOUI $ MainMenu (mainMenuUI chan)
     keyPress _ st = return $ packHasIOUI st
 
     customEvent (UpdateEnvUsingTransaction t) gs = do
-      let env' = runGameEnv (applyTransaction t) (gameRealEnv gs)
-      return $ packHasIOUI (gs {gameRealEnv = env', gameFakeEnv = env'})
+      let env' = snd $ runGameEnv (Transaction.applyTransaction t) (gs ^. gameRealEnv)
+      return $ packHasIOUI (gs {_gameRealEnv = env', _gameFakeEnv = env'})
     customEvent (UpdateEnvUsingMemento m) gs = do
       let env' = loadEnvironmentState m
-      return $ packHasIOUI (gs {gameRealEnv = env', gameFakeEnv = env'})
+      return $ packHasIOUI (gs {_gameRealEnv = env', _gameFakeEnv = env'})
 
     renderMap = do
       playerPosition <- getUnitPosition pid env
@@ -195,23 +213,6 @@ gameUI env pid = makeGameUI $
               ("Skill points", show (pLevellingStats ^. skillPoints))
             ]
 
-mainMenuUI :: UI IO MainMenuState CustomEvent
-mainMenuUI =
-  makeListMenuUI $ do
-    ListMenuDesc.setTitle "Main menu"
-    ListMenuDesc.addItem "random" (const (packHasIOUI . Game . randomEnvironment <$> getStdRandom random)) -- TODO use random generator or at least ask user to input a seed
-    ListMenuDesc.addItem "load last game" (const
-         (do loaded <- loadGame "autosave"
-             return $ case loaded of
-               Prelude.Left _ -> packHasIOUI $ MainMenu mainMenuUI
-               Prelude.Right env -> packHasIOUI $ Game $ loadEnvironmentState env)
-         )
-    ListMenuDesc.addItemPure "load level" (const $ packHasIOUI $ MainMenu loadLvlMenuUI)
-    ListMenuDesc.addItemPure "test level" (const (packHasIOUI $ Game testEnvironment))
-    ListMenuDesc.addItem "create multiplayer game" undefined
-    ListMenuDesc.addItem "join multiplayer game" undefined
-    ListMenuDesc.addItemPure "quit" (const . packHasIOUI $ EndState)
-    ListMenuDesc.selectItem 0
 
 inventoryUI :: Environment -> PlayerId -> UI IO InventoryState CustomEvent
 inventoryUI env pid = makeInventoryUI $
@@ -228,23 +229,48 @@ inventoryUI env pid = makeInventoryUI $
     InventoryUI.setOnClosed $ close
     InventoryUI.selectItem 0
   where
-    (inv, _) = runGameEnv getPlayerInventory env
+    inv = fromRight emptyInventory $ getUnitInventory pid env
     defaultSlot = maybe "free"
     clickSlot i is = do
-      let cmd = Transaction.clickSlot i
-      env' <- interpret (inventoryGameCfg is) env cmd
-      return $ packHasIOUI (is {gameFakeEnv = env'})
+      env' <- (is ^. inventoryHandle . handleClickSlot) pid i env 
+      return $ packHasIOUI (is {_inventoryFakeEnv = env'})
     clickItem i is = do
-      let cmd = Transaction.clickItem i
-      env' <- interpret (inventoryGameCfg is) env cmd
-      return $ packHasIOUI (is {gameFakeEnv = env'})
+      env' <- (is ^. inventoryHandle . handleClickItem) pid i env 
+      return $ packHasIOUI (is {_inventoryFakeEnv = env'})
     close is = do
       return $ packHasIOUI (Game {
-        gameRealEnv = inventoryRealEnv is,
-        gameFakeEnv = inventoryFakeEnv is,
-        gameGameCfg = inventoryGameCfg is,
-        gameHandle = inventoryHandle is
+        _gamePlayerId = is ^. inventoryPlayerId,
+        _gameRealEnv = is ^. inventoryRealEnv,
+        _gameFakeEnv = is ^. inventoryFakeEnv,
+        _gameHandle = is ^. inventoryHandle
       })
+
+mainMenuUI :: BChan CustomEvent -> UI IO MainMenuState CustomEvent
+mainMenuUI chan =
+  makeListMenuUI $ do
+    ListMenuDesc.setTitle "Main menu"
+    ListMenuDesc.addItem "random" (const randomGame) -- TODO use random generator or at least ask user to input a seed
+    ListMenuDesc.addItem "load last game" (const loadLastGame)
+    ListMenuDesc.addItemPure "load level" (const $ packHasIOUI $ MainMenu (loadLvlMenuUI chan))
+    ListMenuDesc.addItem "test level" (const testLevelGame)
+    ListMenuDesc.addItem "create multiplayer game" undefined
+    ListMenuDesc.addItem "join multiplayer game" undefined
+    ListMenuDesc.addItemPure "quit" (const . packHasIOUI $ EndState)
+    ListMenuDesc.selectItem 0
+  where
+    loadLastGame = do
+      loaded <- loadGame "autosave"
+      case loaded of
+        Prelude.Left _ -> return $ packHasIOUI $ MainMenu (mainMenuUI chan)
+        Prelude.Right env -> startSinglePlayerGame chan (loadEnvironmentState env)
+    randomGame = do
+      rnd <- getStdRandom random
+      let env = randomEnvironment rnd
+      startSinglePlayerGame chan env
+    testLevelGame = startSinglePlayerGame chan testEnvironment
+
+
+         
 
 loadLevel :: String -> IO GameLevel
 loadLevel name = do
@@ -252,53 +278,104 @@ loadLevel name = do
   let level1 = fromRight testGameLevel levelEither
   return level1
 
-loadLvlMenuUI :: UI IO MainMenuState CustomEvent
-loadLvlMenuUI =
+loadLvlMenuUI :: BChan CustomEvent -> UI IO MainMenuState CustomEvent
+loadLvlMenuUI chan =
   makeListMenuUI $ do
     ListMenuDesc.setTitle "Load level"
-    ListMenuDesc.addItem "level 1" (const $ packHasIOUI . Game . testEnvironmentWithLevel <$> loadLevel "Level_1")
-    ListMenuDesc.addItem "level 2" (const $ packHasIOUI . Game . testEnvironmentWithLevel <$> loadLevel "Level_2")
-    ListMenuDesc.addItem "level 3" (const $ packHasIOUI . Game . testEnvironmentWithLevel <$> loadLevel "Level_3")
-    ListMenuDesc.addItemPure "back" (const $ packHasIOUI $ MainMenu mainMenuUI)
+    ListMenuDesc.addItem "level 1" (const $ loadLevelAndPack "Level_1")
+    ListMenuDesc.addItem "level 2" (const $ loadLevelAndPack "Level_2")
+    ListMenuDesc.addItem "level 3" (const $ loadLevelAndPack "Level_3")
+    ListMenuDesc.addItemPure "back" (const $ packHasIOUI $ MainMenu (mainMenuUI chan))
     ListMenuDesc.selectItem 0
+    where
+      loadLevelAndPack s = do
+        lvl <- loadLevel s
+        let env = testEnvironmentWithLevel lvl
+        startSinglePlayerGame chan env
+
+
+singlePlayerHandleAction chan pid action env = do
+  let trans = Transaction.unitAction pid action
+  let env' = snd $ runGameEnv (Transaction.applyTransaction trans) env
+  writeBChan chan (UpdateEnvironment env')
+  return env
+
+singlePlayerHandleClickSlot chan pid i env = do
+  let trans = Transaction.clickSlot pid i
+  let env' = snd $ runGameEnv (Transaction.applyTransaction trans) env
+  writeBChan chan (UpdateEnvironment env')
+  return env
+
+singlePlayerHandleClickItem chan pid i env = do
+  let trans = Transaction.clickItem pid i
+  let env' = snd $ runGameEnv (Transaction.applyTransaction trans) env
+  writeBChan chan (UpdateEnvironment env')
+  return env
+
+singlePlayerHandleDeath env = do
+  removeGame "autosave"
+
+singlePlayerHandleQuitGame env = do
+  saveGame "autosave" $ getEnvState env 
+
+startSinglePlayerGame :: BChan CustomEvent -> Environment -> IO (AnyHasUI IO CustomEvent)
+startSinglePlayerGame chan env = do
+  let g = Game {
+    _gamePlayerId = pid,
+    _gameRealEnv = env,
+    _gameFakeEnv = env,
+    _gameHandle = handle,
+    _gameBChan = chan
+  }
+  return $ packHasIOUI g
+  where
+    pid = makePlayerId 0
+    handle = Handle {
+    _handleDeath = singlePlayerHandleDeath,
+    _handleQuitGame = singlePlayerHandleQuitGame,
+    _handleAction = singlePlayerHandleAction chan,
+    _handleClickSlot = singlePlayerHandleClickSlot chan,
+    _handleClickItem = singlePlayerHandleClickItem chan
+    }
+
+
 
 testEnvironmentWithLevel :: GameLevel -> Environment
 testEnvironmentWithLevel level =
   makeEnvironment
-    ourPlayer
-    [ makeMob (makeUnitData (3, 3) 'U') Aggressive ]
+    [ourPlayer]
+    [ makeDefaultMob (makeUnitData 0 (3, 3) 'U') Aggressive ]
     [level]
   where
-    ourPlayer = makeSomePlayer $ makeUnitData (level ^. lvlMap . entrance) 'λ'
+    ourPlayer = makeSomePlayer $ makeUnitData 0 (level ^. lvlMap . entrance) 'λ'
 
 randomEnvironment :: Int -> Environment
 randomEnvironment seed =
   makeEnvironment
-    ourPlayer
+    [ourPlayer]
     []
     [lvl]
   where
     lvl = fst $ randomBSPGeneratedLevel (GU.Space (GU.Coord 0 0) (GU.Coord 50 50)) (GeneratorParameters 10 1.7 5) $ mkStdGen seed
     startCoord = _entrance $ _lvlMap lvl
-    ourPlayer = makeSomePlayer $ makeUnitData startCoord 'λ'
+    ourPlayer = makeSomePlayer $ makeUnitData 0 startCoord 'λ'
 
 testEnvironment :: Environment
 testEnvironment =
   makeEnvironment
-    ourPlayer
-    [ makeMob (makeUnitData (3, 3) 'U') Aggressive
-    , makeMob (makeUnitData (4, 6) 'U') (Passive (4, 6))
-    , makeMob (makeUnitData (5, 6) 'U') Avoiding
+    [ourPlayer]
+    [ makeDefaultMob (makeUnitData 0 (3, 3) 'U') Aggressive
+    , makeDefaultMob (makeUnitData 0 (4, 6) 'U') (Passive (4, 6))
+    , makeDefaultMob (makeUnitData 0 (5, 6) 'U') Avoiding
     ]
     [testGameLevel]
   where
-    ourPlayer = makeSomePlayer $ makeUnitData (7, 9) 'λ'
+    ourPlayer = makeSomePlayer $ makeUnitData 0 (7, 9) 'λ'
 
-makeUnitData :: (Int, Int) -> Char -> UnitData Position
-makeUnitData position render =
+makeUnitData :: Int -> (Int, Int) -> Char -> UnitData
+makeUnitData level position render =
   createUnitData
-    position
-    0
+    (uncheckedPosition level position)
     (Stats.Stats 10 10 10 1)
     Game.Unit.TimedUnitOps.empty
     someInventory
@@ -311,6 +388,6 @@ makeUnitData position render =
         addItem (wearableToItem $ createWearable "uncomfortable shoes" Legs (effectAtom confuse) (return ()) '"')
         emptyInventory
 
-makeSomePlayer :: UnitData Position -> Player Position
-makeSomePlayer = makePlayer . (stats . health %~ (*2))
+makeSomePlayer :: UnitData -> Player 
+makeSomePlayer = makeDefaultPlayer . (stats . health %~ (*2))
 

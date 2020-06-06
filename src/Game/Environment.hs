@@ -18,6 +18,7 @@ module Game.Environment
     Position,
     SeenByPlayer,
     makeEnvironment,
+    makePlayerId,
     queryUnitWithModifiers,
     runGameEnv,
     randomRGameEnv,
@@ -31,6 +32,7 @@ module Game.Environment
     EnvMemento,
     getEnvState,
     loadEnvironmentState,
+    getUnitInventory,
     unitFreeChestSlot,
     unitFreeHandSlot,
     unitFreeHeadSlot,
@@ -52,7 +54,8 @@ module Game.Environment
     getSeenByPlayer,
     posLevel,
     posX,
-    posY
+    posY,
+    isUnitAlive
   )
 where
 
@@ -83,6 +86,7 @@ import Game.Unit
 import Game.Unit.Action as Action
 import Safe (atDef)
 import System.Random
+import Game.Position
 
 -- | All manipulations with units in environment should use this type
 data UnitId
@@ -121,27 +125,15 @@ instance PlayerId `Is` UnitId where
 -- TODO maybe extract units to a different module?
 -- TODO comment
 
--- | Position in the environment
-data Position
-  = Position
-      { _posLevel :: Int,
-        _posX :: Int,
-        _posY :: Int
-      }
-      deriving (Eq, Ord, Generic)
+type EPlayer = Player
 
-makeLenses ''Position
+type EMob = Mob 
 
+type EUnit = Unit 
 
-type EPlayer = Player Position
+type EUnitOp a = UnitOp a
 
-type EMob = Mob Position
-
-type EUnit = Unit Position
-
-type EUnitOp a = UnitOp Position a
-
-type EUnitOpFactory = UnitOpFactory Position
+type EUnitOpFactory = UnitOpFactory 
 
 instance Eq StdGen where
   g1 == g2 = show g1 == show g2
@@ -202,6 +194,10 @@ instance MonadFail GameEnv where
 instance Show Environment where
   show _ = "Environment"
 
+makePlayerId = PlayerId
+
+makeMobId = MobId
+
 -- | Make a position in environment.
 --  Returns Nothing if no such position exists in this environment
 makePosition ::
@@ -222,10 +218,6 @@ makePosition env l x y = do
         _posX = x,
         _posY = y
       }
-
--- | (x, y) coordinates of the position
-positionXY :: Position -> (Int, Int)
-positionXY pos = (pos ^. posX, pos ^. posY) 
 
 levelsCount :: Environment -> Int
 levelsCount env = env ^. levels & Seq.length
@@ -336,8 +328,13 @@ isUnitAlive uid env = case cast uid of
 {- getPlayer :: GameEnv UnitId
 getPlayer = return PlayerUnitId -}
 
-{- getPlayerInventory :: GameEnv Inventory
-getPlayerInventory = gets $ view (player . object . playerUnit . inventory) -}
+getUnitInventory :: (uid `Is` UnitId) => uid -> Environment -> Either UnitIdError Inventory
+getUnitInventory uid env = case cast uid of 
+  PlayerUnitId (PlayerId i) -> assert $ env ^? players . ix i . object . playerUnitData . inventory
+  MobUnitId (MobId i) -> assert $ env ^? mobs . ix i . object . mobUnitData . inventory
+  where
+    assert Nothing = Left InvalidUnitId
+    assert (Just x) = Right x
 
 -- | Sets an inventory to the unit. Can fail if unit is not present in the environment.
 setUnitInventory :: (uid `Is` UnitId) => uid -> Inventory -> FallibleGameEnv UnitIdError ()

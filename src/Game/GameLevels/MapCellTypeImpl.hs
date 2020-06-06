@@ -21,28 +21,28 @@ ladderDownKey = '>'
 ladderUpKey :: MapCellTypeKey
 ladderUpKey = '<'
 
-wall :: MapCellType pos
+wall :: MapCellType 
 wall = makeWall '#'
 
-hallGround :: MapCellType pos
+hallGround :: MapCellType 
 hallGround = makeGround '+'
 
-roomGround :: MapCellType pos
+roomGround :: MapCellType 
 roomGround = makeGround '.'
 
-tree :: MapCellType pos
+tree :: MapCellType 
 tree = makeWall 'T'
 
-bush :: MapCellType pos
+bush :: MapCellType 
 bush = makeConstCellType '%' True False
 
-ladderDown :: MapCellType pos
+ladderDown :: MapCellType 
 ladderDown = makeGround '>'
 
-ladderUp :: MapCellType pos
+ladderUp :: MapCellType 
 ladderUp = makeGround '<'
 
-cellTypeByKey :: MapCellTypeKey -> MapCellType pos
+cellTypeByKey :: MapCellTypeKey -> MapCellType 
 cellTypeByKey '#' = wall
 cellTypeByKey '+' = hallGround
 cellTypeByKey '.' = roomGround
