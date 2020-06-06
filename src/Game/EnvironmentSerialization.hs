@@ -10,4 +10,6 @@ instance Binary StdGen where
   put = put . show
   get = (read :: String -> StdGen) <$> get
 
-instance Binary EnvMemento 
+instance Binary EnvMemento where
+  put = undefined
+  get = undefined

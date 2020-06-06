@@ -15,11 +15,11 @@ instance Binary Inventory
 instance Binary TimedUnitOps
 
 instance Binary Stats
-instance Binary (UnitData pos)
+--instance Binary (UnitData pos)
 
 instance Binary TaggedControl
 
 instance Binary LevellingStats
-instance Binary (Player pos)
-instance Binary (Mob pos)
-instance Binary (Unit pos)
+--instance Binary (Player pos)
+--instance Binary (Mob pos)
+--instance Binary (Unit pos)

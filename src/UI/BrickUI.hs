@@ -21,9 +21,7 @@ import UI.UI as UI
 
 type Name = ()
 
-data Tick = Tick
-
-data UIState m = forall s. HasUI m s => UIState s (UI m s)
+data UIState m e = forall s. HasUI m s e => UIState s (UI m s e)
 
 class Monad m => ToIO m where
   toIO :: m a -> IO a
@@ -31,13 +29,13 @@ class Monad m => ToIO m where
 instance ToIO IO where
   toIO = id
 
-packUIState :: HasUI m s => s -> UI m s -> UIState m
+packUIState :: HasUI m s e => s -> UI m s e -> UIState m e
 packUIState = UIState
 
-packAnyHasIOUIToUIState :: AnyHasUI m -> UIState m
+packAnyHasIOUIToUIState :: AnyHasUI m e -> UIState m e
 packAnyHasIOUIToUIState (AnyHasUI a) = packUIState a (getUI a)
 
-app :: ToIO m => App (UIState m) Tick Name
+app :: ToIO m => App (UIState m e) e Name
 app =
   App
     { appDraw = drawUI,
@@ -47,14 +45,14 @@ app =
       appAttrMap = const theMap
     }
 
-drawUI :: UIState m -> [Widget Name]
+drawUI :: UIState m e -> [Widget Name]
 drawUI (UIState s ui) = case UI.baseLayout ui of
   UI.GameUI desc -> drawGameUI desc
   UI.InventoryUI desc -> drawInventoryUI desc
   UI.ListMenuUI desc -> drawMenu desc
   UI.End -> [C.center $ str "game stopped"]
 
-drawGameUI :: GameUI.UIDesc a b -> [Widget n]
+drawGameUI :: GameUI.UIDesc e a b -> [Widget n]
 drawGameUI desc =
   [ C.center $
       (drawMap (desc ^. GameUI.map) <=> drawLog (desc ^. GameUI.log))
@@ -63,7 +61,7 @@ drawGameUI desc =
             )
   ]
 
-drawInventoryUI :: InventoryUI.UIDesc a b -> [Widget n]
+drawInventoryUI :: InventoryUI.UIDesc e a b-> [Widget n]
 drawInventoryUI desc =
   [ C.center $ withBorderStyle BS.unicodeBold (B.borderWithLabel (str "Items") drawItems)
       <+> withBorderStyle BS.unicodeBold (B.borderWithLabel (str "Slots") drawSlots)
@@ -116,7 +114,7 @@ drawEquippedItems equippedItems =
   where
     drawItem (slot, maybeName) = str (slot ++ ": ") <+> fromMaybe (str "free") (str <$> maybeName)
 
-drawMenu :: ListMenu.UIDesc a b -> [Widget n]
+drawMenu :: ListMenu.UIDesc e a b -> [Widget n]
 drawMenu menu = [vBox rows]
   where
     rows =
@@ -130,9 +128,9 @@ drawMenu menu = [vBox rows]
 
 handleEvent ::
   (ToIO m) =>
-  UIState m ->
-  BrickEvent Name Tick ->
-  EventM Name (Next (UIState m))
+  UIState m e ->
+  BrickEvent Name e ->
+  EventM Name (Next (UIState m e))
 handleEvent (UIState s ui) event = case UI.baseLayout ui of
   UI.GameUI desc -> case event of
     VtyEvent e -> dispatchVtyEventGameUI s ui e desc
@@ -146,12 +144,12 @@ handleEvent (UIState s ui) event = case UI.baseLayout ui of
   UI.End -> halt $ UIState s ui
 
 dispatchVtyEventGameUI ::
-  (ToIO m, HasUI m a) =>
-  a ->
-  UI m a ->
+  (ToIO m, HasUI m s e) =>
+  s ->
+  UI m s e ->
   V.Event ->
-  GameUI.UIDesc a (m (AnyHasUI m)) ->
-  EventM n (Next (UIState m))
+  GameUI.UIDesc e s (m (AnyHasUI m e))  ->
+  EventM n (Next (UIState m e))
 dispatchVtyEventGameUI state ui event desc =
   case event of
     V.EvKey V.KUp [] -> passArrow Keys.Up
@@ -180,12 +178,12 @@ dispatchVtyEventGameUI state ui event desc =
         Just f -> packAnyHasIOUIToUIState <$> f key state
 
 dispatchVtyEventInventoryUI ::
-  (ToIO m, HasUI m s) =>
+  (ToIO m, HasUI m s e) =>
   s ->
-  UI m s ->
+  UI m s e ->
   V.Event ->
-  InventoryUI.UIDesc s (m (AnyHasUI m)) ->
-  EventM n (Next (UIState m))
+  InventoryUI.UIDesc e s (m (AnyHasUI m e)) ->
+  EventM n (Next (UIState m e))
 dispatchVtyEventInventoryUI state ui event desc = case event of
   V.EvKey V.KEnter [] -> liftIO (toIO $ fromMaybe (return packedS) onClick) >>= continue
   V.EvKey V.KUp [] -> continue $ packUIState state (UI.UIDesc . UI.InventoryUI $ InventoryUI.moveSelectionUp desc)
@@ -200,12 +198,12 @@ dispatchVtyEventInventoryUI state ui event desc = case event of
     onClose = fmap packAnyHasIOUIToUIState <$> (desc ^. InventoryUI.onClosed <*> pure state)
 
 dispatchVtyEventListMenuUI ::
-  (ToIO m, HasUI m s) =>
+  (ToIO m, HasUI m s e) =>
   s ->
-  UI m s ->
+  UI m s e ->
   V.Event ->
-  ListMenu.UIDesc s (m (AnyHasUI m)) ->
-  EventM n (Next (UIState m))
+  ListMenu.UIDesc e s (m (AnyHasUI m e)) ->
+  EventM n (Next (UIState m e))
 dispatchVtyEventListMenuUI state ui event desc = case event of
   V.EvKey V.KUp [] ->
     continue $

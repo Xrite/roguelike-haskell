@@ -12,10 +12,12 @@ import Brick.Main (defaultMain)
 import Game
 import UI.BrickUI (app, packUIState)
 import Game.GameLevels.Generation.GenerationUtil
+import Brick.BChan
 
 run :: RIO App ()
-run =
-  liftIO $ void $ defaultMain app (packUIState (MainMenu mainMenuUI) mainMenuUI)
+run = do
+  chan <- liftIO $ newBChan 10
+  liftIO $ void $ defaultMain app (packUIState (MainMenu (mainMenuUI chan)) (mainMenuUI chan))
   where
     param = GeneratorParameters 10 1.7 5
     s = Space (Coord 0 0) (Coord 50 50)
