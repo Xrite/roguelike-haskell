@@ -55,7 +55,8 @@ module Game.Environment
     posLevel,
     posX,
     posY,
-    isUnitAlive
+    isUnitAlive,
+    updateSeenByPlayer
   )
 where
 
@@ -87,6 +88,7 @@ import Game.Unit.Action as Action
 import Safe (atDef)
 import System.Random
 import Game.Position
+import Debug.Trace
 
 -- | All manipulations with units in environment should use this type
 data UnitId
@@ -139,8 +141,8 @@ instance Eq StdGen where
   g1 == g2 = show g1 == show g2
 
 -- | All positions in the environment have been seen by a player
-newtype SeenByPlayer = SeenByPlayer (Seq.Seq (Set.Set (Int, Int)))
-  deriving (Generic)
+newtype SeenByPlayer = SeenByPlayer (IntMap.IntMap (Set.Set (Int, Int)))
+  deriving (Generic, Show)
 
 
 -- | Contains description of current game state (e.g. map, mobs)
@@ -223,20 +225,20 @@ levelsCount :: Environment -> Int
 levelsCount env = env ^. levels & Seq.length
 
 emptySeenByPlayer :: SeenByPlayer
-emptySeenByPlayer = SeenByPlayer Seq.empty
+emptySeenByPlayer = SeenByPlayer IntMap.empty
 
 makeSeenByPlayer :: [Position] -> SeenByPlayer
 makeSeenByPlayer positions = foldl' addToSeenByPlayer emptySeenByPlayer positions
 
 addToSeenByPlayer :: SeenByPlayer -> Position -> SeenByPlayer
-addToSeenByPlayer (SeenByPlayer s) p = SeenByPlayer $ Seq.adjust (Set.insert (p ^. posX, p ^. posY)) (p ^. posLevel) s
+addToSeenByPlayer (SeenByPlayer s) p = 
+  SeenByPlayer $ IntMap.insertWith Set.union (p ^. posLevel) (Set.singleton (positionXY p)) s
 
-bulkAddToSeenByPlayer :: Foldable t =>
-                           t Position -> SeenByPlayer -> SeenByPlayer
+bulkAddToSeenByPlayer :: Foldable t => t Position -> SeenByPlayer -> SeenByPlayer
 bulkAddToSeenByPlayer ps s = foldl' addToSeenByPlayer s ps
 
 seenAtLevel :: Int -> SeenByPlayer -> Set.Set (Int, Int)
-seenAtLevel l (SeenByPlayer s) = fromMaybe Set.empty (Seq.lookup l s)
+seenAtLevel l (SeenByPlayer s) = fromMaybe Set.empty (IntMap.lookup l s)
 
 randomRGameEnv :: Random a => (a, a) -> GameEnv a
 randomRGameEnv range = do
@@ -593,7 +595,8 @@ getCells = do
 
 updateSeenByPlayer :: PlayerId -> FallibleGameEnv UnitIdError ()
 updateSeenByPlayer pid@(PlayerId i) = do
-  visible <- gets (getVisibleToUnit (PlayerUnitId pid)) >>= liftEither
+  visible <- gets (getVisibleToUnit pid) >>= liftEither
+  --traceShowM visible
   modify $ over (seenByPlayer . ix i) (bulkAddToSeenByPlayer visible)
 
 

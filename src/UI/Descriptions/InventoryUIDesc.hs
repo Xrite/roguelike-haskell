@@ -68,8 +68,8 @@ setOnItemSelected f = modify $ set onItemSelected (Just f)
 setOnClosed :: (a -> b) -> Builder e a b ()
 setOnClosed f = modify $ set onClosed (Just f)
 
-addCustomEventHandler :: (e -> a -> b) -> Builder e a b ()
-addCustomEventHandler f = modify $ set customEventHandler (Just f)
+setCustomEventHandler :: (e -> a -> b) -> Builder e a b ()
+setCustomEventHandler f = modify $ set customEventHandler (Just f)
 
 -- | Select an item with given index. If an index is invalid then no item is selected
 selectItem :: Int -> Builder e a b ()

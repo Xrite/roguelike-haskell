@@ -8,16 +8,20 @@ import System.Random
 import Game.IO.TempRender
 import Game.GameLevels.GenerateLevel
 import Game.GameLevels.Generation.BSPGen
-import Brick.Main (defaultMain)
+import Brick.Main (customMain)
 import Game
 import UI.BrickUI (app, packUIState)
 import Game.GameLevels.Generation.GenerationUtil
 import Brick.BChan
+import qualified Graphics.Vty as V
 
 run :: RIO App ()
 run = do
-  chan <- liftIO $ newBChan 10
-  liftIO $ void $ defaultMain app (packUIState (MainMenu (mainMenuUI chan)) (mainMenuUI chan))
+  chan <- liftIO $ newBChan 1000
+  let initialState = packUIState (MainMenu (mainMenuUI chan)) (mainMenuUI chan)
+  let buildVty = V.mkVty V.defaultConfig
+  initialVty <- liftIO buildVty
+  liftIO $ void $ customMain initialVty buildVty (Just chan) app initialState
   where
     param = GeneratorParameters 10 1.7 5
     s = Space (Coord 0 0) (Coord 50 50)

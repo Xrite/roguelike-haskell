@@ -5,6 +5,7 @@ import Control.Monad.State (gets)
 import Game.Environment
 import Game.Modifiers.UnitOp as UnitOp
 import Game.Unit (Action)
+import Debug.Trace
 
 data Transaction = MkTransaction [TransactionAtom]
 
@@ -26,6 +27,7 @@ clickItem pid i = MkTransaction [ClickItem pid i]
 
 makeTurn :: PlayerId -> Action -> GameEnv ()
 makeTurn pid playerAction = do
+  _ <- runExceptT $ updateSeenByPlayer pid
   _ <- runExceptT (evalAction pid playerAction)
   mobs <- gets getActiveMobs
   eitherActions <- mapM (\u -> gets (getAction u)) mobs
@@ -34,6 +36,7 @@ makeTurn pid playerAction = do
     Right as -> sequence as
   units <- gets getActiveUnits
   _ <- runExceptT $ traverse (`affectUnit` UnitOp.tickTimedEffects) units
+  _ <- runExceptT $ updateSeenByPlayer pid
   return ()
 
 doClickSlot :: PlayerId -> Int -> GameEnv ()

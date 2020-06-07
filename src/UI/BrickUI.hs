@@ -1,5 +1,6 @@
 {-# LANGUAGE ExistentialQuantification #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE FlexibleContexts #-}
 
 module UI.BrickUI where
 
@@ -134,14 +135,28 @@ handleEvent ::
 handleEvent (UIState s ui) event = case UI.baseLayout ui of
   UI.GameUI desc -> case event of
     VtyEvent e -> dispatchVtyEventGameUI s ui e desc
+    AppEvent e -> trace "got event in gameUI" $ dispatchCustomEventGameUI s ui e desc
     _ -> continue (UIState s ui)
   UI.InventoryUI desc -> case event of
     VtyEvent e -> dispatchVtyEventInventoryUI s ui e desc
+    AppEvent e -> trace "got event in InventoryUI" $ dispatchCustomEventInventoryUI s ui e desc
     _ -> continue (UIState s ui)
   UI.ListMenuUI desc -> case event of
     VtyEvent e -> dispatchVtyEventListMenuUI s ui e desc
     _ -> continue $ UIState s ui
   UI.End -> halt $ UIState s ui
+
+dispatchCustomEventGameUI ::
+  (ToIO m, HasUI m s e) =>
+  s ->
+  UI m s e ->
+  e ->
+  GameUI.UIDesc e s (m (AnyHasUI m e))  ->
+  EventM n (Next (UIState m e))
+dispatchCustomEventGameUI state ui event desc = 
+  case desc ^. GameUI.customEventHandler of
+    Just f -> (liftIO . toIO $ packAnyHasIOUIToUIState <$> f event state) >>= continue
+    Nothing -> continue $ packUIState state ui
 
 dispatchVtyEventGameUI ::
   (ToIO m, HasUI m s e) =>
@@ -176,6 +191,11 @@ dispatchVtyEventGameUI state ui event desc =
       case onKeyPress of
         Nothing -> return packedS
         Just f -> packAnyHasIOUIToUIState <$> f key state
+
+dispatchCustomEventInventoryUI state ui event desc = 
+  case desc ^. InventoryUI.customEventHandler of
+    Just f -> (liftIO . toIO $ packAnyHasIOUIToUIState <$> f event state) >>= continue
+    Nothing -> continue $ packUIState state ui
 
 dispatchVtyEventInventoryUI ::
   (ToIO m, HasUI m s e) =>

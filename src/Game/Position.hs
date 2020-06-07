@@ -12,7 +12,7 @@ data Position
         _posX :: Int,
         _posY :: Int
       }
-      deriving (Eq, Ord, Generic)
+      deriving (Eq, Ord, Generic, Show)
 
 makeLenses ''Position
 

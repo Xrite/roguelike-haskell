@@ -6,6 +6,7 @@
 
 module Game where
 
+import Debug.Trace
 import Brick.BChan
 import Control.Lens
 import Control.Monad.Except
@@ -43,9 +44,9 @@ import Game.GameLevels.MapCell (renderCell)
 import Game.Position
 
 data CustomEvent 
-  = UpdateEnvUsingTransaction Transaction
-  | UpdateEnvUsingMemento EnvMemento
-  | UpdateEnvironment Environment
+--  = UpdateEnvUsingTransaction Transaction
+--  | UpdateEnvUsingMemento EnvMemento
+  = UpdateEnvironment Environment
 
 data Handle =
   Handle {
@@ -59,8 +60,7 @@ data Handle =
 data GameState 
   = Game {
     _gamePlayerId :: PlayerId,
-    _gameRealEnv :: Environment,
-    _gameFakeEnv :: Environment,
+    _gameEnv :: Environment,
     _gameHandle :: Handle,
     _gameBChan :: BChan CustomEvent
   }
@@ -68,8 +68,7 @@ data GameState
 data InventoryState 
   = Inventory {
     _inventoryPlayerId :: PlayerId,
-    _inventoryRealEnv :: Environment,
-    _inventoryFakeEnv :: Environment,
+    _inventoryEnv :: Environment,
     _inventoryHandle :: Handle,
     _inventoryBChan :: BChan CustomEvent
   }
@@ -83,10 +82,10 @@ makeLenses ''GameState
 makeLenses ''InventoryState
 
 instance HasUI IO GameState CustomEvent where
-  getUI gs = gameUI (gs ^. gameFakeEnv) (gs ^. gamePlayerId)
+  getUI gs = gameUI (gs ^. gameEnv) (gs ^. gamePlayerId)
 
 instance HasUI IO InventoryState CustomEvent where
-  getUI is = inventoryUI (is ^. inventoryFakeEnv) (is ^. inventoryPlayerId)
+  getUI is = inventoryUI (is ^. inventoryEnv) (is ^. inventoryPlayerId)
 
 instance HasUI IO EndState CustomEvent where
   getUI EndState = terminalUI
@@ -130,15 +129,16 @@ keysToAction _ = Nothing
 gameUI :: Environment -> PlayerId -> UI IO GameState CustomEvent
 gameUI env pid = makeGameUI $
   do
-    fromRight (return ()) renderMap
-    fromRight (return ()) renderStats
+    traceM "start drawing game UI"
+    fromRight (error "failed to render map") renderMap
+    fromRight (error "failed to render stats") renderStats
     GameUIDesc.setArrowPress arrowPress
     GameUIDesc.setKeyPress keyPress
     GameUIDesc.setCustomEventHandler customEvent
   where
     arrowPress :: Keys.Arrows -> GameState -> IO (AnyHasUI IO CustomEvent)
     arrowPress arrow gs = do
-      let env = (gs ^. gameFakeEnv)
+      let env = (gs ^. gameEnv)
       let pid = (gs ^. gamePlayerId)
       let act = arrowsToAction arrow
       let chan = gs ^. gameBChan
@@ -147,11 +147,11 @@ gameUI env pid = makeGameUI $
         then do
           (gs ^. gameHandle . handleDeath) env
           return $ packHasIOUI $ MainMenu (mainMenuUI chan)
-      else return $ packHasIOUI (gs {_gameFakeEnv = env'})
+      else return $ packHasIOUI (gs)
     keyPress :: Keys.Keys -> GameState -> IO (AnyHasUI IO CustomEvent)
     keyPress key gs
       | Just action <- keysToAction key = do
-        let env = (gs ^. gameFakeEnv)
+        let env = (gs ^. gameEnv)
         let pid = (gs ^. gamePlayerId)
         let chan = gs ^. gameBChan
         env' <- (gs ^. gameHandle . handleAction) pid action env
@@ -159,32 +159,38 @@ gameUI env pid = makeGameUI $
           then do
             (gs ^. gameHandle . handleDeath) env
             return $ packHasIOUI $ MainMenu (mainMenuUI chan)
-          else return $ packHasIOUI (gs {_gameFakeEnv = env'})
+          else return $ packHasIOUI gs
     keyPress (Keys.Letter 'i') gs = 
       return . packHasIOUI $ Inventory {
-        _inventoryFakeEnv = gs ^. gameFakeEnv ,
-        _inventoryRealEnv = gs ^. gameRealEnv ,
+        _inventoryEnv = gs ^. gameEnv ,
         _inventoryHandle = gs ^. gameHandle ,
-        _inventoryPlayerId = gs ^. gamePlayerId 
+        _inventoryPlayerId = gs ^. gamePlayerId,
+        _inventoryBChan = gs ^. gameBChan
       }
     keyPress (Keys.Letter 'q') gs = do
       let chan = gs ^. gameBChan
-      (gs ^. gameHandle . handleQuitGame) (gs ^. gameFakeEnv)
+      (gs ^. gameHandle . handleQuitGame) (gs ^. gameEnv)
       return $ packHasIOUI $ MainMenu (mainMenuUI chan)
     keyPress _ st = return $ packHasIOUI st
 
-    customEvent (UpdateEnvUsingTransaction t) gs = do
+{-     customEvent (UpdateEnvUsingTransaction t) gs = do
       let env' = snd $ runGameEnv (Transaction.applyTransaction t) (gs ^. gameRealEnv)
       return $ packHasIOUI (gs {_gameRealEnv = env', _gameFakeEnv = env'})
     customEvent (UpdateEnvUsingMemento m) gs = do
       let env' = loadEnvironmentState m
-      return $ packHasIOUI (gs {_gameRealEnv = env', _gameFakeEnv = env'})
+      return $ packHasIOUI (gs {_gameRealEnv = env', _gameFakeEnv = env'}) -}
+    customEvent (UpdateEnvironment env) gs =
+      return $ packHasIOUI (gs {_gameEnv = env})
 
     renderMap = do
       playerPosition <- getUnitPosition pid env
+      traceShowM playerPosition
       playerPortrait <- getUnitPortrait pid env
       visible <- Set.fromList . fmap positionXY <$> getVisibleToUnit pid env
+      seenByPlayer <- getSeenByPlayer pid env
+      traceShowM seenByPlayer
       seenOnLevel <- seenAtLevel (playerPosition ^. posLevel) <$> getSeenByPlayer pid env
+      traceShowM seenOnLevel
       level <- getLevelByUnitId pid env
       let mobs = getActiveMobs env
       let mobPositions = rights $ map (flip getUnitPosition $ env) mobs
@@ -228,22 +234,25 @@ inventoryUI env pid = makeInventoryUI $
     InventoryUI.setOnItemSelected $ clickItem
     InventoryUI.setOnClosed $ close
     InventoryUI.selectItem 0
+    InventoryUI.setCustomEventHandler customEvent
   where
     inv = fromRight emptyInventory $ getUnitInventory pid env
     defaultSlot = maybe "free"
     clickSlot i is = do
       env' <- (is ^. inventoryHandle . handleClickSlot) pid i env 
-      return $ packHasIOUI (is {_inventoryFakeEnv = env'})
+      return $ packHasIOUI (is {_inventoryEnv = env'})
     clickItem i is = do
       env' <- (is ^. inventoryHandle . handleClickItem) pid i env 
-      return $ packHasIOUI (is {_inventoryFakeEnv = env'})
-    close is = do
+      return $ packHasIOUI (is {_inventoryEnv = env'})
+    close is = 
       return $ packHasIOUI (Game {
         _gamePlayerId = is ^. inventoryPlayerId,
-        _gameRealEnv = is ^. inventoryRealEnv,
-        _gameFakeEnv = is ^. inventoryFakeEnv,
-        _gameHandle = is ^. inventoryHandle
+        _gameEnv = is ^. inventoryEnv,
+        _gameHandle = is ^. inventoryHandle,
+        _gameBChan = is ^. inventoryBChan
       })
+    customEvent (UpdateEnvironment env) is = 
+      return $ packHasIOUI (is {_inventoryEnv = env})
 
 mainMenuUI :: BChan CustomEvent -> UI IO MainMenuState CustomEvent
 mainMenuUI chan =
@@ -269,8 +278,6 @@ mainMenuUI chan =
       startSinglePlayerGame chan env
     testLevelGame = startSinglePlayerGame chan testEnvironment
 
-
-         
 
 loadLevel :: String -> IO GameLevel
 loadLevel name = do
@@ -322,14 +329,13 @@ startSinglePlayerGame :: BChan CustomEvent -> Environment -> IO (AnyHasUI IO Cus
 startSinglePlayerGame chan env = do
   let g = Game {
     _gamePlayerId = pid,
-    _gameRealEnv = env,
-    _gameFakeEnv = env,
+    _gameEnv = env,
     _gameHandle = handle,
     _gameBChan = chan
   }
   return $ packHasIOUI g
   where
-    pid = makePlayerId 0
+    pid = makePlayerId 1
     handle = Handle {
     _handleDeath = singlePlayerHandleDeath,
     _handleQuitGame = singlePlayerHandleQuitGame,
@@ -337,8 +343,6 @@ startSinglePlayerGame chan env = do
     _handleClickSlot = singlePlayerHandleClickSlot chan,
     _handleClickItem = singlePlayerHandleClickItem chan
     }
-
-
 
 testEnvironmentWithLevel :: GameLevel -> Environment
 testEnvironmentWithLevel level =
