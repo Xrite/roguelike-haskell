@@ -42,6 +42,7 @@ dependencies:
 - mu-protobuf
 - mu-grpc-server
 - mu-grpc-common
+- text
 
 
 ghc-options:
