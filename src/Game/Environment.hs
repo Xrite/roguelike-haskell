@@ -70,7 +70,7 @@ import Data.Foldable (toList)
 import Data.Either (rights)
 import qualified Data.IntMap as IntMap
 import Data.List
-import Data.Maybe (fromJust, fromMaybe, isJust, isNothing, listToMaybe)
+import Data.Maybe (fromJust, fromMaybe, isJust, isNothing, listToMaybe, mapMaybe)
 import Data.Sequence (Seq (Empty, (:<|), (:|>)), (<|), (|>))
 import qualified Data.Sequence as Seq
 import qualified Data.Set as Set
@@ -310,6 +310,22 @@ getActiveMobs :: Environment -> [MobId]
 getActiveMobs env = activeMobs
   where
     activeMobs = map MobId $ IntMap.keys (env ^. mobs)
+  
+-- | All position available to player
+getFreePositionsOnLevel :: Environment -> Player -> Int -> [Position]
+getFreePositionsOnLevel env pl l = case env ^? levels . ix l of
+  Nothing -> []
+  Just lvl -> 
+    let ((xFrom, yFrom), (xTo, yTo)) = getMapSize (lvl ^. lvlMap) in
+    let allCellPositions = mapMaybe (passableCell lvl) [(x, y) | x <- [xFrom..xTo], y <- [yFrom..yTo]] in
+    let occupiedPositions = rights $ map (\uid -> getUnitPosition uid env) (getActiveUnits env) in
+    allCellPositions \\ occupiedPositions
+  where
+    passableCell lvl p = do
+      cell <- maybeGetCellAt p lvl
+      let st = pl ^. playerUnitData . stats
+      guard $ (cell ^. cellType . passable) st
+      return $ uncheckedPosition l p
 
 {- getActivePlayer :: FallibleGameEnv UnitIdError UnitId
 getActivePlayer = do
