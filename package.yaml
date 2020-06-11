@@ -36,7 +36,12 @@ dependencies:
 - fgl
 - binary
 - stm
-- thrift
+- mu-schema
+- mu-rpc
+- mu-optics
+- mu-protobuf
+- mu-grpc-server
+- mu-grpc-common
 
 
 ghc-options:
