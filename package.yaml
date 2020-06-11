@@ -43,6 +43,7 @@ dependencies:
 - mu-grpc-server
 - mu-grpc-common
 - text
+- bytestring
 
 
 ghc-options:

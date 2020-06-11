@@ -1,0 +1,32 @@
+syntax = "proto3";
+
+import "google/protobuf/empty.proto";
+
+package roguelike;
+
+service Server {
+    rpc getSessionState (SessionId) returns (SessionState) {}
+
+    rpc getSessions (google.protobuf.Empty) returns (SessionsList) {}
+}
+
+message SessionId { int32 id = 1; }
+
+message SessionInfo {
+    string name = 1;
+    SessionId id = 2;
+}
+
+message SessionsList {
+    repeated SessionInfo qwe = 1;
+}
+
+// TODO
+message SessionState {
+    enum State {
+        NOT_RUNNING = 0;
+        RUNNING = 1;
+    }
+    State state = 1;
+    bytes content = 2;
+}

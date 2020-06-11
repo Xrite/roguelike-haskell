@@ -13,6 +13,7 @@ import Game
 import UI.BrickUI (app, packUIState)
 import Game.GameLevels.Generation.GenerationUtil
 import Brick.BChan
+import qualified Networking.Testmain as Testmain
 
 
 -- It was here

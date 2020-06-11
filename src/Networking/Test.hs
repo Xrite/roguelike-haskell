@@ -16,13 +16,14 @@
 
 module Networking.Test where
 
+import RIO.FilePath ((</>), (<.>))
 import Data.Text as T
 import GHC.Generics
 
 import Mu.Quasi.GRpc
 import Mu.Schema
 
-grpc "TheSchema" id "test.proto"
+grpc "TheSchema" id $ "protos" </> "test" <.> "proto"
 
 newtype HelloRequest
   = HelloRequest { name :: T.Text }
