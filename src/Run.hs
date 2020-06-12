@@ -17,7 +17,7 @@ import qualified Networking.Testmain as Testmain
 
 
 -- It was here
-{- import qualified Graphics.Vty as V
+import qualified Graphics.Vty as V
 
 run :: RIO App ()
 run = do
@@ -31,10 +31,10 @@ run = do
     s = Space (Coord 0 0) (Coord 50 50)
     gen = mkStdGen 42
     (lvl, _) = randomBSPGeneratedLevel s param gen
-import qualified Networking.Testmain as Testmain
- -}
-run :: RIO App ()
-run = liftIO Testmain.main
+-- import qualified Networking.Testmain as Testmain
+
+{- run :: RIO App ()
+run = liftIO Testmain.main -}
 --run = do
 --  chan <- liftIO $ newBChan 10
 --  liftIO $ void $ defaultMain app (packUIState (MainMenu (mainMenuUI chan)) (mainMenuUI chan))

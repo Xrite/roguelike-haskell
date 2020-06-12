@@ -1,11 +1,11 @@
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeOperators #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE FlexibleInstances #-}
 
 module Game.Environment
   ( Environment,
@@ -56,9 +56,15 @@ module Game.Environment
     posX,
     posY,
     isUnitAlive,
-    updateSeenByPlayer
+    updateSeenByPlayer,
+    getFreePositionsOnLevel,
+    addPlayerToEnvironment,
+    addMobToEnvironment,
+    removePlayerFromEnvironment,
+    removeMobFromEnvironment,
   )
 where
+
 
 import Control.Lens hiding (levels, (<|), (|>))
 import Control.Monad (void, when)
@@ -174,7 +180,8 @@ data WithEvaluator a
   deriving (Generic)
 
 -- | A type for evaluating action on Environment
-newtype GameEnv a = GameEnv {unGameEnv :: State Environment a} deriving (Functor, Applicative, Monad, MonadState Environment)
+newtype GameEnv a = GameEnv {unGameEnv :: State Environment a} 
+  deriving (Functor, Applicative, Monad, MonadState Environment)
 
 -- | An error that could occur when evaluating actions on environment
 data UnitIdError
@@ -312,8 +319,8 @@ getActiveMobs env = activeMobs
     activeMobs = map MobId $ IntMap.keys (env ^. mobs)
   
 -- | All position available to player
-getFreePositionsOnLevel :: Environment -> Player -> Int -> [Position]
-getFreePositionsOnLevel env pl l = case env ^? levels . ix l of
+getFreePositionsOnLevel :: Environment -> Stats -> Int -> [Position]
+getFreePositionsOnLevel env st l = case env ^? levels . ix l of
   Nothing -> []
   Just lvl -> 
     let ((xFrom, yFrom), (xTo, yTo)) = getMapSize (lvl ^. lvlMap) in
@@ -323,9 +330,50 @@ getFreePositionsOnLevel env pl l = case env ^? levels . ix l of
   where
     passableCell lvl p = do
       cell <- maybeGetCellAt p lvl
-      let st = pl ^. playerUnitData . stats
       guard $ (cell ^. cellType . passable) st
       return $ uncheckedPosition l p
+
+freePlayerId :: Environment -> PlayerId
+freePlayerId env = let Just idx = find isFree [1..] in PlayerId idx
+  where 
+    isFree idx = IntMap.notMember idx (env ^. players)
+
+freeMobId :: Environment -> MobId
+freeMobId env = let Just idx = find isFree [1..] in MobId idx
+  where 
+    isFree idx = IntMap.notMember idx (env ^. mobs)
+
+-- | Add player to the environment. It does not add player to the queue.
+addPlayerToEnvironment :: Player -> GameEnv PlayerId
+addPlayerToEnvironment p = do
+  pid <- gets freePlayerId
+  let with = WithEvaluator p $ defaultEvaluation $ cast pid
+  let (PlayerId i) = pid
+  modify $ over players (IntMap.insert i with)
+  return pid
+
+-- | Add mob to the environment. It does not add mob to the queue.
+addMobToEnvironment :: Mob -> GameEnv MobId
+addMobToEnvironment m = do
+  mid <- gets freeMobId
+  let with = WithEvaluator m $ defaultEvaluation $ cast mid
+  let (MobId i) = mid
+  modify $ over mobs (IntMap.insert i with)
+  return mid
+
+-- | Remove player from the environment. Also removes player from the queue
+removePlayerFromEnvironment :: PlayerId -> GameEnv ()
+removePlayerFromEnvironment pid = do
+  let (PlayerId i) = pid
+  modify $ over players (IntMap.delete i)
+  modify $ over unitQueue (Seq.filter (/= cast pid))
+
+-- | Remove mob from the environment. Also removes mob from the queue
+removeMobFromEnvironment :: MobId -> GameEnv ()
+removeMobFromEnvironment mid = do
+  let (MobId i) = mid
+  modify $ over mobs (IntMap.delete i)
+  modify $ over unitQueue (Seq.filter (/= cast mid))
 
 {- getActivePlayer :: FallibleGameEnv UnitIdError UnitId
 getActivePlayer = do
@@ -551,11 +599,7 @@ _trySetUnit uid u =
 
 -- | Perform and attack between two units
 envAttack ::
-  -- | Attacker
-  (uid `Is` UnitId) => uid ->
-  -- | Attacked
-  uid ->
-  FallibleGameEnv UnitIdError ()
+  (uid `Is` UnitId) => uid -> uid -> FallibleGameEnv UnitIdError ()
 envAttack attackerId attackedId = do
   env <- get
   let fact = env ^. modifierFactory

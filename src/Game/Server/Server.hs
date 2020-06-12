@@ -1,13 +1,35 @@
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE TemplateHaskell #-}
+
 module Game.Server.Server where
 
-import Control.Lens
-import Control.Monad.Free
+import Brick.BChan
+import Control.Lens hiding ((<|), (|>))
 import Control.Monad.State
+import Data.Either (fromRight, rights)
 import qualified Data.IntMap as IntMap
+import Data.List (find)
+import qualified Data.Map as Map
+import Data.Maybe (fromMaybe, isJust)
 import qualified Data.Sequence as Seq
 import Data.Sequence ((<|), (|>))
+import qualified Data.Set as Set
+import Debug.Trace
 import Game.Environment
+import Game.EnvironmentGeneration
+import Game.FileIO.FileIO (getLevelByName)
+import Game.FileIO.SaveGame
+import qualified Game.GameLevels.Generation.GenerationUtil as GU
+import Game.Transaction (Transaction)
+import qualified Game.Transaction as Transaction
 import Game.Unit
+import Game.Unit.Action
+import Game.Unit.Control
+import Game.Unit.Inventory
+import Game.Unit.Stats
+import Game.Unit.TimedUnitOps (empty)
+import Game.Unit.Unit
+import System.Random (getStdRandom, mkStdGen, random, randomRIO)
 
 type SessionId = Int
 
@@ -18,7 +40,7 @@ data ServerData
 
 data Session
   = Session
-      { _env :: Environment
+      { _sessionEnv :: Environment
       }
 
 emptyServer :: ServerData
@@ -28,60 +50,94 @@ emptyServer =
     }
 
 newtype Server a = Server {runServer :: StateT ServerData IO a}
+  deriving (Functor, Applicative, Monad, MonadState ServerData, MonadIO)
 
-makeSession env = Session {_env = env}
+
+makeSession env = Session {_sessionEnv = env}
+
+makeLenses ''ServerData
+makeLenses ''Session
 
 -- | Create new session
 createNewSession :: Server SessionId
-createNewSession = undefined
-
-{- createNewSession = do
-    seed <- liftIO $ getStdRandom random
-    let lvl = fst $ randomBSPGeneratedLevel (GU.Space (GU.Coord 0 0) (GU.Coord 50 50)) (GeneratorParameters 10 1.7 5) $ mkStdGen seed
-    let env = makeEnvironment [] [] [lvl]
-    let newSession = makeSession env
-    sid <- Seq.length <$> gets (sessions)
-    modify $ over sessions (<| newSession)
-    return sid -}
+createNewSession = do
+  seed <- liftIO $ getStdRandom random
+  let env = randomEnvironmentWithoutUnits seed
+  let newSession = makeSession env
+  sid <- gets (freeSessionId)
+  modify $ over sessions (IntMap.insert sid newSession)
+  return sid
+  where
+    freeSessionId d = let Just idx = find (isFree d) [1 ..] in idx
+    isFree d idx = IntMap.notMember idx (d ^. sessions)
 
 -- | Add new player to the session
-addNewPlayerToSession :: SessionId -> Server PlayerId
-addNewPlayerToSession sid = undefined
+addNewPlayerToSession :: SessionId -> Server (Maybe PlayerId)
+addNewPlayerToSession sid = do
+  mSession <- gets (^? (sessions . ix sid))
+  case mSession of
+    Nothing -> return Nothing
+    Just session -> do
+      let env = session ^. sessionEnv
+      let positions = getFreePositionsOnLevel env stats level
+      i <- liftIO $ randomRIO (0, length positions - 1)
+      let selectedPos = positions !! i
+      let player = defaultPlayerWithStats selectedPos stats
+      let (pid, env') = runGameEnv (addPlayerToEnvironment player) env
+      modify $ set (sessions . ix sid . sessionEnv) env'
+      return $ Just pid
+  where
+    stats = defaultStats
+    level = 0
 
---    where
---         ourPlayer = makeSomePlayer $ makeUnitData 0 startCoord 'λ'
 
 -- | Remove player from session if this player is present in the session
 removePlayerFromSession :: SessionId -> PlayerId -> Server ()
-removePlayerFromSession = undefined
+removePlayerFromSession sid pid = do
+  mSession <- gets (^? (sessions . ix sid))
+  case mSession of
+    Nothing -> return ()
+    Just session -> do
+      let env = session ^. sessionEnv
+      let (_, env') = runGameEnv (removePlayerFromEnvironment pid) env
+      modify' $ set (sessions . ix sid . sessionEnv) env'
+
+-- | Join the session. Returns id of created player.
+joinSession :: SessionId -> Server PlayerId
+joinSession = undefined
 
 -- | Make action
 playerMakeAction :: SessionId -> PlayerId -> Action -> Server ()
-playerMakeAction = undefined
+playerMakeAction sid pid action = do
+  mSession <- gets (^? (sessions . ix sid))
+  case mSession of
+    Nothing -> return ()
+    Just session -> do
+      let env = session ^. sessionEnv
+      let trans = Transaction.unitAction pid action
+      let (_, env') = runGameEnv (Transaction.applyTransaction trans) env
+      modify' $ set (sessions . ix sid . sessionEnv) env'
 
 -- | Click slot
 playerClickSlot :: SessionId -> PlayerId -> Int -> Server ()
-playerClickSlot = undefined
+playerClickSlot sid pid i = do
+  mSession <- gets (^? (sessions . ix sid))
+  case mSession of
+    Nothing -> return ()
+    Just session -> do
+      let env = session ^. sessionEnv
+      let trans = Transaction.clickSlot pid i
+      let (_, env') = runGameEnv (Transaction.applyTransaction trans) env
+      modify' $ set (sessions . ix sid . sessionEnv) env'
 
 -- | Click item
 playerClickItem :: SessionId -> PlayerId -> Int -> Server ()
-playerClickItem = undefined
-{- makeSomePlayer :: UnitData -> Player
-makeSomePlayer = makeDefaultPlayer . (stats . health %~ (*2))
-
-makeUnitData :: Int -> (Int, Int) -> Char -> UnitData
-makeUnitData level position render =
-  createUnitData
-    (uncheckedPosition level position)
-    (Stats.Stats 10 10 10 1)
-    Game.Unit.TimedUnitOps.empty
-    someInventory
-    (createWeapon "drugged fist" (effectAtom (damage 1) >> effectTypical "confuse") 'A')
-    render
-  where
-    someInventory =
-        addItem (weaponToItem $ createWeapon "saber" (effectAtom (damage 5)) '?') $
-        addItem (wearableToItem $ createWearable "pointy hat" Head (effectAtom (heal 10)) (return ()) '^') $
-        addItem (wearableToItem $ createWearable "uncomfortable shoes" Legs (effectAtom confuse) (return ()) '"')
-        emptyInventory
- -}
+playerClickItem sid pid i = do
+  mSession <- gets (^? (sessions . ix sid))
+  case mSession of
+    Nothing -> return ()
+    Just session -> do
+      let env = session ^. sessionEnv
+      let trans = Transaction.clickItem pid i
+      let (_, env') = runGameEnv (Transaction.applyTransaction trans) env
+      modify' $ set (sessions . ix sid . sessionEnv) env'
