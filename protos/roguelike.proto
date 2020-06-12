@@ -4,22 +4,55 @@ syntax = "proto3";
 package roguelike;
 
 service Server {
-    rpc getSessionState (SessionId) returns (SessionState) {}
-
     rpc getSessions (Empty) returns (SessionsList) {}
+    rpc getSessionState (SessionId) returns (SessionState) {}
+    rpc makeAction (ActionRequest) returns (Empty) {}
+    rpc clickSlot (PlayerClickSlotRequest) returns (Empty) {}
+    rpc clickItem (PlayerClickItemRequest) returns (Empty) {}
+    rpc createNewSession (Empty) returns (SessionId) {}
+    rpc addNewPlayerToSession (SessionId) returns (PlayerId) {}
+    rpc removePlayerFromSession (RemovePlayerRequest) returns (Empty) {}
 }
 
 message Empty {}
 
-message SessionId { int32 id = 1; }
+message SessionId { int32 idx = 1; }
+
+message PlayerId {
+    int32 idx = 1;
+}
 
 message SessionInfo {
     string name = 1;
-    SessionId id = 2;
+    SessionId idx = 2;
 }
 
 message SessionsList {
     repeated SessionInfo sessions = 1;
+}
+
+message ActionRequest {
+    SessionId sessionId = 1;
+    PlayerId playerId = 2;
+    int32 moveX = 3;
+    int32 moveY = 4;
+}
+
+message PlayerClickSlotRequest {
+    SessionId sessionId = 1;
+    PlayerId playerId = 2;
+    int32 slotIdx = 3;
+}
+
+message PlayerClickItemRequest {
+    SessionId sessionId = 1;
+    PlayerId playerId = 2;
+    int32 itemIdx = 3;
+}
+
+message RemovePlayerRequest {
+    SessionId sessionId = 1;
+    PlayerId playerId = 2;
 }
 
 // TODO

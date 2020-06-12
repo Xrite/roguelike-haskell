@@ -58,7 +58,7 @@ removePlayerFromSession = undefined
 -- | Make action
 playerMakeAction :: SessionId -> PlayerId -> Action -> Server ()
 playerMakeAction = undefined
-
+ 
 -- | Click slot
 playerClickSlot :: SessionId -> PlayerId -> Int -> Server ()
 playerClickSlot = undefined
