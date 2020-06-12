@@ -9,7 +9,7 @@ module Networking.Rpc.Server
   , roguelikeServer
   ) where
 
-import qualified Networking.Rpc.Schema as Schema
+import qualified Networking.Rpc.Schema as S
 import Mu.Server (MonadServer, SingleServerT)
 import Data.Functor (($>))
 
@@ -19,32 +19,32 @@ import Mu.Server
 class MonadServer m => RpcServer m where
   -- |Returns list of sessions running on this server.
   -- (argument is a useless stub, needed for grpc)
-  getSessions :: m Schema.SessionsList
+  getSessions :: m S.SessionsList
 
   -- |Returns session state by id.
   -- If no session has such an id, returns Nothing as "state" field
-  getSessionState :: Schema.SessionId -> m Schema.SessionState
+  getSessionState :: S.SessionId -> m S.SessionState
 
   -- |Applies an action made by a player
-  makeAction :: Schema.ActionRequest -> m ()
+  makeAction :: S.ActionRequest -> m ()
 
   -- |Idk, see Game.Server functions
-  clickSlot :: Schema.PlayerClickSlotRequest -> m ()
+  clickSlot :: S.PlayerClickSlotRequest -> m ()
 
   -- |Idk, see Game.Server functions
-  clickItem :: Schema.PlayerClickItemRequest -> m ()
+  clickItem :: S.PlayerClickItemRequest -> m ()
 
   -- |Idk, see Game.Server functions
-  createNewSession :: m Schema.SessionId
+  createNewSession :: m S.SessionId
 
   -- |Idk, see Game.Server functions
-  addNewPlayerToSession :: Schema.SessionId -> m Schema.PlayerId
+  addNewPlayerToSession :: S.SessionId -> m S.PlayerId
 
   -- |Idk, see Game.Server functions
-  removePlayerFromSession :: Schema.RemovePlayerRequest -> m ()
+  removePlayerFromSession :: S.RemovePlayerRequest -> m ()
 
 -- |Server for the game protobuf service
-roguelikeServer :: RpcServer m => SingleServerT Schema.ServerServicer m _
+roguelikeServer :: RpcServer m => SingleServerT S.ServerServicer m _
 roguelikeServer = singleService
   ( method @"getSessions" getSessions_
   , method @"getSessionState" getSessionState_
@@ -55,26 +55,26 @@ roguelikeServer = singleService
   , method @"addNewPlayerToSession" addNewPlayerToSession_
   , method @"removePlayerFromSession" removePlayerFromSession_
   ) where
-  getSessions_ :: RpcServer m => Schema.Empty -> m Schema.SessionsList
+  getSessions_ :: RpcServer m => S.Empty -> m S.SessionsList
   getSessions_ = const getSessions
 
-  getSessionState_ :: RpcServer m => Schema.SessionId -> m Schema.SessionState
+  getSessionState_ :: RpcServer m => S.SessionId -> m S.SessionState
   getSessionState_ = getSessionState
 
-  makeAction_ :: RpcServer m => Schema.ActionRequest -> m Schema.Empty
-  makeAction_ action = makeAction action $> Schema.Empty
+  makeAction_ :: RpcServer m => S.ActionRequest -> m S.Empty
+  makeAction_ action = makeAction action $> S.Empty
 
-  clickSlot_ :: RpcServer m => Schema.PlayerClickSlotRequest -> m Schema.Empty
-  clickSlot_ = ($> Schema.Empty) . clickSlot
+  clickSlot_ :: RpcServer m => S.PlayerClickSlotRequest -> m S.Empty
+  clickSlot_ = ($> S.Empty) . clickSlot
 
-  clickItem_ :: RpcServer m => Schema.PlayerClickItemRequest -> m Schema.Empty
-  clickItem_ = ($> Schema.Empty) . clickItem
+  clickItem_ :: RpcServer m => S.PlayerClickItemRequest -> m S.Empty
+  clickItem_ = ($> S.Empty) . clickItem
 
-  createNewSession_ :: RpcServer m => Schema.Empty -> m Schema.SessionId
+  createNewSession_ :: RpcServer m => S.Empty -> m S.SessionId
   createNewSession_ _ = createNewSession
 
-  addNewPlayerToSession_ :: RpcServer m => Schema.SessionId -> m Schema.PlayerId
+  addNewPlayerToSession_ :: RpcServer m => S.SessionId -> m S.PlayerId
   addNewPlayerToSession_ = addNewPlayerToSession
 
-  removePlayerFromSession_ :: RpcServer m => Schema.RemovePlayerRequest -> m Schema.Empty
-  removePlayerFromSession_ = ($> Schema.Empty) . removePlayerFromSession
+  removePlayerFromSession_ :: RpcServer m => S.RemovePlayerRequest -> m S.Empty
+  removePlayerFromSession_ = ($> S.Empty) . removePlayerFromSession
