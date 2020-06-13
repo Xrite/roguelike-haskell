@@ -364,6 +364,8 @@ addPlayerToEnvironment p = do
   let with = WithEvaluator p $ defaultEvaluation $ cast pid
   let (PlayerId i) = pid
   modify $ over players (IntMap.insert i with)
+  modify $ over seenByPlayer (IntMap.insert i emptySeenByPlayer)
+  runExceptT $ updateSeenByPlayer pid
   return pid
 
 -- | Add mob to the environment. It does not add mob to the queue.
@@ -731,9 +733,13 @@ aggressiveControl mid = do
   allXYs <- map positionXY <$> (liftEither $ mapM (\u -> getUnitPosition u env) unitsOnSameLevel)
   lvl <- liftEither $ getLevelByUnitId mid env
   maybeMobStats <- affectUnit mid UnitOp.getStats
-  let visiblePlayerXYs = filter (canSee (lvl ^. lvlMap) (getVisibility maybeMobStats) (positionXY mobPos)) playerXYs 
+  let visiblePlayerXYs = filter (canSee (lvl ^. lvlMap) (getVisibility maybeMobStats) (positionXY mobPos)) playerXYs
+  --traceShowM $ allXYs \\ ([positionXY mobPos] ++ visiblePlayerXYs)
+  return stayAtPosition
   let path = findNearest (lvl ^. lvlMap) (getPassability maybeMobStats) (positionXY mobPos) visiblePlayerXYs (allXYs \\ ([positionXY mobPos] ++ visiblePlayerXYs))
-  case path of
+  if length visiblePlayerXYs == 0
+    then return stayAtPosition
+    else case path of
       Nothing -> return stayAtPosition
       Just (_, (_ : (x, y) : _)) -> return $ deltaToAction (x - (mobPos ^. posX), y - (mobPos ^. posY))
       Just _ -> return stayAtPosition
@@ -741,6 +747,7 @@ aggressiveControl mid = do
     checkSameLevel lvl u = do
       pos <- gets (getUnitPosition u) >>= liftEither
       if pos ^. posLevel == lvl then return True else return False
+
 
 passiveControl :: (Int, Int) -> MobId -> FallibleGameEnv UnitIdError Action
 passiveControl dest mid = do

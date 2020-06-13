@@ -47,8 +47,9 @@ mobTurns = do
         Just mid -> do
           popCurrentUnit
           makeMobTurn mid
-          shouldAddToQueue <- gets (isUnitAlive mid)
-          when shouldAddToQueue $ addUnitToQueue mid
+          mobAlive <- gets (isUnitAlive mid)
+          playerAlive <- not . null <$> gets (getActivePlayers)
+          when (playerAlive && mobAlive) $ addUnitToQueue mid
           mobTurns
 
 makePlayerTurn :: PlayerId -> Action -> GameEnv ()
