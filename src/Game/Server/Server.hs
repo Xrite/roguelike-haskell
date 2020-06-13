@@ -19,6 +19,7 @@ import Game.Environment
 import Game.EnvironmentGeneration
 import Game.FileIO.FileIO (getLevelByName)
 import Game.FileIO.SaveGame
+import Game.GameControl
 import qualified Game.GameLevels.Generation.GenerationUtil as GU
 import Game.Unit
 import Game.Unit.Action
@@ -27,7 +28,7 @@ import Game.Unit.Inventory
 import Game.Unit.Stats
 import Game.Unit.TimedUnitOps (empty)
 import Game.Unit.Unit
-import Game.GameControl
+import Networking.Rpc.Server
 import System.Random (getStdRandom, mkStdGen, random, randomRIO)
 
 type SessionId = Int
@@ -51,10 +52,10 @@ emptyServer =
 newtype Server a = Server {runServer :: StateT ServerData IO a}
   deriving (Functor, Applicative, Monad, MonadState ServerData, MonadIO)
 
-
 makeSession env = Session {_sessionEnv = env}
 
 makeLenses ''ServerData
+
 makeLenses ''Session
 
 -- | Create new session
@@ -88,7 +89,6 @@ addNewPlayerToSession sid = do
   where
     stats = defaultStats
     level = 0
-
 
 -- | Remove player from session if this player is present in the session
 removePlayerFromSession :: SessionId -> PlayerId -> Server ()
@@ -137,3 +137,5 @@ playerClickItem sid pid i = do
       let env = session ^. sessionEnv
       let (_, env') = runGameEnv (doClickItem pid i) env
       modify' $ set (sessions . ix sid . sessionEnv) env'
+
+
