@@ -1,53 +1,85 @@
-{-# LANGUAGE GADTs #-}
 {-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE GADTs #-}
+
 module Game.GameControl where
 
-import Game.Unit.Action
-import Game.Environment (Environment, runGameEnv, PlayerId)
+import Control.Monad
+import Control.Monad.Except (runExceptT)
 import Control.Monad.Free
+import Control.Monad.State (gets)
+import Debug.Trace
+import Game.Environment (Environment, PlayerId, runGameEnv)
+import Game.Environment
+import Game.Modifiers.UnitOp as UnitOp
 import Game.Transaction as Transaction
+import Game.Unit (Action)
+import Game.Unit.Action
+import Debug.Trace
 
-data GameF next where
-    MakeAction :: Action -> next -> GameF next
-    ClickSlot :: Int -> next -> GameF next
-    ClickItem :: Int -> next -> GameF next
-    deriving (Functor)
+doClickSlot :: PlayerId -> Int -> GameEnv ()
+doClickSlot pid i
+  | i == 0 = unitFreeHeadSlot pid
+  | i == 1 = unitFreeChestSlot pid
+  | i == 2 = unitFreeLegsSlot pid
+  | i == 3 = unitFreeHandSlot pid
+  | otherwise = return ()
 
-type GameL = Free GameF
+doClickItem :: PlayerId -> Int -> GameEnv ()
+doClickItem pid i = do
+  _ <- runExceptT $ unitEquipItem pid i
+  return ()
 
-makeAction :: MonadFree GameF m => Action -> m ()
-makeAction action = liftF $ MakeAction action ()
+makeTurn :: PlayerId -> Action -> GameEnv ()
+makeTurn pid action = do
+  mobTurns
+  makePlayerTurn pid action
+  mobTurns
 
-clickSlot :: MonadFree GameF m => Int -> m ()
-clickSlot slot = liftF $ ClickSlot slot ()
+mobTurns :: GameEnv ()
+mobTurns = do
+  mUnit <- gets getCurrentUnit
+  case mUnit of
+    Nothing -> return ()
+    Just unit -> do
+      case downcast unit of
+        Nothing -> return ()
+        Just mid -> do
+          popCurrentUnit
+          makeMobTurn mid
+          shouldAddToQueue <- gets (isUnitAlive mid)
+          when shouldAddToQueue $ addUnitToQueue mid
+          mobTurns
 
-clickItem :: MonadFree GameF m => Int -> m ()
-clickItem item = liftF $ ClickItem item ()
+makePlayerTurn :: PlayerId -> Action -> GameEnv ()
+makePlayerTurn pid action = do
+  u <- gets getCurrentUnit
+  traceShowM u
+  traceShowM $ pid
+  when (Just (cast pid) == u) $ do
+    popCurrentUnit
+    _ <- runExceptT $ evalAction pid action
+    _ <- runExceptT $ affectUnit pid UnitOp.tickTimedEffects
+    _ <- runExceptT $ updateSeenByPlayer pid
+    cleanupQueue
+    shouldAddToQueue <- gets (isUnitAlive pid)
+    when shouldAddToQueue $ addUnitToQueue pid
 
-data GameCfg
-  = GameCfg
-      { handleAction :: Action -> IO (),
-        handleClickSlot :: Int -> IO (),
-        handleClickItem :: Int -> IO (),
-        playerId :: PlayerId
-      }
-
-interpret :: GameCfg -> Environment -> GameL a -> IO Environment
-interpret cfg env (Free x) = case x of
-    MakeAction a next -> do
-        (handleAction cfg) a
-        let env' = snd $ runGameEnv (applyTransaction (Transaction.unitAction pid a)) env
-        interpret cfg env' next
-    ClickSlot i next -> do 
-        (handleClickSlot cfg) i
-        let env' = snd $ runGameEnv (applyTransaction (Transaction.clickSlot pid i)) env
-        interpret cfg env' next
-    ClickItem i next -> do
-        (handleClickItem cfg) i
-        let env' = snd $ runGameEnv (applyTransaction (Transaction.clickItem pid i)) env
-        interpret cfg env' next
-    where
-        pid = playerId cfg
-interpret _ env (Pure _) = return env
-
+makeMobTurn :: MobId -> GameEnv ()
+makeMobTurn mid = do
+  runMob mid
+  _ <- runExceptT $ affectUnit mid UnitOp.tickTimedEffects
+  cleanupQueue
+  where
+    runMob mid = do
+      eAction <- gets (getAction mid)
+      case eAction of
+        Left _ -> return ()
+        Right action -> tryEvalAction mid action
+    tryEvalAction mid cmd = do
+      eAction <- runExceptT cmd
+      case eAction of
+        Left _ -> return ()
+        Right action -> do
+          _ <- runExceptT $ evalAction mid action
+          return ()

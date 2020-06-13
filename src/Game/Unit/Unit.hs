@@ -105,8 +105,10 @@ data Mob
   deriving (Generic)
 
 data TaggedPlayerApplyUnitOp = DefaultPlayerApplyUnitOp
+  deriving (Generic)
 
 data TaggedMobApplyUnitOp = DefaultMobApplyUnitOp
+  deriving (Generic)
 
 makeLenses ''LevellingStats
 
@@ -213,6 +215,14 @@ getAttackUnitOp unitData = getWeapon unitData ^. weaponAttackUnitOp
 -- | Check whether a unit is alive
 isAlive :: Unit -> Bool
 isAlive u = getUnitData u ^. stats . health > 0
+
+-- | Check whether a player is alive
+isPlayerAlive :: Player -> Bool
+isPlayerAlive p = p ^. playerUnitData . stats . health > 0
+
+-- | Check whether a mob is alive
+isMobAlive :: Mob -> Bool
+isMobAlive m = m ^. mobUnitData . stats . health > 0
 
 dispatchPlayerApplyUnitOp DefaultPlayerApplyUnitOp = defaultPlayerApplyUnitOp
 

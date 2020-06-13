@@ -20,8 +20,6 @@ import Game.EnvironmentGeneration
 import Game.FileIO.FileIO (getLevelByName)
 import Game.FileIO.SaveGame
 import qualified Game.GameLevels.Generation.GenerationUtil as GU
-import Game.Transaction (Transaction)
-import qualified Game.Transaction as Transaction
 import Game.Unit
 import Game.Unit.Action
 import Game.Unit.Control
@@ -29,6 +27,7 @@ import Game.Unit.Inventory
 import Game.Unit.Stats
 import Game.Unit.TimedUnitOps (empty)
 import Game.Unit.Unit
+import Game.GameControl
 import System.Random (getStdRandom, mkStdGen, random, randomRIO)
 
 type SessionId = Int
@@ -114,8 +113,7 @@ playerMakeAction sid pid action = do
     Nothing -> return ()
     Just session -> do
       let env = session ^. sessionEnv
-      let trans = Transaction.unitAction pid action
-      let (_, env') = runGameEnv (Transaction.applyTransaction trans) env
+      let (_, env') = runGameEnv (makeTurn pid action) env
       modify' $ set (sessions . ix sid . sessionEnv) env'
 
 -- | Click slot
@@ -126,8 +124,7 @@ playerClickSlot sid pid i = do
     Nothing -> return ()
     Just session -> do
       let env = session ^. sessionEnv
-      let trans = Transaction.clickSlot pid i
-      let (_, env') = runGameEnv (Transaction.applyTransaction trans) env
+      let (_, env') = runGameEnv (doClickSlot pid i) env
       modify' $ set (sessions . ix sid . sessionEnv) env'
 
 -- | Click item
@@ -138,6 +135,5 @@ playerClickItem sid pid i = do
     Nothing -> return ()
     Just session -> do
       let env = session ^. sessionEnv
-      let trans = Transaction.clickItem pid i
-      let (_, env') = runGameEnv (Transaction.applyTransaction trans) env
+      let (_, env') = runGameEnv (doClickItem pid i) env
       modify' $ set (sessions . ix sid . sessionEnv) env'

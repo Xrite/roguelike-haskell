@@ -42,6 +42,7 @@ import Game.Transaction (Transaction)
 import qualified Game.Transaction as Transaction
 import Game.GameLevels.MapCell (renderCell)
 import Game.Position
+import Game.GameControl
 
 data CustomEvent 
 --  = UpdateEnvUsingTransaction Transaction
@@ -302,20 +303,17 @@ loadLvlMenuUI chan =
 
 
 singlePlayerHandleAction chan pid action env = do
-  let trans = Transaction.unitAction pid action
-  let env' = snd $ runGameEnv (Transaction.applyTransaction trans) env
+  let env' = snd $ runGameEnv (makeTurn pid action) env
   writeBChan chan (UpdateEnvironment env')
   return env
 
 singlePlayerHandleClickSlot chan pid i env = do
-  let trans = Transaction.clickSlot pid i
-  let env' = snd $ runGameEnv (Transaction.applyTransaction trans) env
+  let env' = snd $ runGameEnv (doClickSlot pid i) env
   writeBChan chan (UpdateEnvironment env')
   return env
 
 singlePlayerHandleClickItem chan pid i env = do
-  let trans = Transaction.clickItem pid i
-  let env' = snd $ runGameEnv (Transaction.applyTransaction trans) env
+  let env' = snd $ runGameEnv (doClickItem pid i) env
   writeBChan chan (UpdateEnvironment env')
   return env
 
