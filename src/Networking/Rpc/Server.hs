@@ -47,14 +47,14 @@ class MonadServer m => RpcServer m s where
 -- |Server for the game protobuf service
 roguelikeServer :: RpcServer m s => s -> SingleServerT S.ServerServicer m _
 roguelikeServer cfg = singleService
-  ( method @"getSessions" getSessions_ cfg
-  , method @"getSessionState" getSessionState_ cfg
-  , method @"makeAction" makeAction_ cfg
-  , method @"clickSlot" clickSlot_ cfg
-  , method @"clickItem" clickItem_ cfg
-  , method @"createNewSession" createNewSession_ cfg
-  , method @"addNewPlayerToSession" addNewPlayerToSession_ cfg
-  , method @"removePlayerFromSession" removePlayerFromSession_ cfg
+  ( method @"getSessions" $ getSessions_ cfg
+  , method @"getSessionState" $ getSessionState_ cfg
+  , method @"makeAction" $ makeAction_ cfg
+  , method @"clickSlot" $ clickSlot_ cfg
+  , method @"clickItem" $ clickItem_ cfg
+  , method @"createNewSession" $ createNewSession_ cfg
+  , method @"addNewPlayerToSession" $ addNewPlayerToSession_ cfg
+  , method @"removePlayerFromSession" $ removePlayerFromSession_ cfg
   ) where
   getSessions_ :: RpcServer m s => s -> S.Empty -> m S.SessionsList
   getSessions_ cfg = const (getSessions cfg)
