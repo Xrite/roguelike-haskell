@@ -47,6 +47,7 @@ dependencies:
 - bytestring
 - network
 - http2-client
+- optparse-applicative
 
 ghc-options:
 - -Wall

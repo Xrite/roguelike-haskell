@@ -15,13 +15,25 @@ import Game.GameLevels.Generation.GenerationUtil
 import Brick.BChan
 import qualified Networking.Testmain as Testmain
 import Game.Multiplayer.Server (runServer)
+import AppOptions
 
 -- It was here
 import qualified Graphics.Vty as V
 
 run :: RIO App ()
 run = do
-  liftIO runRandomServer
+  args <- appOptions <$> ask
+  runWithOptions args
+
+runWithOptions :: AppOptions -> RIO App ()
+runWithOptions (ServerOptions port seed) = do
+  resSeed <-
+    if seed /= 0
+      then return seed
+      else liftIO (getStdRandom random)
+  liftIO $ runServer resSeed port
+
+runWithOptions LocalOptions = do
   chan <- liftIO $ newBChan 1000
   let initialState = packUIState (MainMenu (mainMenuUI chan)) (mainMenuUI chan)
   let buildVty = V.mkVty V.defaultConfig
@@ -33,9 +45,6 @@ run = do
     gen = mkStdGen 42
     (lvl, _) = randomBSPGeneratedLevel s param gen
 
-runRandomServer = do
-  seed <- getStdRandom random :: IO Int
-  runServer seed 1234
 
 -- import qualified Networking.Testmain as Testmain
 
