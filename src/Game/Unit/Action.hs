@@ -4,6 +4,7 @@ module Game.Unit.Action
     directionToInt,
     intToDirection,
     deltaToAction,
+    actionToDelta,
     changeCoord,
     moveUp,
     moveDown,
@@ -36,6 +37,9 @@ intToDirection i
 
 deltaToAction :: (Int, Int) -> Action
 deltaToAction (dx, dy) = Move (intToDirection dx) (intToDirection dy)
+
+actionToDelta :: Action -> (Int, Int)
+actionToDelta (Move moveX moveY) = (directionToInt moveX, directionToInt moveY)
 
 changeCoord :: Direction -> Direction -> (Int, Int) -> (Int, Int)
 changeCoord xDir yDir = bimap (+ directionToInt xDir) (+ directionToInt yDir)
