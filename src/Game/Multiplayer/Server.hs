@@ -4,7 +4,7 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TemplateHaskell #-}
 
-module Game.Multiplayer.Server where
+module Game.Multiplayer.Server (runServer) where
 
 import Brick.BChan
 import Control.Concurrent.STM
@@ -350,3 +350,9 @@ instance RPCS.RpcServer Server (TVar ServerData) where
       tryModify sd = case updateServerData sd of
         Nothing -> sd
         Just f -> snd $ f sd
+
+-- |Runs game's server initiated with specified seed
+runServer :: Int -> Int -> IO ()
+runServer seed port = do
+  initState <- initServerWithSeed seed
+  RPCS.runServer initState port

@@ -8,6 +8,7 @@
 module Networking.Rpc.Server
   ( RpcServer (..)
   , roguelikeServer
+  , runServer
   ) where
 
 import qualified Networking.Rpc.Schema as S
@@ -79,3 +80,7 @@ roguelikeServer cfg = singleService
 
   removePlayerFromSession_ :: RpcServer m s => s -> S.RemovePlayerRequest -> m S.Empty
   removePlayerFromSession_ cfg = ($> S.Empty) . removePlayerFromSession cfg
+
+-- |Runs roguelike service server on specified port
+runServer :: RpcServer ServerErrorIO s => s -> Int -> IO ()
+runServer cfg port = runGRpcApp msgProtoBuf port $ roguelikeServer cfg
