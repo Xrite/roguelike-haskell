@@ -42,9 +42,11 @@ dependencies:
 - mu-protobuf
 - mu-grpc-server
 - mu-grpc-common
+- mu-grpc-client
 - text
 - bytestring
-
+- network
+- http2-client
 
 ghc-options:
 - -Wall
