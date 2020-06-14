@@ -10,7 +10,7 @@ import Brick.BChan
 import Control.Concurrent.STM
 import Control.Lens hiding ((<|), (|>))
 import Control.Monad.State
-import Data.Binary (encode)
+import Data.Binary (decode, encode)
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as LBS
 import Data.Either (fromRight, rights)
@@ -72,6 +72,13 @@ makeSession :: Environment -> Session
 makeSession env = Session {_sessionEnv = env}
 
 makeSessionId x = x
+
+newServerData :: Int -> ServerData
+newServerData seed =
+  ServerData
+    { _sessions = IntMap.empty,
+      _serverRandomGenerator = mkStdGen seed
+    }
 
 runServerEnv :: ServerEnv a -> ServerData -> (a, ServerData)
 runServerEnv serverEnv = runState (unServerEnv serverEnv)
@@ -184,12 +191,31 @@ fromActionRequestSchema (S.ActionRequest mSid mPid dx dy) = do
   let action = deltaToAction (fromIntegral dx, fromIntegral dy)
   return (sid, pid, action)
 
+toActionRequestSchema :: SessionId -> PlayerId -> Action -> S.ActionRequest
+toActionRequestSchema sid pid action =
+  S.ActionRequest
+    { sessionId = Just $ toSessionIdSchema sid,
+      playerId = Just $ toPlayerIdSchema pid,
+      moveX = fromIntegral dx,
+      moveY = fromIntegral dy
+    }
+  where
+    (dx, dy) = actionToDelta action
+
 fromPlayerClickSlotRequest :: S.PlayerClickSlotRequest -> Maybe (SessionId, PlayerId, Int)
 fromPlayerClickSlotRequest (S.PlayerClickSlotRequest mSid mPid idx) = do
   sid <- fromSessionIdSchema <$> mSid
   pid <- fromPlayerIdSchema <$> mPid
   let i = fromIntegral idx
   return (sid, pid, i)
+
+toPlayerClickSlotRequest :: SessionId -> PlayerId -> Int -> S.PlayerClickSlotRequest
+toPlayerClickSlotRequest sid pid i =
+  S.PlayerClickSlotRequest
+    { sessionId = Just $ toSessionIdSchema sid,
+      playerId = Just $ toPlayerIdSchema pid,
+      slotIdx = fromIntegral i
+    }
 
 fromPlayerClickItemRequest :: S.PlayerClickItemRequest -> Maybe (SessionId, PlayerId, Int)
 fromPlayerClickItemRequest (S.PlayerClickItemRequest mSid mPid idx) = do
@@ -198,11 +224,32 @@ fromPlayerClickItemRequest (S.PlayerClickItemRequest mSid mPid idx) = do
   let i = fromIntegral idx
   return (sid, pid, i)
 
+toPlayerClickItemRequest :: SessionId -> PlayerId -> Int -> S.PlayerClickItemRequest
+toPlayerClickItemRequest sid pid i =
+  S.PlayerClickItemRequest
+    { sessionId = Just $ toSessionIdSchema sid,
+      playerId = Just $ toPlayerIdSchema pid,
+      itemIdx = fromIntegral i
+    }
+
 fromRemovePlayerRequest :: S.RemovePlayerRequest -> Maybe (SessionId, PlayerId)
 fromRemovePlayerRequest (S.RemovePlayerRequest mSid mPid) = do
   sid <- fromSessionIdSchema <$> mSid
   pid <- fromPlayerIdSchema <$> mPid
   return (sid, pid)
+
+toRemovePlayerRequest :: SessionId -> PlayerId -> S.RemovePlayerRequest
+toRemovePlayerRequest sid pid =
+  S.RemovePlayerRequest
+    { sessionId = Just $ toSessionIdSchema sid,
+      playerId = Just $ toPlayerIdSchema pid
+    }
+
+fromSessionStateSchema :: S.SessionState -> Maybe EnvMemento
+fromSessionStateSchema (S.SessionState state content) = case state of
+  Nothing -> Nothing
+  Just S.NOT_RUNNING -> Nothing
+  Just S.RUNNING -> decode $ LBS.fromStrict content
 
 toSessionStateSchema :: Session -> S.SessionState
 toSessionStateSchema s =
@@ -230,6 +277,11 @@ toSessionsListSchema sd =
   S.SessionsList
     { sessions = map toSessionInfoSchema $ allSessionIds sd
     }
+
+initServerWithSeed :: Int -> IO (TVar ServerData)
+initServerWithSeed seed = newTVarIO sd
+  where
+    sd = newServerData seed
 
 instance RPCS.RpcServer Server (TVar ServerData) where
   getSessions t = do
