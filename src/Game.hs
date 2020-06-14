@@ -42,6 +42,8 @@ import Game.Transaction (Transaction)
 import qualified Game.Transaction as Transaction
 import Game.GameLevels.MapCell (renderCell)
 import Game.Position
+import Game.GameControl
+import Game.EnvironmentGeneration
 
 data CustomEvent 
 --  = UpdateEnvUsingTransaction Transaction
@@ -186,6 +188,7 @@ gameUI env pid = makeGameUI $
       playerPosition <- getUnitPosition pid env
       traceShowM playerPosition
       playerPortrait <- getUnitPortrait pid env
+      traceShowM playerPortrait
       visible <- Set.fromList . fmap positionXY <$> getVisibleToUnit pid env
       seenByPlayer <- getSeenByPlayer pid env
       traceShowM seenByPlayer
@@ -271,12 +274,13 @@ mainMenuUI chan =
       loaded <- loadGame "autosave"
       case loaded of
         Prelude.Left _ -> return $ packHasIOUI $ MainMenu (mainMenuUI chan)
-        Prelude.Right env -> startSinglePlayerGame chan (loadEnvironmentState env)
+        Prelude.Right envMemento -> let env = loadEnvironmentState envMemento in startSinglePlayerGame chan (playerId env) env
     randomGame = do
       rnd <- getStdRandom random
-      let env = randomEnvironment rnd
-      startSinglePlayerGame chan env
-    testLevelGame = startSinglePlayerGame chan testEnvironment
+      let (pid, env) = randomEnvironment rnd
+      startSinglePlayerGame chan pid env
+    testLevelGame = let (pid, env) = testEnvironment in startSinglePlayerGame chan pid env
+    playerId env = getActivePlayers env !! 0
 
 
 loadLevel :: String -> IO GameLevel
@@ -297,25 +301,22 @@ loadLvlMenuUI chan =
     where
       loadLevelAndPack s = do
         lvl <- loadLevel s
-        let env = testEnvironmentWithLevel lvl
-        startSinglePlayerGame chan env
+        let (pid, env) = testEnvironmentWithLevel lvl
+        startSinglePlayerGame chan pid env
 
 
 singlePlayerHandleAction chan pid action env = do
-  let trans = Transaction.unitAction pid action
-  let env' = snd $ runGameEnv (Transaction.applyTransaction trans) env
+  let env' = snd $ runGameEnv (makeTurn pid action) env
   writeBChan chan (UpdateEnvironment env')
   return env
 
 singlePlayerHandleClickSlot chan pid i env = do
-  let trans = Transaction.clickSlot pid i
-  let env' = snd $ runGameEnv (Transaction.applyTransaction trans) env
+  let env' = snd $ runGameEnv (doClickSlot pid i) env
   writeBChan chan (UpdateEnvironment env')
   return env
 
 singlePlayerHandleClickItem chan pid i env = do
-  let trans = Transaction.clickItem pid i
-  let env' = snd $ runGameEnv (Transaction.applyTransaction trans) env
+  let env' = snd $ runGameEnv (doClickItem pid i) env
   writeBChan chan (UpdateEnvironment env')
   return env
 
@@ -325,8 +326,8 @@ singlePlayerHandleDeath env = do
 singlePlayerHandleQuitGame env = do
   saveGame "autosave" $ getEnvState env 
 
-startSinglePlayerGame :: BChan CustomEvent -> Environment -> IO (AnyHasUI IO CustomEvent)
-startSinglePlayerGame chan env = do
+startSinglePlayerGame :: BChan CustomEvent -> PlayerId -> Environment -> IO (AnyHasUI IO CustomEvent)
+startSinglePlayerGame chan pid env = do
   let g = Game {
     _gamePlayerId = pid,
     _gameEnv = env,
@@ -335,7 +336,6 @@ startSinglePlayerGame chan env = do
   }
   return $ packHasIOUI g
   where
-    pid = makePlayerId 1
     handle = Handle {
     _handleDeath = singlePlayerHandleDeath,
     _handleQuitGame = singlePlayerHandleQuitGame,
@@ -343,55 +343,3 @@ startSinglePlayerGame chan env = do
     _handleClickSlot = singlePlayerHandleClickSlot chan,
     _handleClickItem = singlePlayerHandleClickItem chan
     }
-
-testEnvironmentWithLevel :: GameLevel -> Environment
-testEnvironmentWithLevel level =
-  makeEnvironment
-    [ourPlayer]
-    [ makeDefaultMob (makeUnitData 0 (3, 3) 'U') Aggressive ]
-    [level]
-  where
-    ourPlayer = makeSomePlayer $ makeUnitData 0 (level ^. lvlMap . entrance) 'λ'
-
-randomEnvironment :: Int -> Environment
-randomEnvironment seed =
-  makeEnvironment
-    [ourPlayer]
-    []
-    [lvl]
-  where
-    lvl = fst $ randomBSPGeneratedLevel (GU.Space (GU.Coord 0 0) (GU.Coord 50 50)) (GeneratorParameters 10 1.7 5) $ mkStdGen seed
-    startCoord = _entrance $ _lvlMap lvl
-    ourPlayer = makeSomePlayer $ makeUnitData 0 startCoord 'λ'
-
-testEnvironment :: Environment
-testEnvironment =
-  makeEnvironment
-    [ourPlayer]
-    [ makeDefaultMob (makeUnitData 0 (3, 3) 'U') Aggressive
-    , makeDefaultMob (makeUnitData 0 (4, 6) 'U') (Passive (4, 6))
-    , makeDefaultMob (makeUnitData 0 (5, 6) 'U') Avoiding
-    ]
-    [testGameLevel]
-  where
-    ourPlayer = makeSomePlayer $ makeUnitData 0 (7, 9) 'λ'
-
-makeUnitData :: Int -> (Int, Int) -> Char -> UnitData
-makeUnitData level position render =
-  createUnitData
-    (uncheckedPosition level position)
-    (Stats.Stats 10 10 10 1)
-    Game.Unit.TimedUnitOps.empty
-    someInventory
-    (createWeapon "drugged fist" (effectAtom (damage 1) >> effectTypical "confuse") 'A')
-    render
-  where
-    someInventory =
-        addItem (weaponToItem $ createWeapon "saber" (effectAtom (damage 5)) '?') $
-        addItem (wearableToItem $ createWearable "pointy hat" Head (effectAtom (heal 10)) (return ()) '^') $
-        addItem (wearableToItem $ createWearable "uncomfortable shoes" Legs (effectAtom confuse) (return ()) '"')
-        emptyInventory
-
-makeSomePlayer :: UnitData -> Player 
-makeSomePlayer = makeDefaultPlayer . (stats . health %~ (*2))
-

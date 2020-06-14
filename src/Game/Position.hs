@@ -4,6 +4,7 @@ module Game.Position where
 
 import Control.Lens
 import GHC.Generics (Generic)
+import Data.Binary (Binary)
 
 -- | Position in the environment
 data Position
@@ -15,6 +16,8 @@ data Position
       deriving (Eq, Ord, Generic, Show)
 
 makeLenses ''Position
+
+instance Binary Position
 
 -- | (x, y) coordinates of the position
 positionXY :: Position -> (Int, Int)

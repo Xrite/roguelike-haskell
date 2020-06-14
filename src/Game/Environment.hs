@@ -12,6 +12,7 @@ module Game.Environment
     UnitId,
     PlayerId,
     MobId,
+    Is(..),
     GameEnv,
     FallibleGameEnv,
     UnitIdError (..),
@@ -41,6 +42,7 @@ module Game.Environment
     getCurrentUnit,
     popCurrentUnit,
     addUnitToQueue,
+    cleanupQueue,
     affectUnit,
     unitEquipItem,
     getUnitByUnitId,
@@ -244,6 +246,11 @@ addToSeenByPlayer (SeenByPlayer s) p =
 bulkAddToSeenByPlayer :: Foldable t => t Position -> SeenByPlayer -> SeenByPlayer
 bulkAddToSeenByPlayer ps s = foldl' addToSeenByPlayer s ps
 
+allSeenPositions :: SeenByPlayer -> [Position]
+allSeenPositions (SeenByPlayer s) = concat . (map f) . IntMap.toList $ s
+  where
+    f (l, s) = map (uncheckedPosition l) $ Set.toList s
+
 seenAtLevel :: Int -> SeenByPlayer -> Set.Set (Int, Int)
 seenAtLevel l (SeenByPlayer s) = fromMaybe Set.empty (IntMap.lookup l s)
 
@@ -257,14 +264,14 @@ randomRGameEnv range = do
 runGameEnv :: GameEnv a -> Environment -> (a, Environment)
 runGameEnv gameEnv = runState (unGameEnv gameEnv)
 
-makeEnvironmentInternal :: [(Int, EPlayer)] -> [(Int, EMob)] -> [GameLevel] -> StdGen -> [(Int, SeenByPlayer)] -> Environment
-makeEnvironmentInternal indexedPlayers indexedMobs levels gen indexedSeen =
+makeEnvironmentInternal :: [(Int, EPlayer)] -> [(Int, EMob)] -> [GameLevel] -> StdGen -> [(Int, SeenByPlayer)] -> [UnitId] -> Environment
+makeEnvironmentInternal indexedPlayers indexedMobs levels gen indexedSeen queue =
   Environment
     { _players = IntMap.fromList [(i, WithEvaluator p $ defaultEvaluation $ PlayerUnitId (PlayerId i)) | (i, p) <- indexedPlayers],
       _mobs = IntMap.fromList [(i, WithEvaluator m $ defaultEvaluation $ MobUnitId (MobId i)) | (i, m) <- indexedMobs],
       _levels = Seq.fromList levels,
       _currentUnitTurn = 0,
-      _unitQueue = undefined,
+      _unitQueue = Seq.fromList queue,
       _modifierFactory = defaultUnitOpFactory,
       _randomGenerator = gen,
       _strategy = getControl,
@@ -280,6 +287,7 @@ makeEnvironment players mobs levels =
     levels
     (mkStdGen 42)
     ([(i, makeSeenByPlayer (allPlayerSeenPositions player))  | (i, player) <- indexedPlayers])
+    (playerIds ++ mobIds)
   where
     visibility player = getVisibility (Just $ player ^. playerUnitData . stats)
     getVisible player lvl = visiblePositions (lvl ^. lvlMap) (visibility player) (playerXY player)
@@ -287,6 +295,8 @@ makeEnvironment players mobs levels =
     indexedPlayers = zip [1..] players
     indexedMobs = zip [1..] mobs
     playerXY player = let p = player ^. playerUnitData . position in (p ^. posX, p ^. posY)
+    playerIds = map (cast . PlayerId) [1..length players]
+    mobIds = map (cast . MobId) [1..length mobs]
 
 
 -- | This function should remove dead units from environment.
@@ -303,20 +313,24 @@ filterDead = do
 getActiveUnits :: Environment -> [UnitId]
 getActiveUnits env = players ++ mobs
   where
-    players = map PlayerUnitId $ getActivePlayers env
-    mobs = map MobUnitId $ getActiveMobs env
+    players = map cast $ getActivePlayers env
+    mobs = map cast $ getActiveMobs env
 
 -- | Get all active (still alive) players from the environment
 getActivePlayers :: Environment -> [PlayerId]
-getActivePlayers env = activePlayers
+getActivePlayers env = filter check allPlayers
   where
-    activePlayers = map PlayerId $ IntMap.keys (env ^. players)
+    allPlayers = map PlayerId $ IntMap.keys (env ^. players)
+    check p = isUnitAlive p env
 
 -- | Get all active (still alive) players from the environment
 getActiveMobs :: Environment -> [MobId]
-getActiveMobs env = activeMobs
+getActiveMobs env = filter check allMobs
   where
-    activeMobs = map MobId $ IntMap.keys (env ^. mobs)
+    allMobs = map MobId $ IntMap.keys (env ^. mobs)
+    check m = isUnitAlive m env
+
+
   
 -- | All position available to player
 getFreePositionsOnLevel :: Environment -> Stats -> Int -> [Position]
@@ -350,6 +364,8 @@ addPlayerToEnvironment p = do
   let with = WithEvaluator p $ defaultEvaluation $ cast pid
   let (PlayerId i) = pid
   modify $ over players (IntMap.insert i with)
+  modify $ over seenByPlayer (IntMap.insert i emptySeenByPlayer)
+  runExceptT $ updateSeenByPlayer pid
   return pid
 
 -- | Add mob to the environment. It does not add mob to the queue.
@@ -388,8 +404,8 @@ isPlayerAlive env = isAlive (env ^. player . object) -}
 -- | Checks whether a unit is still alive. Returns False if the unit is not present in the environment.
 isUnitAlive :: (uid `Is` UnitId) => uid -> Environment -> Bool
 isUnitAlive uid env = case cast uid of
-  PlayerUnitId (PlayerId i) -> IntMap.member i (env ^. players)
-  MobUnitId (MobId i) -> IntMap.member i (env ^. mobs)
+  PlayerUnitId (PlayerId i) -> fromMaybe False $ isPlayerAlive <$> (env ^? players . ix i . object)
+  MobUnitId (MobId i) -> fromMaybe False $ isMobAlive <$> (env ^? mobs . ix i . object)
 
 {- getPlayer :: GameEnv UnitId
 getPlayer = return PlayerUnitId -}
@@ -572,6 +588,12 @@ addUnitToQueue :: (uid `Is` UnitId) => uid -> GameEnv ()
 addUnitToQueue uid = do
   modify $ over unitQueue (|> cast uid)
 
+-- | Remove all dead units from queue
+cleanupQueue :: GameEnv ()
+cleanupQueue = do
+  env <- get
+  let check u = isUnitAlive u env
+  modify $ over unitQueue (Seq.filter check)
 
 -- | Get Unit by the unitId. Fails if the unit is not present in the environment (e.g. was removed after death).
 getUnitByUnitId :: (uid `Is` UnitId) => uid -> Environment -> Either UnitIdError EUnit
@@ -703,7 +725,7 @@ allUnitsXYAtTheSameLevel mid = do
 -- | Tries to reach and attack a player whenever player is visible to this unit
 aggressiveControl :: MobId -> FallibleGameEnv UnitIdError Action
 aggressiveControl mid = do
-  mobPos <- gets (getUnitPosition (MobUnitId mid)) >>= liftEither
+  mobPos <- gets (getUnitPosition mid) >>= liftEither
   playersOnSameLevel <- gets (getActivePlayers) >>= filterM (checkSameLevel (mobPos ^. posLevel))
   unitsOnSameLevel <- gets (getActiveUnits) >>= filterM (checkSameLevel (mobPos ^. posLevel))
   env <- get
@@ -711,9 +733,13 @@ aggressiveControl mid = do
   allXYs <- map positionXY <$> (liftEither $ mapM (\u -> getUnitPosition u env) unitsOnSameLevel)
   lvl <- liftEither $ getLevelByUnitId mid env
   maybeMobStats <- affectUnit mid UnitOp.getStats
-  let visiblePlayerXYs = filter (canSee (lvl ^. lvlMap) (getVisibility maybeMobStats) (positionXY mobPos)) playerXYs 
+  let visiblePlayerXYs = filter (canSee (lvl ^. lvlMap) (getVisibility maybeMobStats) (positionXY mobPos)) playerXYs
+  --traceShowM $ allXYs \\ ([positionXY mobPos] ++ visiblePlayerXYs)
+  return stayAtPosition
   let path = findNearest (lvl ^. lvlMap) (getPassability maybeMobStats) (positionXY mobPos) visiblePlayerXYs (allXYs \\ ([positionXY mobPos] ++ visiblePlayerXYs))
-  case path of
+  if length visiblePlayerXYs == 0
+    then return stayAtPosition
+    else case path of
       Nothing -> return stayAtPosition
       Just (_, (_ : (x, y) : _)) -> return $ deltaToAction (x - (mobPos ^. posX), y - (mobPos ^. posY))
       Just _ -> return stayAtPosition
@@ -721,6 +747,7 @@ aggressiveControl mid = do
     checkSameLevel lvl u = do
       pos <- gets (getUnitPosition u) >>= liftEither
       if pos ^. posLevel == lvl then return True else return False
+
 
 passiveControl :: (Int, Int) -> MobId -> FallibleGameEnv UnitIdError Action
 passiveControl dest mid = do
@@ -832,16 +859,6 @@ confusedDecorator eval u dir = do
     drops f (x : xs) = if f x then xs else drops f xs
     drops _ [] = error "element no found"
 
-{- makeTurn :: Action -> GameEnv ()
-makeTurn playerAction = do
-  player <- getPlayer
-  _ <- runExceptT (evalAction player playerAction)
-  mobs <- getActiveMobs
-  _ <- runExceptT $ traverse (\u -> getAction u >>= evalAction u) mobs
-  units <- getActiveUnits
-  _ <- runExceptT $ traverse (`affectUnit` tickTimedEffects) units
-  return () -}
-
 
 {--------------------------------------------------------------------
   Save / Load
@@ -853,7 +870,8 @@ data EnvMemento
         envMobs :: [(Int, EMob)],
         envLevels :: [GameLevel],
         envGen :: StdGen,
-        envSeen :: [(Int, SeenByPlayer)]
+        envSeen :: [(Int, [Position])],
+        envQueue :: [UnitId]
       }
   deriving (Generic)
 
@@ -864,14 +882,16 @@ getEnvState env =
       envMobs = IntMap.toList $ IntMap.map _object $ env ^. mobs,
       envLevels = toList $ env ^. levels,
       envGen =  env ^. randomGenerator,
-      envSeen = IntMap.toList $ env ^. seenByPlayer
+      envSeen = map (over _2 allSeenPositions) . IntMap.toList $ env ^. seenByPlayer,
+      envQueue = toList $ env ^. unitQueue
     }
 
 loadEnvironmentState :: EnvMemento -> Environment
-loadEnvironmentState (EnvMemento player imobs levels gen seen) =
+loadEnvironmentState (EnvMemento player imobs levels gen seen queue) =
   makeEnvironmentInternal
     player
     imobs
     levels
     gen
-    seen
+    (map (over _2 makeSeenByPlayer) seen)
+    queue
