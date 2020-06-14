@@ -64,6 +64,8 @@ module Game.Environment
     addMobToEnvironment,
     removePlayerFromEnvironment,
     removeMobFromEnvironment,
+    fromPlayerIdSchema,
+    toPlayerIdSchema,
   )
 where
 
@@ -97,6 +99,7 @@ import Safe (atDef)
 import System.Random
 import Game.Position
 import Debug.Trace
+import qualified Networking.Rpc.Schema as Schema
 
 -- | All manipulations with units in environment should use this type
 data UnitId
@@ -298,6 +301,12 @@ makeEnvironment players mobs levels =
     playerIds = map (cast . PlayerId) [1..length players]
     mobIds = map (cast . MobId) [1..length mobs]
 
+
+fromPlayerIdSchema :: Schema.PlayerId -> PlayerId
+fromPlayerIdSchema (Schema.PlayerId idx) = PlayerId $ fromIntegral idx
+
+toPlayerIdSchema :: PlayerId -> Schema.PlayerId
+toPlayerIdSchema (PlayerId i) = Schema.PlayerId (fromIntegral i)
 
 -- | This function should remove dead units from environment.
 -- It is called after each function that can modify units in the environment. With current implementation of units storage it invalidates 'UnitId'.
