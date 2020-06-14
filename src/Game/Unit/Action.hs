@@ -39,7 +39,7 @@ deltaToAction :: (Int, Int) -> Action
 deltaToAction (dx, dy) = Move (intToDirection dx) (intToDirection dy)
 
 actionToDelta :: Action -> (Int, Int)
-actionToDelta (Move moveX moveY) = (directionToInt moveX, directionToInt moveY)
+actionToDelta (Move dirx diry) = (directionToInt dirx, directionToInt diry)
 
 changeCoord :: Direction -> Direction -> (Int, Int) -> (Int, Int)
 changeCoord xDir yDir = bimap (+ directionToInt xDir) (+ directionToInt yDir)
