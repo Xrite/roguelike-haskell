@@ -319,7 +319,7 @@ loadLvlMenuUI chan =
 joinServerUI :: BChan CustomEvent -> UI IO EnterDataState CustomEvent
 joinServerUI chan = 
   makeEnterDataUI $ do
-    EnterDataUI.setTitle "join server"
+    EnterDataUI.setTitle "Join server. Use enter to join and delete to delete last symbol"
     EnterDataUI.addAcceptInputHandler acceptInput
     EnterDataUI.addCloseHandler (const $ return $ packHasIOUI $ MainMenu (mainMenuUI chan))
   where
@@ -414,21 +414,21 @@ startSinglePlayerGame chan pid env = do
         }
 
 multiPlayerHandleAction clientHandle sid chan pid action env = do
-  Client.makeAction clientHandle sid pid action
   --let env' = snd $ runGameEnv (makeTurn pid action) env
   --writeBChan chan (UpdateEnvironment env')
+  forkIO $ Client.makeAction clientHandle sid pid action
   return env
 
 multiPlayerHandleClickSlot clientHandle sid chan pid i env = do
-  Client.clickSlot clientHandle sid pid i
   --let env' = snd $ runGameEnv (doClickSlot pid i) env
   --writeBChan chan (UpdateEnvironment env')
+  forkIO $ Client.clickSlot clientHandle sid pid i
   return env
 
 multiPlayerHandleClickItem clientHandle sid chan pid i env = do
-  Client.clickItem clientHandle sid pid i
   --let env' = snd $ runGameEnv (doClickItem pid i) env
   --writeBChan chan (UpdateEnvironment env')
+  forkIO $ Client.clickItem clientHandle sid pid i
   return env
 
 multiPlayerHandleDeath clientHandle sid pid env = do
@@ -448,7 +448,7 @@ multiPlayerStateUpdate clientHandle sid chan = do
     Just envM -> do
       let env = loadEnvironmentState envM
       writeBChan chan (UpdateEnvironment env)
-  threadDelay 1000000
+  threadDelay 100000
 
 
 

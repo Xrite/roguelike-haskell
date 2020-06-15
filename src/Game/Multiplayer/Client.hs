@@ -1,5 +1,7 @@
+{-# LANGUAGE ScopedTypeVariables #-}
 module Game.Multiplayer.Client where
 
+import Control.Exception
 import Game.Environment
 import Game.Multiplayer.Server
 import qualified Game.Multiplayer.Server as Server
@@ -12,11 +14,15 @@ import qualified Networking.Rpc.Schema as S
 type ClientHandle = GrpcClient
 
 setupClient :: HostName -> PortNumber -> IO (Maybe ClientHandle)
-setupClient ip port = do
-  r <- RPCC.setupClient ip port
-  case r of
-    Left _ -> return Nothing
-    Right handle -> return $ Just handle
+setupClient ip port = catch getHandle ignore
+  where 
+    getHandle = do
+      r <- RPCC.setupClient ip port
+      case r of
+        Left _ -> return Nothing
+        Right handle -> return $ Just handle
+    ignore :: SomeException -> IO (Maybe ClientHandle)
+    ignore e = return Nothing
 
 getSessions :: ClientHandle -> IO [SessionId]
 getSessions handle = do
