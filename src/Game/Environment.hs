@@ -647,6 +647,7 @@ envAttack attackerId attackedId = do
 
 evalAction :: (uid `Is` UnitId) => uid -> Action -> FallibleGameEnv UnitIdError Bool
 evalAction uid a = do
+  time %= (+1)
   env <- get
   case cast uid of
     PlayerUnitId (PlayerId i) -> case (env ^? players . ix i . evaluator) of
