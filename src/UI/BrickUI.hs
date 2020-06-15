@@ -92,9 +92,10 @@ drawMap m =
     drawCoord c
       | not $ (m ^. GameUI.mapHasBeenSeenByPlayer) c = str " "
       | not $ (m ^. GameUI.mapIsVisibleToPlayer) c = charWithAttr shadowedAttr $ (m ^. GameUI.mapTerrain) ! c
-      | c == (m ^. GameUI.mapPlayerPosition) = charWithAttr visibleAttr $ m ^. GameUI.mapPlayerPortrait
+      | c == (m ^. GameUI.mapPlayerPosition) = charWithAttr playerAttr $ m ^. GameUI.mapPlayerPortrait
       | Just p <- lookup c (m ^. GameUI.mapMobs) = charWithAttr visibleAttr p
       | Just i <- lookup c (m ^. GameUI.mapEntities) = charWithAttr visibleAttr i
+      | Just i <- lookup c (m ^. GameUI.mapPlayers) = charWithAttr visibleAttr i
       | otherwise = charWithAttr visibleAttr $ (m ^. GameUI.mapTerrain) ! c
 
 charWithAttr :: AttrName -> Char -> Widget n
@@ -288,7 +289,8 @@ theMap =
     V.defAttr
     [ (visibleAttr, V.white `on` V.black),
       (shadowedAttr, V.white `on` V.brightBlack),
-      (selectedAttr, V.black `on` V.white)
+      (selectedAttr, V.black `on` V.white),
+      (playerAttr, V.red `on` V.black)
     ]
 
 visibleAttr, shadowedAttr :: AttrName
@@ -298,3 +300,6 @@ shadowedAttr = "shadowedAttr"
 selectedAttr, notSelectedAttr :: AttrName
 selectedAttr = "selectedAttr"
 notSelectedAttr = "notSelectedAttr"
+
+playerAttr :: AttrName
+playerAttr = "playerAttr"
