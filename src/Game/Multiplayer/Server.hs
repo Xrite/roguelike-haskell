@@ -303,7 +303,7 @@ instance RPCS.RpcServer Server (TVar ServerData) where
 
   makeAction t request = do
     liftIO $ putStrLn $ "Make action: " ++ show request
-    liftIO $ atomically $ modifyTVar t tryModify
+    liftIO $ atomically $ modifyTVar' t tryModify
     liftIO $ putStrLn $ "Action done"
     where
       newData sd = do
@@ -315,7 +315,7 @@ instance RPCS.RpcServer Server (TVar ServerData) where
 
   clickSlot t request = do
     liftIO $ putStrLn $ "Click slot: " ++ show request
-    liftIO $ atomically $ modifyTVar t tryModify
+    liftIO $ atomically $ modifyTVar' t tryModify
     where
       updateServerData sd = do
         (sid, pid, i) <- fromPlayerClickSlotRequest request
@@ -326,7 +326,7 @@ instance RPCS.RpcServer Server (TVar ServerData) where
 
   clickItem t request = do
     liftIO $ putStrLn $ "Click item: " ++ show request
-    liftIO $ atomically $ modifyTVar t tryModify
+    liftIO $ atomically $ modifyTVar' t tryModify
     where
       updateServerData sd = do
         (sid, pid, i) <- fromPlayerClickItemRequest request

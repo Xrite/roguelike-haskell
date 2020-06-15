@@ -131,7 +131,7 @@ drawMenu menu = [vBox rows]
      | otherwise = withAttr notSelectedAttr $ str s
 
 drawEnterText :: EnterDataUI.UIDesc e a b -> [Widget n]
-drawEnterText enterText = [drawTitle <=> drawInput]
+drawEnterText enterText = [C.center $ drawTitle <=> drawInput]
   where
     drawTitle = str $ EnterDataUI.getTitle enterText
     drawInput = str $ EnterDataUI.getInsertedText enterText

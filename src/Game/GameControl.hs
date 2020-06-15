@@ -55,8 +55,6 @@ mobTurns = do
 makePlayerTurn :: PlayerId -> Action -> GameEnv ()
 makePlayerTurn pid action = do
   u <- gets getCurrentUnit
-  traceShowM u
-  traceShowM $ pid
   when (Just (cast pid) == u) $ do
     popCurrentUnit
     _ <- runExceptT $ evalAction pid action
