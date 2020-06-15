@@ -4,7 +4,7 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TemplateHaskell #-}
 
-module Game.Multiplayer.Server (runServer) where
+module Game.Multiplayer.Server where
 
 import Brick.BChan
 import Control.Concurrent.STM
@@ -265,12 +265,18 @@ notRunningSessionState =
       content = BS.empty
     }
 
+fromSessionInfoSchema :: S.SessionInfo -> SessionId
+fromSessionInfoSchema (S.SessionInfo _ (Just sidSchema)) = fromSessionIdSchema sidSchema 
+
 toSessionInfoSchema :: SessionId -> S.SessionInfo
 toSessionInfoSchema sid =
   S.SessionInfo
     { name = T.pack $ show sid,
       idx = Just $ toSessionIdSchema sid
     }
+
+fromSessionsListSchema :: S.SessionsList -> [SessionId]
+fromSessionsListSchema (S.SessionsList ss) = map fromSessionInfoSchema ss
 
 toSessionsListSchema :: ServerData -> S.SessionsList
 toSessionsListSchema sd =

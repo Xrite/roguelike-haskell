@@ -17,6 +17,7 @@ import qualified Graphics.Vty as V
 import qualified UI.Descriptions.GameUIDesc as GameUI
 import qualified UI.Descriptions.InventoryUIDesc as InventoryUI
 import qualified UI.Descriptions.ListMenuDesc as ListMenu
+import qualified UI.Descriptions.EnterDataUIDesc as EnterDataUI
 import qualified UI.Keys as Keys
 import UI.UI as UI
 
@@ -51,6 +52,7 @@ drawUI (UIState s ui) = case UI.baseLayout ui of
   UI.GameUI desc -> drawGameUI desc
   UI.InventoryUI desc -> drawInventoryUI desc
   UI.ListMenuUI desc -> drawMenu desc
+  UI.EnterDataUI desc -> drawEnterText desc
   UI.End -> [C.center $ str "game stopped"]
 
 drawGameUI :: GameUI.UIDesc e a b -> [Widget n]
@@ -127,6 +129,13 @@ drawMenu menu = [vBox rows]
      | menu ^. ListMenu.selectedItem == Just i = withAttr selectedAttr $ str s
      | otherwise = withAttr notSelectedAttr $ str s
 
+drawEnterText :: EnterDataUI.UIDesc e a b -> [Widget n]
+drawEnterText enterText = [drawTitle <=> drawInput]
+  where
+    drawTitle = str $ EnterDataUI.getTitle enterText
+    drawInput = str $ EnterDataUI.getInsertedText enterText
+
+
 handleEvent ::
   (ToIO m) =>
   UIState m e ->
@@ -143,6 +152,9 @@ handleEvent (UIState s ui) event = case UI.baseLayout ui of
     _ -> continue (UIState s ui)
   UI.ListMenuUI desc -> case event of
     VtyEvent e -> dispatchVtyEventListMenuUI s ui e desc
+    _ -> continue $ UIState s ui
+  UI.EnterDataUI desc -> case event of
+    VtyEvent e -> dispatchVtyEventEnterDataUI s ui e desc
     _ -> continue $ UIState s ui
   UI.End -> halt $ UIState s ui
 
@@ -243,6 +255,32 @@ dispatchVtyEventListMenuUI state ui event desc = case event of
     tryClick = case clickItem of
       Nothing -> return packedS
       Just f -> packAnyHasIOUIToUIState <$> f state
+
+dispatchVtyEventEnterDataUI ::
+  (ToIO m, HasUI m s e) =>
+  s ->
+  UI m s e ->
+  V.Event ->
+  EnterDataUI.UIDesc e s (m (AnyHasUI m e)) ->
+  EventM n (Next (UIState m e))
+dispatchVtyEventEnterDataUI state ui event desc = case event of
+  V.EvKey (V.KChar k) [] ->
+    continue $
+      packUIState
+        state
+        (UI.UIDesc . UI.EnterDataUI $ EnterDataUI.addChar desc k)
+  V.EvKey (V.KDel) [] ->
+    continue $
+      packUIState
+        state
+        (UI.UIDesc . UI.EnterDataUI $ EnterDataUI.removeChar desc)
+  V.EvKey V.KEnter [] -> liftIO (toIO $ fromMaybe (return packedS) onAccept) >>= continue
+  V.EvKey V.KEsc [] ->liftIO (toIO $ fromMaybe (return packedS) onClose) >>= continue
+  _ -> continue $ packedS
+  where
+    packedS = packUIState state ui
+    onAccept = fmap packAnyHasIOUIToUIState <$> (desc ^. EnterDataUI.acceptInputHandler <*> pure (EnterDataUI.getInsertedText desc) <*> pure state)
+    onClose = fmap packAnyHasIOUIToUIState <$> (desc ^. EnterDataUI.closeHandler <*> pure state)
 
 theMap :: AttrMap
 theMap =

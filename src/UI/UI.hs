@@ -9,6 +9,7 @@ import Control.Lens
 import qualified UI.Descriptions.GameUIDesc as Game
 import qualified UI.Descriptions.InventoryUIDesc as Inventory
 import qualified UI.Descriptions.ListMenuDesc as ListMenu
+import qualified UI.Descriptions.EnterDataUIDesc as EnterData
 
 -- |
 newtype UI m a e = UIDesc (BaseLayout m a e)
@@ -17,6 +18,7 @@ data BaseLayout m a e
   = GameUI (Game.UIDesc e a (m (AnyHasUI m e)))
   | InventoryUI (Inventory.UIDesc e a (m (AnyHasUI m e)))
   | ListMenuUI (ListMenu.UIDesc e a (m (AnyHasUI m e)))
+  | EnterDataUI (EnterData.UIDesc e a (m (AnyHasUI m e)))
   | End
 
 class HasUI m a e where
@@ -52,6 +54,9 @@ makeListMenuUIPure builder = UIDesc . ListMenuUI . fmap pure $ ListMenu.makeUI b
 
 makeListMenuUI :: ListMenu.Builder e a (m (AnyHasUI m e)) c -> UI m a e
 makeListMenuUI builder = UIDesc . ListMenuUI $ ListMenu.makeUI builder
+
+makeEnterDataUI :: EnterData.Builder e a (m (AnyHasUI m e)) c -> UI m a e
+makeEnterDataUI builder = UIDesc . EnterDataUI $ EnterData.makeUI builder
 
 terminalUI :: UI m a e
 terminalUI = UIDesc End
