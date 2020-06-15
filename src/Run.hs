@@ -25,6 +25,7 @@ run = do
   args <- appOptions <$> ask
   runWithOptions args
 
+
 runWithOptions :: AppOptions -> RIO App ()
 runWithOptions (ServerOptions port seed) = do
   resSeed <-
