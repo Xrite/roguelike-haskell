@@ -49,6 +49,7 @@ import qualified UI.Descriptions.ListMenuDesc as ListMenuDesc
 import qualified UI.Descriptions.EnterDataUIDesc as EnterDataUI
 import qualified UI.Keys as Keys
 import UI.UI
+import Control.Concurrent (threadDelay, forkIO)
 
 data CustomEvent
   = --  = UpdateEnvUsingTransaction Transaction
@@ -197,14 +198,14 @@ gameUI env pid = makeGameUI $
       return $ packHasIOUI (gs {_gameEnv = env})
     renderMap = do
       playerPosition <- getUnitPosition pid env
-      traceShowM playerPosition
+      --traceShowM playerPosition
       playerPortrait <- getUnitPortrait pid env
-      traceShowM playerPortrait
+      --traceShowM playerPortrait
       visible <- Set.fromList . fmap positionXY <$> getVisibleToUnit pid env
       seenByPlayer <- getSeenByPlayer pid env
-      traceShowM seenByPlayer
+      --traceShowM seenByPlayer
       seenOnLevel <- seenAtLevel (playerPosition ^. posLevel) <$> getSeenByPlayer pid env
-      traceShowM seenOnLevel
+      --traceShowM seenOnLevel
       level <- getLevelByUnitId pid env
       let mobs = getActiveMobs env
       let mobPositions = rights $ map (flip getUnitPosition $ env) mobs
@@ -440,8 +441,20 @@ multiPlayerHandleQuitGame clientHandle sid pid env = do
 
 --saveGame "autosave" $ getEnvState env
 
+multiPlayerStateUpdate clientHandle sid chan = do
+  mEnv <- Client.getSessionState clientHandle sid
+  case mEnv of
+    Nothing -> return ()
+    Just envM -> do
+      let env = loadEnvironmentState envM
+      writeBChan chan (UpdateEnvironment env)
+  threadDelay 1000000
+
+
+
 startMultiPlayerGame :: BChan CustomEvent -> ClientHandle -> SessionId -> PlayerId -> Environment -> IO (AnyHasUI IO CustomEvent)
 startMultiPlayerGame chan clientHandle sid pid env = do
+  forkIO $ forever $ multiPlayerStateUpdate clientHandle sid chan
   let g =
         Game
           { _gamePlayerId = pid,

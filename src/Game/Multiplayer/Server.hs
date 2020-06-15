@@ -36,6 +36,7 @@ import Game.Unit.Inventory
 import Game.Unit.Stats
 import Game.Unit.TimedUnitOps (empty)
 import Game.Unit.Unit
+import Game.EnvironmentGeneration (addDefaultPlayer)
 import Mu.Server
 import qualified Networking.Rpc.Schema as S
 import qualified Networking.Rpc.Server as RPCS
@@ -121,11 +122,7 @@ addNewPlayerToSession sid = do
     Nothing -> return Nothing
     Just session -> do
       let env = session ^. sessionEnv
-      let positions = getFreePositionsOnLevel env stats level
-      i <- randomRServerEnv (0, length positions - 1)
-      let selectedPos = positions !! i
-      let player = defaultPlayerWithStats selectedPos stats
-      let (pid, env') = runGameEnv (addPlayerToEnvironment player) env
+      let (pid, env') = runGameEnv (addDefaultPlayer) env
       modify $ set (sessions . ix sid . sessionEnv) env'
       return $ Just pid
   where
@@ -249,7 +246,7 @@ fromSessionStateSchema :: S.SessionState -> Maybe EnvMemento
 fromSessionStateSchema (S.SessionState state content) = case state of
   Nothing -> Nothing
   Just S.NOT_RUNNING -> Nothing
-  Just S.RUNNING -> decode $ LBS.fromStrict content
+  Just S.RUNNING -> Just $ decode $ LBS.fromStrict content
 
 toSessionStateSchema :: Session -> S.SessionState
 toSessionStateSchema s =
@@ -291,10 +288,12 @@ initServerWithSeed seed = newTVarIO sd
 
 instance RPCS.RpcServer Server (TVar ServerData) where
   getSessions t = do
+    liftIO $ putStrLn $ "Get sessions"
     sd <- liftIO $ atomically $ readTVar t
     return $ toSessionsListSchema sd
 
   getSessionState t sidSchema = do
+    liftIO $ putStrLn $ "Get session state: " ++ show sidSchema
     let sid = fromSessionIdSchema sidSchema
     liftIO $ atomically $ do
       sd <- readTVar t
@@ -303,7 +302,9 @@ instance RPCS.RpcServer Server (TVar ServerData) where
         Just s -> return $ toSessionStateSchema s
 
   makeAction t request = do
+    liftIO $ putStrLn $ "Make action: " ++ show request
     liftIO $ atomically $ modifyTVar t tryModify
+    liftIO $ putStrLn $ "Action done"
     where
       newData sd = do
         (sid, pid, action) <- fromActionRequestSchema request
@@ -312,7 +313,9 @@ instance RPCS.RpcServer Server (TVar ServerData) where
         Nothing -> sd
         Just f -> snd $ f sd
 
-  clickSlot t request = liftIO $ atomically $ modifyTVar t tryModify
+  clickSlot t request = do
+    liftIO $ putStrLn $ "Click slot: " ++ show request
+    liftIO $ atomically $ modifyTVar t tryModify
     where
       updateServerData sd = do
         (sid, pid, i) <- fromPlayerClickSlotRequest request
@@ -321,7 +324,9 @@ instance RPCS.RpcServer Server (TVar ServerData) where
         Nothing -> sd
         Just f -> snd $ f sd
 
-  clickItem t request = liftIO $ atomically $ modifyTVar t tryModify
+  clickItem t request = do
+    liftIO $ putStrLn $ "Click item: " ++ show request
+    liftIO $ atomically $ modifyTVar t tryModify
     where
       updateServerData sd = do
         (sid, pid, i) <- fromPlayerClickItemRequest request
@@ -331,6 +336,7 @@ instance RPCS.RpcServer Server (TVar ServerData) where
         Just f -> snd $ f sd
 
   createNewSession t = do
+    liftIO $ putStrLn $ "Create new session"
     liftIO $ atomically $ do
       sd <- readTVar t
       let (sid, sd') = runServerEnv createNewSession sd
@@ -338,6 +344,7 @@ instance RPCS.RpcServer Server (TVar ServerData) where
       return $ toSessionIdSchema sid
 
   addNewPlayerToSession t sidSchema = do
+    liftIO $ putStrLn $ "Add new player to session: " ++ show sidSchema
     let sid = fromSessionIdSchema sidSchema
     liftIO $ atomically $ do
       sd <- readTVar t
@@ -348,7 +355,9 @@ instance RPCS.RpcServer Server (TVar ServerData) where
           writeTVar t sd'
           return $ toPlayerIdSchema pid
 
-  removePlayerFromSession t request = liftIO $ atomically $ modifyTVar t tryModify
+  removePlayerFromSession t request = do
+    liftIO $ putStrLn $ "Remove player from session: " ++ show request
+    liftIO $ atomically $ modifyTVar t tryModify
     where
       updateServerData sd = do
         (sid, pid) <- fromRemovePlayerRequest request

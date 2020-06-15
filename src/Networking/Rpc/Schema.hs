@@ -28,37 +28,37 @@ grpc "NetSchema" (++ "Servicer") $ "protos" </> "roguelike" <.> "proto"
 
 data Empty =
   Empty
-  deriving (Generic, ToSchema NetSchema "Empty", FromSchema NetSchema "Empty")
+  deriving (Show, Generic, ToSchema NetSchema "Empty", FromSchema NetSchema "Empty")
 
 newtype SessionId =
   SessionId
     { idx :: Int32
     }
-  deriving (Generic, ToSchema NetSchema "SessionId", FromSchema NetSchema "SessionId")
+  deriving (Show, Generic, ToSchema NetSchema "SessionId", FromSchema NetSchema "SessionId")
 
 newtype PlayerId =
   PlayerId
     { idx :: Int32
     }
-  deriving (Generic, ToSchema NetSchema "PlayerId", FromSchema NetSchema "PlayerId")
+  deriving (Show, Generic, ToSchema NetSchema "PlayerId", FromSchema NetSchema "PlayerId")
 
 data SessionInfo =
   SessionInfo
     { name :: T.Text
     , idx :: Maybe SessionId
     }
-  deriving (Generic, ToSchema NetSchema "SessionInfo", FromSchema NetSchema "SessionInfo")
+  deriving (Show, Generic, ToSchema NetSchema "SessionInfo", FromSchema NetSchema "SessionInfo")
 
 newtype SessionsList =
   SessionsList
     { sessions :: [SessionInfo]
     }
-  deriving (Generic, ToSchema NetSchema "SessionsList", FromSchema NetSchema "SessionsList")
+  deriving (Show, Generic, ToSchema NetSchema "SessionsList", FromSchema NetSchema "SessionsList")
 
 data State
   = NOT_RUNNING
   | RUNNING
-  deriving (Generic, ToSchema NetSchema "State", FromSchema NetSchema "State")
+  deriving (Show, Generic, ToSchema NetSchema "State", FromSchema NetSchema "State")
 
 data ActionRequest =
   ActionRequest
@@ -67,7 +67,7 @@ data ActionRequest =
     , moveX :: Int32
     , moveY :: Int32
     }
-  deriving (Generic, ToSchema NetSchema "ActionRequest", FromSchema NetSchema "ActionRequest")
+  deriving (Show, Generic, ToSchema NetSchema "ActionRequest", FromSchema NetSchema "ActionRequest")
 
 data PlayerClickSlotRequest =
   PlayerClickSlotRequest
@@ -75,7 +75,7 @@ data PlayerClickSlotRequest =
     , playerId :: Maybe PlayerId
     , slotIdx :: Int32
     }
-   deriving (Generic, ToSchema NetSchema "PlayerClickSlotRequest", FromSchema NetSchema "PlayerClickSlotRequest")
+   deriving (Show, Generic, ToSchema NetSchema "PlayerClickSlotRequest", FromSchema NetSchema "PlayerClickSlotRequest")
 
 data PlayerClickItemRequest =
   PlayerClickItemRequest
@@ -83,18 +83,18 @@ data PlayerClickItemRequest =
     , playerId :: Maybe PlayerId
     , itemIdx :: Int32
     }
-   deriving (Generic, ToSchema NetSchema "PlayerClickItemRequest", FromSchema NetSchema "PlayerClickItemRequest")
+   deriving (Show, Generic, ToSchema NetSchema "PlayerClickItemRequest", FromSchema NetSchema "PlayerClickItemRequest")
 
 data RemovePlayerRequest =
   RemovePlayerRequest
     { sessionId :: Maybe SessionId
     , playerId :: Maybe PlayerId
     }
-   deriving (Generic, ToSchema NetSchema "RemovePlayerRequest", FromSchema NetSchema "RemovePlayerRequest")
+   deriving (Show, Generic, ToSchema NetSchema "RemovePlayerRequest", FromSchema NetSchema "RemovePlayerRequest")
 
 data SessionState =
   SessionState
     { state :: Maybe State
     , content :: ByteString
     }
-  deriving (Generic, ToSchema NetSchema "SessionState", FromSchema NetSchema "SessionState")
+  deriving (Show, Generic, ToSchema NetSchema "SessionState", FromSchema NetSchema "SessionState")
