@@ -145,11 +145,11 @@ handleEvent ::
 handleEvent (UIState s ui) event = case UI.baseLayout ui of
   UI.GameUI desc -> case event of
     VtyEvent e -> dispatchVtyEventGameUI s ui e desc
-    AppEvent e -> trace "got event in gameUI" $ dispatchCustomEventGameUI s ui e desc
+    AppEvent e -> {- "got event in gameUI" $-} dispatchCustomEventGameUI s ui e desc
     _ -> continue (UIState s ui)
   UI.InventoryUI desc -> case event of
     VtyEvent e -> dispatchVtyEventInventoryUI s ui e desc
-    AppEvent e -> trace "got event in InventoryUI" $ dispatchCustomEventInventoryUI s ui e desc
+    AppEvent e -> {-trace "got event in InventoryUI" $-} dispatchCustomEventInventoryUI s ui e desc
     _ -> continue (UIState s ui)
   UI.ListMenuUI desc -> case event of
     VtyEvent e -> dispatchVtyEventListMenuUI s ui e desc

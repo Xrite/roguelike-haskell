@@ -144,7 +144,7 @@ keysToAction _ = Nothing
 gameUI :: Environment -> PlayerId -> UI IO GameState CustomEvent
 gameUI env pid = makeGameUI $
   do
-    traceM "start drawing game UI"
+--    traceM "start drawing game UI"
     fromRight (error "failed to render map") renderMap
     fromRight (error "failed to render stats") renderStats
     GameUIDesc.setArrowPress arrowPress

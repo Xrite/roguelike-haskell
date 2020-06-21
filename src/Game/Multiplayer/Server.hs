@@ -346,14 +346,17 @@ instance RPCS.RpcServer Server (TVar ServerData) where
   addNewPlayerToSession t sidSchema = do
     liftIO $ putStrLn $ "Add new player to session: " ++ show sidSchema
     let sid = fromSessionIdSchema sidSchema
-    liftIO $ atomically $ do
-      sd <- readTVar t
-      let (mPid, sd') = runServerEnv (addNewPlayerToSession sid) sd
-      case mPid of
-        Nothing -> error "wrong sessionId"
-        Just pid -> do
-          writeTVar t sd'
-          return $ toPlayerIdSchema pid
+    liftIO $ do
+      newPid <- atomically $ do
+        sd <- readTVar t
+        let (mPid, sd') = runServerEnv (addNewPlayerToSession sid) sd
+        case mPid of
+          Nothing -> error "wrong sessionId"
+          Just pid -> do
+            writeTVar t sd'
+            return $ toPlayerIdSchema pid
+      putStrLn $ "Added player " ++ show newPid ++ "!!!!"
+      return newPid
 
   removePlayerFromSession t request = do
     liftIO $ putStrLn $ "Remove player from session: " ++ show request
