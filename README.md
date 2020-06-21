@@ -2,8 +2,9 @@
 
 ## Execute  
 
-* Run `stack exec -- roguelike-haskell-exe` to see "We're inside the application!"
-* With `stack exec -- roguelike-haskell-exe --verbose` you will see the same message, with more logging.
+* Run `stack run` to run client
+* Run `stack run -- -s PORT` to run server on apecified port
+* Run `stack run -- --help` to see help on arguments
 
 ## Run tests
 
