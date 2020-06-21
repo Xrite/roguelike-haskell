@@ -66,7 +66,6 @@ module Game.Environment
     removeMobFromEnvironment,
     fromPlayerIdSchema,
     toPlayerIdSchema,
-    time,
   )
 where
 
@@ -172,8 +171,7 @@ data Environment
         _modifierFactory :: EUnitOpFactory,
         _randomGenerator :: StdGen,
         _strategy :: TaggedControl -> MobId -> FallibleGameEnv UnitIdError Action,
-        _seenByPlayer :: IntMap.IntMap SeenByPlayer,
-        _time :: Int
+        _seenByPlayer :: IntMap.IntMap SeenByPlayer
       }
   deriving (Generic)
 
@@ -269,8 +267,8 @@ randomRGameEnv range = do
 runGameEnv :: GameEnv a -> Environment -> (a, Environment)
 runGameEnv gameEnv = runState (unGameEnv gameEnv)
 
-makeEnvironmentInternal :: [(Int, EPlayer)] -> [(Int, EMob)] -> [GameLevel] -> StdGen -> [(Int, SeenByPlayer)] -> [UnitId] -> Int -> Environment
-makeEnvironmentInternal indexedPlayers indexedMobs levels gen indexedSeen queue time =
+makeEnvironmentInternal :: [(Int, EPlayer)] -> [(Int, EMob)] -> [GameLevel] -> StdGen -> [(Int, SeenByPlayer)] -> [UnitId] -> Environment
+makeEnvironmentInternal indexedPlayers indexedMobs levels gen indexedSeen queue =
   Environment
     { _players = IntMap.fromList [(i, WithEvaluator p $ defaultEvaluation $ PlayerUnitId (PlayerId i)) | (i, p) <- indexedPlayers],
       _mobs = IntMap.fromList [(i, WithEvaluator m $ defaultEvaluation $ MobUnitId (MobId i)) | (i, m) <- indexedMobs],
@@ -280,8 +278,7 @@ makeEnvironmentInternal indexedPlayers indexedMobs levels gen indexedSeen queue 
       _modifierFactory = defaultUnitOpFactory,
       _randomGenerator = gen,
       _strategy = getControl,
-      _seenByPlayer = IntMap.fromList indexedSeen,
-      _time = time
+      _seenByPlayer = IntMap.fromList indexedSeen
     }
 
 -- | Constructs a new 'Environment'.
@@ -294,7 +291,6 @@ makeEnvironment players mobs levels =
     (mkStdGen 42)
     ([(i, makeSeenByPlayer (allPlayerSeenPositions player))  | (i, player) <- indexedPlayers])
     (playerIds ++ mobIds)
-    0
   where
     visibility player = getVisibility (Just $ player ^. playerUnitData . stats)
     getVisible player lvl = visiblePositions (lvl ^. lvlMap) (visibility player) (playerXY player)
@@ -647,7 +643,6 @@ envAttack attackerId attackedId = do
 
 evalAction :: (uid `Is` UnitId) => uid -> Action -> FallibleGameEnv UnitIdError Bool
 evalAction uid a = do
-  time %= (+1)
   env <- get
   case cast uid of
     PlayerUnitId (PlayerId i) -> case (env ^? players . ix i . evaluator) of
@@ -885,8 +880,7 @@ data EnvMemento
         envLevels :: [GameLevel],
         envGen :: StdGen,
         envSeen :: [(Int, [Position])],
-        envQueue :: [UnitId],
-        envTime :: Int
+        envQueue :: [UnitId]
       }
   deriving (Generic)
 
@@ -898,12 +892,11 @@ getEnvState env =
       envLevels = toList $ env ^. levels,
       envGen =  env ^. randomGenerator,
       envSeen = map (over _2 allSeenPositions) . IntMap.toList $ env ^. seenByPlayer,
-      envQueue = toList $ env ^. unitQueue,
-      envTime = env ^. time
+      envQueue = toList $ env ^. unitQueue
     }
 
 loadEnvironmentState :: EnvMemento -> Environment
-loadEnvironmentState (EnvMemento player imobs levels gen seen queue time) =
+loadEnvironmentState (EnvMemento player imobs levels gen seen queue) =
   makeEnvironmentInternal
     player
     imobs
@@ -911,4 +904,3 @@ loadEnvironmentState (EnvMemento player imobs levels gen seen queue time) =
     gen
     (map (over _2 makeSeenByPlayer) seen)
     queue
-    time

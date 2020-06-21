@@ -196,12 +196,7 @@ gameUI env pid = makeGameUI $
           return $ packHasIOUI (gs {_gameRealEnv = env', _gameFakeEnv = env'}) -}
     
     customEvent (UpdateEnvironment env) gs =
-      return $ packHasIOUI $ ifDiff (_gameEnv gs) env gs (gs {_gameEnv = env})
-    ifDiff :: Environment -> Environment -> a -> a -> a
-    ifDiff envOld envNew old new =
-      if envOld ^. time < envNew ^. time
-        then new
-        else old
+      return $ packHasIOUI (gs {_gameEnv = env})
     
     renderMap = do
       playerPosition <- getUnitPosition pid env
