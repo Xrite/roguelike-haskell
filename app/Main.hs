@@ -7,21 +7,12 @@ import Run
 import RIO.Process
 import Options.Applicative.Simple
 import qualified Paths_roguelike_haskell
+import AppOptions
 
 main :: IO ()
 main = do
-  (options, ()) <- simpleOptions
-    $(simpleVersion Paths_roguelike_haskell.version)
-    "Header for command line arguments"
-    "Program description, also for command line arguments"
-    (Options
-       <$> switch ( long "verbose"
-                 <> short 'v'
-                 <> help "Verbose output?"
-                  )
-    )
-    empty
-  lo <- logOptionsHandle stderr (optionsVerbose options)
+  options <- parseArguments
+  lo <- logOptionsHandle stderr False
   pc <- mkDefaultProcessContext
   withLogFunc lo $ \lf ->
     let app = App

@@ -22,6 +22,32 @@ description:         Please see the README on Github at <https://github.com/gith
 dependencies:
 - base >= 4.11 && < 10
 - rio >= 0.1.12.0
+- lens >= 4.16
+- free
+- array
+- safe
+- random
+- mtl >= 2.2.2
+- brick
+- vty
+- directory
+- comonad
+- containers
+- fgl
+- binary
+- stm
+- mu-schema
+- mu-rpc
+- mu-optics
+- mu-protobuf
+- mu-grpc-server
+- mu-grpc-common
+- mu-grpc-client
+- text
+- bytestring
+- network
+- http2-client
+- optparse-applicative
 
 ghc-options:
 - -Wall
