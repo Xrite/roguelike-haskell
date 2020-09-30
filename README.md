@@ -9,3 +9,11 @@
 ## Run tests
 
 `stack test`
+
+## Controls
+
+Move with classic hjklyubn or numpad numbers. Open inventory with 'i', close with 'q'.
+
+Attack enemies by moving into them.
+
+Close game with 'q'.

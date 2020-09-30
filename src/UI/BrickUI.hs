@@ -270,7 +270,7 @@ dispatchVtyEventEnterDataUI state ui event desc = case event of
       packUIState
         state
         (UI.UIDesc . UI.EnterDataUI $ EnterDataUI.addChar desc k)
-  V.EvKey (V.KDel) [] ->
+  V.EvKey (V.KBS) [] ->
     continue $
       packUIState
         state

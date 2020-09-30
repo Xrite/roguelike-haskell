@@ -319,19 +319,19 @@ loadLvlMenuUI chan =
       startSinglePlayerGame chan pid env
 
 joinServerUI :: BChan CustomEvent -> UI IO EnterDataState CustomEvent
-joinServerUI chan = 
+joinServerUI chan =
   makeEnterDataUI $ do
-    EnterDataUI.setTitle "Join server. Use enter to join and delete to delete last symbol"
+    EnterDataUI.setTitle "Enter server in ip:port format"
     EnterDataUI.addAcceptInputHandler acceptInput
     EnterDataUI.addCloseHandler (const $ return $ packHasIOUI $ MainMenu (mainMenuUI chan))
   where
     parseInput input = do
-      let ip = takeWhile (not . (== ':')) $ input 
-      port <- readMaybe . drop 1 . dropWhile (not . (== ':')) $ input
+      let ip = takeWhile (/= ':') input
+      port <- readMaybe . drop 1 . dropWhile (/= ':') $ input
       return (ip, port)
-    acceptInput input _ = do
+    acceptInput input _ =
       case parseInput input of
-        Nothing -> return $ mainMenu
+        Nothing -> return mainMenu
         Just (ip, port) -> do
           mClientHandle <- Client.setupClient ip port
           case mClientHandle of
@@ -340,7 +340,6 @@ joinServerUI chan =
               sessions <- Client.getSessions clientHandle
               let newUI = MainMenu (selectSessionMenuUI chan clientHandle sessions)
               return $ packHasIOUI newUI
-
     mainMenu = packHasIOUI $ MainMenu (mainMenuUI chan)
 
       
@@ -350,8 +349,8 @@ selectSessionMenuUI :: BChan CustomEvent -> ClientHandle -> [SessionId] -> UI IO
 selectSessionMenuUI chan clientHandle ss =
   makeListMenuUI $ do
     ListMenuDesc.setTitle "Select session"
-    mapM (\sid -> ListMenuDesc.addItem (show sid) (const $ joinSession sid)) ss
-    ListMenuDesc.addItem "new session" (const $ startNewSession)
+    mapM_ (\sid -> ListMenuDesc.addItem (show sid) (const $ joinSession sid)) ss
+    ListMenuDesc.addItem "new session" (const startNewSession)
     ListMenuDesc.addItemPure "back" (const $ packHasIOUI $ MainMenu (mainMenuUI chan))
     ListMenuDesc.selectItem 0
   where
